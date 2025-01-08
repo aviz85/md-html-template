@@ -6,6 +6,7 @@ interface Template {
   id: string
   name: string
   css: string
+  template_gsheets_id?: string
 }
 
 const supabase = createClient(
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
     const { data: template, error: templateError } = await supabase
       .from('templates')
       .select('*')
-      .eq('id', templateId)
+      .eq('template_gsheets_id', templateId)
       .single();
 
     if (templateError) {

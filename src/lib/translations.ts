@@ -6,6 +6,7 @@ export const TRANSLATIONS = {
   editTemplate: 'ערוך תבנית',
   preview: 'תצוגה מקדימה',
   templateName: 'שם התבנית',
+  templateGsheetsId: 'מזהה תבנית',
   enterTemplateName: 'הכנס שם תבנית...',
   content: 'תוכן',
   styles: 'עיצוב',

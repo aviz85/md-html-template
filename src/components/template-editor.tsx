@@ -52,6 +52,7 @@ interface Template {
   color4?: string
   css: string
   elementStyles: Record<ElementType, ElementStyle>
+  template_gsheets_id?: string
 }
 
 interface TemplateEditorProps {
@@ -65,6 +66,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const [previewHtml, setPreviewHtml] = useState("")
   const [activeElement, setActiveElement] = useState<ElementType>("h1")
   const [templateName, setTemplateName] = useState("")
+  const [templateGsheetsId, setTemplateGsheetsId] = useState("")
   const [colors, setColors] = useState({
     color1: "#000000",
     color2: "#ffffff",
@@ -149,6 +151,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
     if (template) {
       setTemplateName(template.name)
+      setTemplateGsheetsId(template.template_gsheets_id || "")
       setColors({
         color1: template.color1 || "#000000",
         color2: template.color2 || "#ffffff",
@@ -211,6 +214,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     const css = generateCSS()
     const template = {
       name: templateName,
+      template_gsheets_id: templateGsheetsId,
       ...colors,
       css
     }
@@ -263,9 +267,18 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         <div>
           <label className="text-sm font-medium">{TRANSLATIONS.templateName}</label>
           <Input
+            placeholder="Template Name"
             value={templateName}
             onChange={(e) => setTemplateName(e.target.value)}
-            placeholder={TRANSLATIONS.enterTemplateName}
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium">{TRANSLATIONS.templateGsheetsId}</label>
+          <Input
+            placeholder="Template Google Sheets ID"
+            value={templateGsheetsId}
+            onChange={(e) => setTemplateGsheetsId(e.target.value)}
+            className="mt-2"
           />
         </div>
         <div className="grid grid-cols-4 gap-4">
