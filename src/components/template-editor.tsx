@@ -32,7 +32,12 @@ import { Label } from "@/components/ui/label"
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  {
+    auth: {
+      persistSession: false
+    }
+  }
 )
 
 interface ElementStyle {
@@ -151,7 +156,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   }
 
   const handleFontUpload = async () => {
-    if (!fontName?.trim() || !fontFile) {
+    if (!fontName?.trim() || !fontFile || !templateId) {
       toast({
         variant: "destructive",
         title: TRANSLATIONS.error,
@@ -173,22 +178,59 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
     setIsUploading(true)
     try {
-      // Upload font file to storage
-      const { data: fileData, error: fileError } = await supabase.storage
-        .from('fonts')
-        .upload(`${fontName}.${fileExt}`, fontFile)
+      // Convert file to base64
+      const fileData = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.readAsArrayBuffer(fontFile)
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = reject
+      })
 
-      if (fileError) throw fileError
+      // Upload font via API
+      const response = await fetch('/api/fonts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          templateId,
+          fontName,
+          fileExt,
+          fileData: Array.from(new Uint8Array(fileData as ArrayBuffer))
+        }),
+      })
 
-      // Add the new font to the template's custom fonts
-      const newFont = {
-        name: fontName,
-        file_path: fileData.path,
-        font_family: fontName,
-        format: fileExt
+      if (!response.ok) {
+        throw new Error('Failed to upload font')
       }
 
-      setCustomFonts(prev => [...(prev || []), newFont])
+      const { fonts } = await response.json()
+      setCustomFonts(fonts || [])
+
+      // Save the template with the updated fonts
+      const css = generateCSS()
+      const template = {
+        id: templateId,
+        name: templateName,
+        template_gsheets_id: templateGsheetsId,
+        header_content: headerContent,
+        footer_content: footerContent,
+        custom_fonts: fonts,
+        ...colors,
+        css
+      }
+
+      const saveResponse = await fetch('/api/templates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(template),
+      })
+
+      if (!saveResponse.ok) {
+        throw new Error('Failed to save template')
+      }
 
       toast({
         title: TRANSLATIONS.success,
@@ -233,13 +275,19 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       setTemplateGsheetsId(template.template_gsheets_id || "")
       setHeaderContent(template.header_content || "")
       setFooterContent(template.footer_content || "")
-      setCustomFonts(template.custom_fonts || [])
       setColors({
         color1: template.color1 || "#000000",
         color2: template.color2 || "#ffffff",
         color3: template.color3 || "#cccccc",
         color4: template.color4 || "#666666"
       })
+      
+      // Load custom fonts via API
+      const response = await fetch(`/api/fonts?templateId=${id}`)
+      if (response.ok) {
+        const { fonts } = await response.json()
+        setCustomFonts(fonts || [])
+      }
       
       // Parse CSS to extract element styles
       const extractedStyles = parseCSS(template.css)
@@ -305,6 +353,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
     const css = generateCSS()
     const template = {
+      id: templateId,
       name: templateName,
       template_gsheets_id: templateGsheetsId,
       header_content: headerContent,
@@ -314,26 +363,31 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       css
     }
 
-    const { error } = await supabase
-      .from('templates')
-      .upsert({
-        id: templateId,
-        ...template
+    try {
+      const response = await fetch('/api/templates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(template),
       })
 
-    if (error) {
+      if (!response.ok) {
+        throw new Error('Failed to save template')
+      }
+
+      toast({
+        title: "Success",
+        description: "Template saved successfully"
+      })
+      onSave?.()
+    } catch (error) {
       console.error('Error saving template:', error)
       toast({
         variant: "destructive",
         title: "Error",
         description: "Failed to save template"
       })
-    } else {
-      toast({
-        title: "Success",
-        description: "Template saved successfully"
-      })
-      onSave?.()
     }
   }
 

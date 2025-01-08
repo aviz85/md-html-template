@@ -43,5 +43,6 @@ export const TRANSLATIONS = {
   cancel: 'ביטול',
   delete: 'מחק',
   duplicate: 'שכפל',
-  copy: 'העתק'
+  copy: 'העתק',
+  pleaseEnterFontName: "נא להז� שם לפונט"
 } as const; 

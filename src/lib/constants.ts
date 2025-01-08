@@ -36,32 +36,16 @@ export const loadCustomFonts = async () => {
 };
 
 // Function to generate @font-face rules for custom fonts
-export const generateCustomFontFaces = async () => {
-  const { data: fonts, error } = await supabase
-    .from('custom_fonts')
-    .select('*');
+export function generateCustomFontFaces(fonts?: Array<{ name: string, file_path: string, font_family: string, format: string }>) {
+  if (!fonts?.length) return ''
 
-  if (error) {
-    console.error('Error loading custom fonts:', error);
-    return '';
-  }
-
-  const { data: publicUrl } = supabase.storage
-    .from('fonts')
-    .getPublicUrl('');
-
-  let fontFaces = '';
-  fonts?.forEach(font => {
-    fontFaces += `@font-face {
+  return fonts.map(font => `@font-face {
   font-family: '${font.font_family}';
-  src: url('${publicUrl.publicUrl}${font.file_path}') format('${getFormatString(font.format)}');
+  src: url('${font.file_path}') format('${font.format}');
   font-weight: normal;
   font-style: normal;
-}\n`;
-  });
-
-  return fontFaces;
-};
+}`).join('\n\n')
+}
 
 // Helper function to get the format string for @font-face
 function getFormatString(format: string): string {
@@ -109,25 +93,22 @@ body {
 }
 `;
 
-export const generateHtmlTemplate = async (html: string, css: string, googleFontsUrl: string) => {
-  const customFontFaces = await generateCustomFontFaces();
-  
+export function generateHtmlTemplate(html: string, css: string, googleFontsUrl: string): string {
   return `<!DOCTYPE html>
-<html dir="rtl" lang="he">
+<html dir="rtl">
 <head>
-  <meta charset="utf-8">
-  ${googleFontsUrl ? `<link href="${googleFontsUrl}" rel="stylesheet" />` : ''}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  ${googleFontsUrl ? `<link href="${googleFontsUrl}" rel="stylesheet">` : ''}
   <style>
-    ${customFontFaces}
-    ${DEFAULT_BODY_STYLES}
     ${css}
   </style>
 </head>
 <body>
   ${html}
 </body>
-</html>`;
-};
+</html>`
+}
 
 export const extractUsedFonts = (css: string): string[] => {
   const usedFonts = new Set<string>();

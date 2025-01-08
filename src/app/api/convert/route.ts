@@ -1,6 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import { marked } from 'marked';
-import { extractUsedFonts, generateGoogleFontsUrl, generateHtmlTemplate, convertMarkdownToHtml } from "@/lib/constants";
+import { 
+  convertMarkdownToHtml,
+  extractUsedFonts, 
+  generateGoogleFontsUrl, 
+  generateHtmlTemplate,
+  generateCustomFontFaces 
+} from "@/lib/constants";
 
 interface Template {
   id: string
@@ -9,6 +15,12 @@ interface Template {
   template_gsheets_id?: string
   header_content?: string
   footer_content?: string
+  custom_fonts?: Array<{
+    name: string
+    file_path: string
+    font_family: string
+    format: string
+  }>
 }
 
 // Configure marked with basic options
@@ -19,45 +31,65 @@ marked.setOptions({
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 export async function POST(req: Request) {
   try {
-    const { templateId, mdContents } = await req.json();
-
-    const { data: template, error: templateError } = await supabase
+    const { markdown, template } = await req.json()
+    
+    // Load template with custom fonts
+    const { data: templateData } = await supabase
       .from('templates')
-      .select('*')
-      .eq('template_gsheets_id', templateId)
-      .single();
+      .select(`
+        *,
+        custom_fonts (
+          name,
+          file_path,
+          font_family,
+          format
+        )
+      `)
+      .eq('id', template.id)
+      .single()
 
-    if (templateError) {
-      console.error('Template error:', templateError);
-      return new Response(JSON.stringify({ error: templateError.message }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
+    if (!templateData) {
+      return new Response('Template not found', { status: 404 })
     }
 
-    const typedTemplate = template as Template;
-    const usedFonts = extractUsedFonts(typedTemplate.css);
-    const googleFontsUrl = generateGoogleFontsUrl(usedFonts);
+    console.log('Template data:', templateData)
+    console.log('Custom fonts:', templateData.custom_fonts)
 
-    const htmlContents = await Promise.all(mdContents.map(async (md: string) => {
-      const combinedHtml = await convertMarkdownToHtml(md, typedTemplate.header_content, typedTemplate.footer_content);
-      return generateHtmlTemplate(combinedHtml, typedTemplate.css, googleFontsUrl);
-    }));
+    const combinedHtml = await convertMarkdownToHtml(markdown, templateData.header_content, templateData.footer_content)
+    const usedFonts = extractUsedFonts(templateData.css)
+    const googleFontsUrl = generateGoogleFontsUrl(usedFonts)
+    
+    // Generate @font-face rules for custom fonts
+    const customFontFaces = templateData.custom_fonts?.length 
+      ? generateCustomFontFaces(templateData.custom_fonts)
+      : ''
 
-    return new Response(JSON.stringify({ htmlContents }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  } catch (error: any) {
-    console.error('Error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    const html = `<!DOCTYPE html>
+<html dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  ${googleFontsUrl ? `<link href="${googleFontsUrl}" rel="stylesheet">` : ''}
+  <style>
+    ${customFontFaces}
+  </style>
+  <style>
+    ${templateData.css}
+  </style>
+</head>
+<body>
+  ${combinedHtml}
+</body>
+</html>`
+
+    return new Response(html)
+  } catch (error) {
+    console.error('Error converting markdown:', error)
+    return new Response('Error converting markdown', { status: 500 })
   }
 }
