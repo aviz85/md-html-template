@@ -402,13 +402,46 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       return
     }
 
-    const css = generateCSS()
-    const combinedHtml = await convertMarkdownToHtml(mdContent, headerContent, footerContent);
-    const usedFonts = extractUsedFonts(css)
-    const googleFontsUrl = generateGoogleFontsUrl(usedFonts)
-    const fullHtml = await generateHtmlTemplate(combinedHtml, css, googleFontsUrl)
+    try {
+      console.log('Sending preview request with:', {
+        markdown: mdContent,
+        template: {
+          id: templateId,
+          css: generateCSS(),
+          custom_fonts: customFonts
+        }
+      })
 
-    setPreviewHtml(fullHtml)
+      const response = await fetch('/api/convert', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          markdown: mdContent,
+          template: {
+            id: templateId,
+            css: generateCSS(),
+            custom_fonts: customFonts
+          }
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate preview')
+      }
+
+      const html = await response.text()
+      console.log('Received preview HTML:', html)
+      setPreviewHtml(html)
+    } catch (error) {
+      console.error('Error generating preview:', error)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to generate preview"
+      })
+    }
   }
 
   return (
@@ -518,7 +551,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           />
           <Dialog>
             <DialogTrigger asChild>
-              <Button className="w-full">{TRANSLATIONS.preview}</Button>
+              <Button onClick={handlePreview} className="w-full">{TRANSLATIONS.preview}</Button>
             </DialogTrigger>
             <DialogContent className="max-w-[90vw] max-h-[90vh]">
               <DialogHeader>
@@ -528,7 +561,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
               <div className="mt-4 overflow-auto max-h-[70vh]">
                 <iframe
                   srcDoc={previewHtml}
-                  onLoad={() => handlePreview()}
                   className="w-full h-[60vh] border rounded"
                   title={TRANSLATIONS.preview}
                 />

@@ -25,8 +25,8 @@ interface Template {
 
 // Configure marked with basic options
 marked.setOptions({
-  breaks: true, // Convert line breaks to <br>
-  gfm: true // Use GitHub Flavored Markdown
+  breaks: true,
+  gfm: true
 });
 
 const supabase = createClient(
@@ -38,7 +38,6 @@ export async function POST(req: Request) {
   try {
     const { markdown, template } = await req.json()
     
-    // Load template with custom fonts
     const { data: templateData } = await supabase
       .from('templates')
       .select(`
@@ -57,17 +56,31 @@ export async function POST(req: Request) {
       return new Response('Template not found', { status: 404 })
     }
 
-    console.log('Template data:', templateData)
-    console.log('Custom fonts:', templateData.custom_fonts)
+    console.log('Raw template data from DB:', {
+      id: templateData.id,
+      custom_fonts: templateData.custom_fonts?.map((f: { name: string, file_path: string, font_family: string, format: string }) => ({
+        name: f.name,
+        file_path: f.file_path,
+        font_family: f.font_family,
+        format: f.format
+      }))
+    })
+
+    // Generate @font-face rules
+    const customFontFaces = templateData.custom_fonts?.length 
+      ? generateCustomFontFaces(templateData.custom_fonts.map((font: { name: string, file_path: string, font_family: string, format: string }) => ({
+          ...font,
+          file_path: font.file_path
+        })))
+      : ''
+
+    console.log('\nGenerated @font-face rules:', customFontFaces)
 
     const combinedHtml = await convertMarkdownToHtml(markdown, templateData.header_content, templateData.footer_content)
     const usedFonts = extractUsedFonts(templateData.css)
     const googleFontsUrl = generateGoogleFontsUrl(usedFonts)
     
-    // Generate @font-face rules for custom fonts
-    const customFontFaces = templateData.custom_fonts?.length 
-      ? generateCustomFontFaces(templateData.custom_fonts)
-      : ''
+    console.log('Generated @font-face rules:', customFontFaces)
 
     const html = `<!DOCTYPE html>
 <html dir="rtl">
@@ -76,7 +89,10 @@ export async function POST(req: Request) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   ${googleFontsUrl ? `<link href="${googleFontsUrl}" rel="stylesheet">` : ''}
   <style>
+    /* Custom Fonts */
     ${customFontFaces}
+
+    /* Template Styles */
     ${templateData.css}
   </style>
 </head>
@@ -84,6 +100,8 @@ export async function POST(req: Request) {
   ${combinedHtml}
 </body>
 </html>`
+
+    console.log('Final HTML:', html)
 
     return new Response(html)
   } catch (error) {

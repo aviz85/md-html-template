@@ -11,9 +11,10 @@ export async function POST(request: Request) {
     const { templateId, fontName, fileExt, fileData } = await request.json()
 
     // Upload font file to storage
+    const filePath = `${fontName}.${fileExt}`
     const { data: uploadData, error: fileError } = await supabase.storage
       .from('fonts')
-      .upload(`${fontName}.${fileExt}`, Buffer.from(fileData), {
+      .upload(filePath, Buffer.from(fileData), {
         contentType: `font/${fileExt}`
       })
 
@@ -24,20 +25,20 @@ export async function POST(request: Request) {
       .from('fonts')
       .getPublicUrl(uploadData.path)
 
-    // Add the new font to the custom_fonts table
-    const newFont = {
-      template_id: templateId,
-      name: fontName,
-      file_path: publicUrl,
-      font_family: fontName,
-      format: fileExt
-    }
-
-    const { error: dbError } = await supabase
+    // Save font metadata to custom_fonts table
+    const { data: font, error: fontError } = await supabase
       .from('custom_fonts')
-      .insert(newFont)
+      .insert({
+        template_id: templateId,
+        name: fontName,
+        file_path: filePath,
+        font_family: fontName,
+        format: fileExt
+      })
+      .select()
+      .single()
 
-    if (dbError) throw dbError
+    if (fontError) throw fontError
 
     // Load the updated fonts
     const { data: fonts } = await supabase

@@ -14,7 +14,7 @@ export const TRANSLATIONS = {
   enterFooterContent: 'הכנס תוכן לכותרת תחתונה...',
   enterTemplateName: 'הכנס שם תבנית...',
   uploadFont: 'העלאת פונט',
-  uploadFontDescription: 'העלה קבץ גופונ� בפורמט woff2, woff, ttf או otf',
+  uploadFontDescription: 'העלה קובץ גופן בפורמט woff2, woff, ttf או otf',
   fontName: 'שם הגופן',
   enterFontName: 'הכנס שם לגופן...',
   uploadFontSuccess: 'הגופן הועלה בהצלחה',
@@ -45,5 +45,5 @@ export const TRANSLATIONS = {
   delete: 'מחק',
   duplicate: 'שכפל',
   copy: 'העתק',
-  pleaseEnterFontName: "נא להז� שם לפונט"
+  pleaseEnterFontName: "נא להזין שם לפונט"
 } as const; 
