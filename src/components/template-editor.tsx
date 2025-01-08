@@ -1,11 +1,12 @@
 "use client"
 
+import React from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
-import { StyleEditor } from "./style-editor"
+import { StyleEditor } from "@/components/style-editor"
 import { createClient } from '@supabase/supabase-js'
 import { useToast } from "@/hooks/use-toast"
 import { marked } from 'marked'
