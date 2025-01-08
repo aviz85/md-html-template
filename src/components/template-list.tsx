@@ -2,8 +2,26 @@
 
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Edit, Eye } from "lucide-react"
+import { Edit, Eye, Trash2 } from "lucide-react"
 import Link from "next/link"
+import { createClient } from '@supabase/supabase-js'
+import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 interface Template {
   id: string
@@ -19,9 +37,34 @@ interface Template {
 interface TemplateListProps {
   templates: Template[]
   onSelect: (id: string) => void
+  onDelete?: () => void
 }
 
-export function TemplateList({ templates, onSelect }: TemplateListProps) {
+export function TemplateList({ templates, onSelect, onDelete }: TemplateListProps) {
+  const { toast } = useToast()
+
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase
+      .from('templates')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      console.error('Error deleting template:', error)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete template"
+      })
+    } else {
+      toast({
+        title: "Success",
+        description: "Template deleted successfully"
+      })
+      onDelete?.()
+    }
+  }
+
   return (
     <div className="space-y-4">
       {templates.map((template) => (
@@ -50,6 +93,27 @@ export function TemplateList({ templates, onSelect }: TemplateListProps) {
               <Button variant="outline" size="icon" onClick={() => onSelect(template.id)}>
                 <Edit className="h-4 w-4" />
               </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete the template.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handleDelete(template.id)}>
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         </Card>

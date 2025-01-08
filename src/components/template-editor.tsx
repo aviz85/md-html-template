@@ -8,6 +8,22 @@ import { useState, useEffect } from "react"
 import { StyleEditor } from "./style-editor"
 import { createClient } from '@supabase/supabase-js'
 import { useToast } from "@/hooks/use-toast"
+import { marked } from 'marked'
+import { 
+  extractUsedFonts, 
+  generateGoogleFontsUrl, 
+  generateHtmlTemplate,
+  toKebabCase,
+  toCamelCase,
+  CSS_PROPERTIES
+} from "@/lib/constants"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,6 +36,7 @@ interface ElementStyle {
   fontSize?: string
   margin?: string
   padding?: string
+  fontFamily?: string
 }
 
 type ElementType = "h1" | "h2" | "h3" | "list" | "paragraph" | "specialParagraph"
@@ -43,6 +60,7 @@ interface TemplateEditorProps {
 export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const { toast } = useToast()
   const [mdContent, setMdContent] = useState("")
+  const [previewHtml, setPreviewHtml] = useState("")
   const [activeElement, setActiveElement] = useState<ElementType>("h1")
   const [templateName, setTemplateName] = useState("")
   const [colors, setColors] = useState({
@@ -92,8 +110,12 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         const props = properties[0].split(';')
         props.forEach(prop => {
           const [key, value] = prop.split(':').map(s => s.trim())
-          if (key && value && isValidStyleProperty(key)) {
-            styles[elementName as ElementType][key as keyof ElementStyle] = value
+          if (key && value) {
+            // Convert kebab-case to camelCase
+            const camelKey = toCamelCase(key)
+            if (isValidStyleProperty(camelKey)) {
+              styles[elementName as ElementType][camelKey as keyof ElementStyle] = value
+            }
           }
         })
       }
@@ -103,7 +125,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   }
 
   const isValidStyleProperty = (prop: string): prop is keyof ElementStyle => {
-    return ['color', 'backgroundColor', 'fontSize', 'margin', 'padding'].includes(prop)
+    return prop in CSS_PROPERTIES
   }
 
   const loadTemplate = async (id: string) => {
@@ -158,11 +180,17 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
     // Add element styles
     Object.entries(elementStyles).forEach(([element, style]) => {
-      css += `${element === "specialParagraph" ? ".special-paragraph" : element} {\n`
-      Object.entries(style).forEach(([prop, value]) => {
-        css += `  ${prop}: ${value};\n`
-      })
-      css += `}\n\n`
+      const selector = element === 'specialParagraph' ? '.special-paragraph' : element
+      // Only create a rule if there are styles
+      const styleEntries = Object.entries(style).filter(([_, value]) => value !== undefined && value !== '')
+      if (styleEntries.length > 0) {
+        css += `${selector} {\n`
+        styleEntries.forEach(([prop, value]) => {
+          const kebabProp = CSS_PROPERTIES[prop as keyof typeof CSS_PROPERTIES]
+          css += `  ${kebabProp}: ${value};\n`
+        })
+        css += `}\n\n`
+      }
     })
 
     return css
@@ -208,6 +236,25 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     }
   }
 
+  const handlePreview = async () => {
+    if (!mdContent) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please enter some markdown content"
+      })
+      return
+    }
+
+    const css = generateCSS()
+    const html = await marked.parse(mdContent)
+    const usedFonts = extractUsedFonts(css)
+    const googleFontsUrl = generateGoogleFontsUrl(usedFonts)
+    const fullHtml = generateHtmlTemplate(html, css, googleFontsUrl)
+
+    setPreviewHtml(fullHtml)
+  }
+
   return (
     <div className="space-y-4">
       <div className="space-y-4">
@@ -244,6 +291,24 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             onChange={(e) => setMdContent(e.target.value)}
             className="min-h-[300px]"
           />
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="w-full">Preview</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-[90vw] max-h-[90vh]">
+              <DialogHeader>
+                <DialogTitle>Preview</DialogTitle>
+              </DialogHeader>
+              <div className="mt-4 overflow-auto max-h-[70vh]">
+                <iframe
+                  srcDoc={previewHtml}
+                  onLoad={() => handlePreview()}
+                  className="w-full h-[60vh] border rounded"
+                  title="Preview"
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
         <TabsContent value="styles">
           <Tabs value={activeElement} onValueChange={(value: string) => setActiveElement(value as ElementType)}>
@@ -258,11 +323,12 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             <StyleEditor 
               style={elementStyles[activeElement]} 
               onChange={handleStyleChange}
+              templateColors={colors}
             />
           </Tabs>
+          <Button onClick={handleSave} className="w-full mt-4">Save Template</Button>
         </TabsContent>
       </Tabs>
-      <Button onClick={handleSave} className="w-full">Save Template</Button>
     </div>
   )
 } 

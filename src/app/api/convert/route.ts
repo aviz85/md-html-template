@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { marked } from 'marked';
+import { extractUsedFonts, generateGoogleFontsUrl, generateHtmlTemplate } from "@/lib/constants";
 
 interface Template {
   id: string
@@ -31,22 +32,13 @@ export async function POST(req: Request) {
     }
 
     const typedTemplate = template as Template;
+    const usedFonts = extractUsedFonts(typedTemplate.css);
+    const googleFontsUrl = generateGoogleFontsUrl(usedFonts);
 
-    const htmlContents = mdContents.map((md: string) => {
-      const html = marked.parse(md);
-      return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    ${typedTemplate.css}
-  </style>
-</head>
-<body>
-  ${html}
-</body>
-</html>`;
-    });
+    const htmlContents = await Promise.all(mdContents.map(async (md: string) => {
+      const html = await marked.parse(md);
+      return generateHtmlTemplate(html, typedTemplate.css, googleFontsUrl);
+    }));
 
     return new Response(JSON.stringify({ htmlContents }), {
       status: 200,

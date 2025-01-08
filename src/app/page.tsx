@@ -48,7 +48,10 @@ export default function Home() {
     <main className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-4xl font-bold">Template Manager</h1>
-        <Button onClick={() => setIsCreating(true)}>Create New Template</Button>
+        <Button onClick={() => {
+          setSelectedTemplateId(null)
+          setIsCreating(true)
+        }}>Create New Template</Button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div>
@@ -56,6 +59,7 @@ export default function Home() {
           <TemplateList 
             templates={templates} 
             onSelect={setSelectedTemplateId}
+            onDelete={loadTemplates}
           />
         </div>
         <div>
