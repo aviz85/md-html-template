@@ -1,95 +1,80 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client"
+
+import { createClient } from '@supabase/supabase-js'
+import { TemplateList } from '@/components/template-list'
+import { TemplateEditor } from '@/components/template-editor'
+import { Button } from '@/components/ui/button'
+import { useState, useEffect } from 'react'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+interface Template {
+  id: string
+  name: string
+  color1?: string
+  color2?: string
+  color3?: string
+  color4?: string
+  css: string
+}
 
 export default function Home() {
-  return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>src/app/page.tsx</code>.
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
+  const [templates, setTemplates] = useState<Template[]>([])
 
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    loadTemplates()
+  }, [])
+
+  const loadTemplates = async () => {
+    const { data, error } = await supabase
+      .from('templates')
+      .select('*')
+      .order('name')
+
+    if (error) {
+      console.error('Error loading templates:', error)
+      return
+    }
+
+    setTemplates(data || [])
+  }
+
+  return (
+    <main className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-4xl font-bold">Template Manager</h1>
+        <Button onClick={() => setIsCreating(true)}>Create New Template</Button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div>
+          <h2 className="text-2xl font-semibold mb-4">Templates</h2>
+          <TemplateList 
+            templates={templates} 
+            onSelect={setSelectedTemplateId}
+          />
         </div>
-      </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
-}
+        <div>
+          <h2 className="text-2xl font-semibold mb-4">
+            {isCreating ? "New Template" : selectedTemplateId ? "Edit Template" : "Preview"}
+          </h2>
+          <div className="border rounded-lg p-4 min-h-[500px]">
+            {(isCreating || selectedTemplateId) && (
+              <TemplateEditor 
+                key={selectedTemplateId || 'new'} 
+                templateId={selectedTemplateId || undefined} 
+                onSave={() => {
+                  loadTemplates()
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    </main>
+  )
+} 
