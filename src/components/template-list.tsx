@@ -6,6 +6,7 @@ import { Edit, Eye, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { createClient } from '@supabase/supabase-js'
 import { useToast } from "@/hooks/use-toast"
+import { TRANSLATIONS } from "@/lib/translations"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,37 +54,24 @@ export function TemplateList({ templates, onSelect, onDelete }: TemplateListProp
       console.error('Error deleting template:', error)
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to delete template"
+        title: TRANSLATIONS.error,
+        description: TRANSLATIONS.failedToSaveTemplate
       })
     } else {
       toast({
-        title: "Success",
-        description: "Template deleted successfully"
+        title: TRANSLATIONS.success,
+        description: TRANSLATIONS.templateSavedSuccessfully
       })
       onDelete?.()
     }
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" dir="rtl">
       {templates.map((template) => (
         <Card key={template.id} className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold">{template.name}</h3>
-              <div className="flex gap-2 mt-2">
-                {[template.color1, template.color2, template.color3, template.color4]
-                  .filter(Boolean)
-                  .map((color, i) => (
-                    <div
-                      key={i}
-                      className="w-6 h-6 rounded-full border"
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-              </div>
-            </div>
+          <div className="flex justify-between items-center">
+            <div className="font-medium">{template.name}</div>
             <div className="flex gap-2">
               <Button variant="outline" size="icon" asChild>
                 <Link href={`/templates/${template.id}/preview`}>
@@ -101,15 +89,15 @@ export function TemplateList({ templates, onSelect, onDelete }: TemplateListProp
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogTitle>{TRANSLATIONS.areYouSure}</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This action cannot be undone. This will permanently delete the template.
+                      {TRANSLATIONS.deleteTemplateConfirm}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel>{TRANSLATIONS.cancel}</AlertDialogCancel>
                     <AlertDialogAction onClick={() => handleDelete(template.id)}>
-                      Delete
+                      {TRANSLATIONS.delete}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>

@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { ChangeEvent } from "react"
+import { TRANSLATIONS } from "@/lib/translations"
 import {
   Select,
   SelectContent,
@@ -13,14 +14,14 @@ import {
 } from "@/components/ui/select"
 
 const HEBREW_FONTS = [
-  { name: "Default", value: "inherit" },
-  { name: "Rubik", value: "'Rubik', sans-serif" },
-  { name: "Heebo", value: "'Heebo', sans-serif" },
-  { name: "Assistant", value: "'Assistant', sans-serif" },
-  { name: "Varela Round", value: "'Varela Round', sans-serif" },
-  { name: "Secular One", value: "'Secular One', sans-serif" },
-  { name: "Suez One", value: "'Suez One', serif" },
-  { name: "Frank Ruhl Libre", value: "'Frank Ruhl Libre', serif" },
+  { name: "ברירת מחדל", value: "inherit" },
+  { name: "רוביק", value: "'Rubik', sans-serif" },
+  { name: "הבו", value: "'Heebo', sans-serif" },
+  { name: "אסיסטנט", value: "'Assistant', sans-serif" },
+  { name: "ורלה עגול", value: "'Varela Round', sans-serif" },
+  { name: "חילוני", value: "'Secular One', sans-serif" },
+  { name: "סואץ", value: "'Suez One', serif" },
+  { name: "פרנק רול", value: "'Frank Ruhl Libre', serif" },
 ]
 
 interface ElementStyle {
@@ -48,7 +49,7 @@ export function StyleEditor({ style, onChange, templateColors }: StyleEditorProp
     const value = e.target.value.trim()
     onChange({ 
       ...style, 
-      [key]: value || undefined  // Convert empty string to undefined
+      [key]: value || undefined
     })
   }
 
@@ -67,6 +68,7 @@ export function StyleEditor({ style, onChange, templateColors }: StyleEditorProp
           value={value || "#000000"}
           onChange={(e) => onChange(e.target.value)}
           className="w-[100px]"
+          dir="ltr"
         />
         <Input
           type="text"
@@ -74,6 +76,7 @@ export function StyleEditor({ style, onChange, templateColors }: StyleEditorProp
           onChange={(e) => onChange(e.target.value)}
           placeholder="#000000"
           className="font-mono"
+          dir="ltr"
         />
         {id === "backgroundColor" && (
           <Button
@@ -82,7 +85,7 @@ export function StyleEditor({ style, onChange, templateColors }: StyleEditorProp
             onClick={() => onChange("")}
             className="whitespace-nowrap"
           >
-            None
+            {TRANSLATIONS.none}
           </Button>
         )}
       </div>
@@ -104,24 +107,24 @@ export function StyleEditor({ style, onChange, templateColors }: StyleEditorProp
   )
 
   return (
-    <div className="grid gap-4 p-4">
+    <div className="grid gap-4 p-4" dir="rtl">
       <div className="grid grid-cols-2 gap-4">
         <ColorPicker
           id="color"
-          label="Color"
+          label={TRANSLATIONS.color}
           value={style.color || ""}
           onChange={(value) => onChange({ ...style, color: value })}
         />
         <ColorPicker
           id="backgroundColor"
-          label="Background"
+          label={TRANSLATIONS.background}
           value={style.backgroundColor || ""}
           onChange={(value) => onChange({ ...style, backgroundColor: value })}
         />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Font Family</Label>
+          <Label>{TRANSLATIONS.fontFamily}</Label>
           <Select
             value={style.fontFamily || "inherit"}
             onValueChange={(value) => onChange({ ...style, fontFamily: value })}
@@ -143,35 +146,38 @@ export function StyleEditor({ style, onChange, templateColors }: StyleEditorProp
           </Select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="fontSize">Font Size</Label>
+          <Label htmlFor="fontSize">{TRANSLATIONS.fontSize}</Label>
           <Input
             id="fontSize"
             type="text"
             value={style.fontSize || ""}
             placeholder="16px"
             onChange={handleChange("fontSize")}
+            dir="ltr"
           />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="margin">Margin</Label>
+          <Label htmlFor="margin">{TRANSLATIONS.margin}</Label>
           <Input
             id="margin"
             type="text"
             value={style.margin || ""}
             placeholder="1rem"
             onChange={handleChange("margin")}
+            dir="ltr"
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="padding">Padding</Label>
+          <Label htmlFor="padding">{TRANSLATIONS.padding}</Label>
           <Input
             id="padding"
             type="text"
             value={style.padding || ""}
             placeholder="1rem"
             onChange={handleChange("padding")}
+            dir="ltr"
           />
         </div>
       </div>

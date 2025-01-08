@@ -17,6 +17,7 @@ import {
   toCamelCase,
   CSS_PROPERTIES
 } from "@/lib/constants"
+import { TRANSLATIONS } from "@/lib/translations"
 import {
   Dialog,
   DialogContent,
@@ -256,14 +257,14 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" dir="rtl">
       <div className="space-y-4">
         <div>
-          <label className="text-sm font-medium">Template Name</label>
+          <label className="text-sm font-medium">{TRANSLATIONS.templateName}</label>
           <Input
             value={templateName}
             onChange={(e) => setTemplateName(e.target.value)}
-            placeholder="Enter template name..."
+            placeholder={TRANSLATIONS.enterTemplateName}
           />
         </div>
         <div className="grid grid-cols-4 gap-4">
@@ -274,6 +275,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                 type="color"
                 value={value}
                 onChange={(e) => setColors(prev => ({ ...prev, [key]: e.target.value }))}
+                dir="ltr"
               />
             </div>
           ))}
@@ -281,30 +283,30 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       </div>
       <Tabs defaultValue="content" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="content">Content</TabsTrigger>
-          <TabsTrigger value="styles">Styles</TabsTrigger>
+          <TabsTrigger value="content">{TRANSLATIONS.content}</TabsTrigger>
+          <TabsTrigger value="styles">{TRANSLATIONS.styles}</TabsTrigger>
         </TabsList>
         <TabsContent value="content" className="space-y-4">
           <Textarea
-            placeholder="Enter your markdown content here..."
+            placeholder={TRANSLATIONS.enterMarkdownContent}
             value={mdContent}
             onChange={(e) => setMdContent(e.target.value)}
             className="min-h-[300px]"
           />
           <Dialog>
             <DialogTrigger asChild>
-              <Button className="w-full">Preview</Button>
+              <Button className="w-full">{TRANSLATIONS.preview}</Button>
             </DialogTrigger>
             <DialogContent className="max-w-[90vw] max-h-[90vh]">
               <DialogHeader>
-                <DialogTitle>Preview</DialogTitle>
+                <DialogTitle>{TRANSLATIONS.preview}</DialogTitle>
               </DialogHeader>
               <div className="mt-4 overflow-auto max-h-[70vh]">
                 <iframe
                   srcDoc={previewHtml}
                   onLoad={() => handlePreview()}
                   className="w-full h-[60vh] border rounded"
-                  title="Preview"
+                  title={TRANSLATIONS.preview}
                 />
               </div>
             </DialogContent>
@@ -316,9 +318,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
               <TabsTrigger value="h1">H1</TabsTrigger>
               <TabsTrigger value="h2">H2</TabsTrigger>
               <TabsTrigger value="h3">H3</TabsTrigger>
-              <TabsTrigger value="list">List</TabsTrigger>
-              <TabsTrigger value="paragraph">Text</TabsTrigger>
-              <TabsTrigger value="specialParagraph">Special</TabsTrigger>
+              <TabsTrigger value="list">{TRANSLATIONS.text}</TabsTrigger>
+              <TabsTrigger value="paragraph">{TRANSLATIONS.text}</TabsTrigger>
+              <TabsTrigger value="specialParagraph">{TRANSLATIONS.special}</TabsTrigger>
             </TabsList>
             <StyleEditor 
               style={elementStyles[activeElement]} 
@@ -326,7 +328,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
               templateColors={colors}
             />
           </Tabs>
-          <Button onClick={handleSave} className="w-full mt-4">Save Template</Button>
+          <Button onClick={handleSave} className="w-full mt-4">{TRANSLATIONS.saveTemplate}</Button>
         </TabsContent>
       </Tabs>
     </div>

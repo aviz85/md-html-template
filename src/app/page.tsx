@@ -5,6 +5,7 @@ import { TemplateList } from '@/components/template-list'
 import { TemplateEditor } from '@/components/template-editor'
 import { Button } from '@/components/ui/button'
 import { useState, useEffect } from 'react'
+import { TRANSLATIONS } from '@/lib/translations'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -45,17 +46,17 @@ export default function Home() {
   }
 
   return (
-    <main className="container mx-auto p-4">
+    <main className="container mx-auto p-4" dir="rtl">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold">Template Manager</h1>
+        <h1 className="text-4xl font-bold">{TRANSLATIONS.templateManager}</h1>
         <Button onClick={() => {
           setSelectedTemplateId(null)
           setIsCreating(true)
-        }}>Create New Template</Button>
+        }}>{TRANSLATIONS.createNewTemplate}</Button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div>
-          <h2 className="text-2xl font-semibold mb-4">Templates</h2>
+          <h2 className="text-2xl font-semibold mb-4">{TRANSLATIONS.templates}</h2>
           <TemplateList 
             templates={templates} 
             onSelect={setSelectedTemplateId}
@@ -64,7 +65,7 @@ export default function Home() {
         </div>
         <div>
           <h2 className="text-2xl font-semibold mb-4">
-            {isCreating ? "New Template" : selectedTemplateId ? "Edit Template" : "Preview"}
+            {isCreating ? TRANSLATIONS.newTemplate : selectedTemplateId ? TRANSLATIONS.editTemplate : TRANSLATIONS.preview}
           </h2>
           <div className="border rounded-lg p-4 min-h-[500px]">
             {(isCreating || selectedTemplateId) && (
