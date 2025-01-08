@@ -27,6 +27,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Upload } from "lucide-react"
+import { Label } from "@/components/ui/label"
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -56,6 +58,12 @@ interface Template {
   template_gsheets_id?: string
   header_content?: string
   footer_content?: string
+  custom_fonts?: Array<{
+    name: string
+    file_path: string
+    font_family: string
+    format: string
+  }>
 }
 
 interface TemplateEditorProps {
@@ -72,6 +80,11 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const [activeElement, setActiveElement] = useState<ElementType>("h1")
   const [templateName, setTemplateName] = useState("")
   const [templateGsheetsId, setTemplateGsheetsId] = useState("")
+  const [fontName, setFontName] = useState("")
+  const [fontFile, setFontFile] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [customFonts, setCustomFonts] = useState<Template['custom_fonts']>([])
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
   const [colors, setColors] = useState({
     color1: "#000000",
     color2: "#ffffff",
@@ -137,6 +150,67 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     return prop in CSS_PROPERTIES
   }
 
+  const handleFontUpload = async () => {
+    if (!fontName?.trim() || !fontFile) {
+      toast({
+        variant: "destructive",
+        title: TRANSLATIONS.error,
+        description: TRANSLATIONS.pleaseEnterFontName
+      })
+      return
+    }
+
+    // Get file extension
+    const fileExt = fontFile.name.split('.').pop()?.toLowerCase()
+    if (!fileExt || !['woff2', 'woff', 'ttf', 'otf'].includes(fileExt)) {
+      toast({
+        variant: "destructive",
+        title: TRANSLATIONS.error,
+        description: TRANSLATIONS.uploadFontError
+      })
+      return
+    }
+
+    setIsUploading(true)
+    try {
+      // Upload font file to storage
+      const { data: fileData, error: fileError } = await supabase.storage
+        .from('fonts')
+        .upload(`${fontName}.${fileExt}`, fontFile)
+
+      if (fileError) throw fileError
+
+      // Add the new font to the template's custom fonts
+      const newFont = {
+        name: fontName,
+        file_path: fileData.path,
+        font_family: fontName,
+        format: fileExt
+      }
+
+      setCustomFonts(prev => [...(prev || []), newFont])
+
+      toast({
+        title: TRANSLATIONS.success,
+        description: TRANSLATIONS.uploadFontSuccess
+      })
+
+      // Reset form and close dialog
+      setFontName("")
+      setFontFile(null)
+      setIsUploadDialogOpen(false)
+    } catch (error) {
+      console.error('Error uploading font:', error)
+      toast({
+        variant: "destructive",
+        title: TRANSLATIONS.error,
+        description: TRANSLATIONS.uploadFontError
+      })
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   const loadTemplate = async (id: string) => {
     const { data: template, error } = await supabase
       .from('templates')
@@ -159,6 +233,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       setTemplateGsheetsId(template.template_gsheets_id || "")
       setHeaderContent(template.header_content || "")
       setFooterContent(template.footer_content || "")
+      setCustomFonts(template.custom_fonts || [])
       setColors({
         color1: template.color1 || "#000000",
         color2: template.color2 || "#ffffff",
@@ -234,6 +309,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       template_gsheets_id: templateGsheetsId,
       header_content: headerContent,
       footer_content: footerContent,
+      custom_fonts: customFonts,
       ...colors,
       css
     }
@@ -283,13 +359,53 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   return (
     <div className="space-y-4" dir="rtl">
       <div className="space-y-4">
-        <div>
-          <label className="text-sm font-medium">{TRANSLATIONS.templateName}</label>
-          <Input
-            placeholder="Template Name"
-            value={templateName}
-            onChange={(e) => setTemplateName(e.target.value)}
-          />
+        <div className="flex justify-between items-center">
+          <div className="flex-1">
+            <label className="text-sm font-medium">{TRANSLATIONS.templateName}</label>
+            <Input
+              placeholder="Template Name"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+            />
+          </div>
+          <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="mr-4 mt-6">
+                <Upload className="h-4 w-4 ml-2" />
+                {TRANSLATIONS.uploadFont}
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{TRANSLATIONS.uploadFont}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 mt-4">
+                <div>
+                  <Label>{TRANSLATIONS.fontName}</Label>
+                  <Input
+                    value={fontName}
+                    onChange={(e) => setFontName(e.target.value)}
+                    placeholder={TRANSLATIONS.enterFontName}
+                  />
+                </div>
+                <div>
+                  <Label>{TRANSLATIONS.uploadFontDescription}</Label>
+                  <Input
+                    type="file"
+                    accept=".woff2,.woff,.ttf,.otf"
+                    onChange={(e) => setFontFile(e.target.files?.[0] || null)}
+                  />
+                </div>
+                <Button 
+                  onClick={handleFontUpload} 
+                  disabled={!fontName?.trim() || !fontFile || isUploading}
+                  className="w-full"
+                >
+                  {isUploading ? 'מעלה...' : TRANSLATIONS.uploadFont}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
         <div>
           <label className="text-sm font-medium">{TRANSLATIONS.templateGsheetsId}</label>
@@ -377,6 +493,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
               style={elementStyles[activeElement]} 
               onChange={handleStyleChange}
               templateColors={colors}
+              customFonts={customFonts}
             />
           </Tabs>
           <Button onClick={handleSave} className="w-full mt-4">{TRANSLATIONS.saveTemplate}</Button>

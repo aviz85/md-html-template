@@ -58,9 +58,13 @@ interface StyleEditorProps {
     color3: string
     color4: string
   }
+  customFonts?: Array<{
+    name: string
+    font_family: string
+  }>
 }
 
-export function StyleEditor({ style, onChange, templateColors }: StyleEditorProps) {
+export function StyleEditor({ style, onChange, templateColors, customFonts }: StyleEditorProps) {
   const { toast } = useToast()
   const [fontName, setFontName] = useState("")
   const [fontFile, setFontFile] = useState<File | null>(null)
@@ -216,44 +220,34 @@ export function StyleEditor({ style, onChange, templateColors }: StyleEditorProp
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>{TRANSLATIONS.fontFamily}</Label>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Upload className="h-4 w-4 ml-2" />
-                {TRANSLATIONS.uploadFont}
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{TRANSLATIONS.uploadFont}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 mt-4">
-                <div>
-                  <Label>{TRANSLATIONS.fontName}</Label>
-                  <Input
-                    value={fontName}
-                    onChange={(e) => setFontName(e.target.value)}
-                    placeholder={TRANSLATIONS.enterFontName}
-                  />
-                </div>
-                <div>
-                  <Label>{TRANSLATIONS.uploadFontDescription}</Label>
-                  <Input
-                    type="file"
-                    accept=".woff2,.woff,.ttf,.otf"
-                    onChange={(e) => setFontFile(e.target.files?.[0] || null)}
-                  />
-                </div>
-                <Button 
-                  onClick={handleFontUpload} 
-                  disabled={!fontName || !fontFile || isUploading}
-                  className="w-full"
-                >
-                  {isUploading ? 'מעלה...' : TRANSLATIONS.uploadFont}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Select
+            value={style.fontFamily || "inherit"}
+            onValueChange={(value) => onChange({ ...style, fontFamily: value })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {/* Custom fonts section */}
+              {customFonts && customFonts.length > 0 && (
+                <>
+                  {customFonts.map((font) => (
+                    <SelectItem key={font.name} value={`'${font.font_family}', sans-serif`}>
+                      {font.name}
+                    </SelectItem>
+                  ))}
+                  <div className="h-[1px] my-2 bg-border" />
+                </>
+              )}
+              
+              {/* Default fonts */}
+              {HEBREW_FONTS.map((font) => (
+                <SelectItem key={font.value} value={font.value}>
+                  {font.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-2">
           <Label htmlFor="fontSize">{TRANSLATIONS.fontSize}</Label>
