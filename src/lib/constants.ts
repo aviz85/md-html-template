@@ -1,3 +1,11 @@
+import { marked } from 'marked';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 export const FONT_FAMILIES = {
   'Rubik': "'Rubik', sans-serif",
   'Heebo': "'Heebo', sans-serif",
@@ -7,6 +15,64 @@ export const FONT_FAMILIES = {
   'Suez One': "'Suez One', serif",
   'Frank Ruhl Libre': "'Frank Ruhl Libre', serif"
 } as const;
+
+// Function to load custom fonts from Supabase
+export const loadCustomFonts = async () => {
+  const { data: fonts, error } = await supabase
+    .from('custom_fonts')
+    .select('*');
+
+  if (error) {
+    console.error('Error loading custom fonts:', error);
+    return {};
+  }
+
+  const customFonts: Record<string, string> = {};
+  fonts?.forEach(font => {
+    customFonts[font.name] = `'${font.font_family}', sans-serif`;
+  });
+
+  return customFonts;
+};
+
+// Function to generate @font-face rules for custom fonts
+export const generateCustomFontFaces = async () => {
+  const { data: fonts, error } = await supabase
+    .from('custom_fonts')
+    .select('*');
+
+  if (error) {
+    console.error('Error loading custom fonts:', error);
+    return '';
+  }
+
+  const { data: publicUrl } = supabase.storage
+    .from('fonts')
+    .getPublicUrl('');
+
+  let fontFaces = '';
+  fonts?.forEach(font => {
+    fontFaces += `@font-face {
+  font-family: '${font.font_family}';
+  src: url('${publicUrl.publicUrl}${font.file_path}') format('${getFormatString(font.format)}');
+  font-weight: normal;
+  font-style: normal;
+}\n`;
+  });
+
+  return fontFaces;
+};
+
+// Helper function to get the format string for @font-face
+function getFormatString(format: string): string {
+  switch (format) {
+    case 'woff2': return 'woff2';
+    case 'woff': return 'woff';
+    case 'ttf': return 'truetype';
+    case 'otf': return 'opentype';
+    default: return 'woff2';
+  }
+}
 
 // Convert camelCase to kebab-case
 export const toKebabCase = (str: string): string => 
@@ -43,12 +109,16 @@ body {
 }
 `;
 
-export const generateHtmlTemplate = (html: string, css: string, googleFontsUrl: string) => `<!DOCTYPE html>
+export const generateHtmlTemplate = async (html: string, css: string, googleFontsUrl: string) => {
+  const customFontFaces = await generateCustomFontFaces();
+  
+  return `<!DOCTYPE html>
 <html dir="rtl" lang="he">
 <head>
   <meta charset="utf-8">
   ${googleFontsUrl ? `<link href="${googleFontsUrl}" rel="stylesheet" />` : ''}
   <style>
+    ${customFontFaces}
     ${DEFAULT_BODY_STYLES}
     ${css}
   </style>
@@ -57,6 +127,7 @@ export const generateHtmlTemplate = (html: string, css: string, googleFontsUrl: 
   ${html}
 </body>
 </html>`;
+};
 
 export const extractUsedFonts = (css: string): string[] => {
   const usedFonts = new Set<string>();
@@ -95,4 +166,12 @@ export const generateGoogleFontsUrl = (fonts: string[]): string => {
   });
 
   return `https://fonts.googleapis.com/css2?${fontFamilies.map(f => `family=${f.replace(' ', '+')}`).join('&')}&display=swap`;
-}; 
+};
+
+export async function convertMarkdownToHtml(content: string, headerContent?: string, footerContent?: string) {
+  const headerHtml = headerContent ? await marked.parse(headerContent) : '';
+  const contentHtml = await marked.parse(content);
+  const footerHtml = footerContent ? 
+    `<div class="template-footer">${await marked.parse(footerContent)}</div>` : '';
+  return `${headerHtml}\n${contentHtml}\n${footerHtml}`;
+} 

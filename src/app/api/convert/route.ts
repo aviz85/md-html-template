@@ -1,13 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
 import { marked } from 'marked';
-import { extractUsedFonts, generateGoogleFontsUrl, generateHtmlTemplate } from "@/lib/constants";
+import { extractUsedFonts, generateGoogleFontsUrl, generateHtmlTemplate, convertMarkdownToHtml } from "@/lib/constants";
 
 interface Template {
   id: string
   name: string
   css: string
   template_gsheets_id?: string
+  header_content?: string
+  footer_content?: string
 }
+
+// Configure marked with basic options
+marked.setOptions({
+  breaks: true, // Convert line breaks to <br>
+  gfm: true // Use GitHub Flavored Markdown
+});
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,8 +45,8 @@ export async function POST(req: Request) {
     const googleFontsUrl = generateGoogleFontsUrl(usedFonts);
 
     const htmlContents = await Promise.all(mdContents.map(async (md: string) => {
-      const html = await marked.parse(md);
-      return generateHtmlTemplate(html, typedTemplate.css, googleFontsUrl);
+      const combinedHtml = await convertMarkdownToHtml(md, typedTemplate.header_content, typedTemplate.footer_content);
+      return generateHtmlTemplate(combinedHtml, typedTemplate.css, googleFontsUrl);
     }));
 
     return new Response(JSON.stringify({ htmlContents }), {

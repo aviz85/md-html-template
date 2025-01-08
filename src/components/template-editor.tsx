@@ -16,7 +16,8 @@ import {
   generateHtmlTemplate,
   toKebabCase,
   toCamelCase,
-  CSS_PROPERTIES
+  CSS_PROPERTIES,
+  convertMarkdownToHtml
 } from "@/lib/constants"
 import { TRANSLATIONS } from "@/lib/translations"
 import {
@@ -53,6 +54,8 @@ interface Template {
   css: string
   elementStyles: Record<ElementType, ElementStyle>
   template_gsheets_id?: string
+  header_content?: string
+  footer_content?: string
 }
 
 interface TemplateEditorProps {
@@ -63,6 +66,8 @@ interface TemplateEditorProps {
 export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const { toast } = useToast()
   const [mdContent, setMdContent] = useState("")
+  const [headerContent, setHeaderContent] = useState("")
+  const [footerContent, setFooterContent] = useState("")
   const [previewHtml, setPreviewHtml] = useState("")
   const [activeElement, setActiveElement] = useState<ElementType>("h1")
   const [templateName, setTemplateName] = useState("")
@@ -152,6 +157,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     if (template) {
       setTemplateName(template.name)
       setTemplateGsheetsId(template.template_gsheets_id || "")
+      setHeaderContent(template.header_content || "")
+      setFooterContent(template.footer_content || "")
       setColors({
         color1: template.color1 || "#000000",
         color2: template.color2 || "#ffffff",
@@ -182,6 +189,16 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     if (colors.color3) css += `  --color3: ${colors.color3};\n`
     if (colors.color4) css += `  --color4: ${colors.color4};\n`
     css += `}\n\n`
+
+    // Add default footer styles
+    css += `.template-footer {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color3);
+  font-size: 0.875rem;
+  color: var(--color4);
+  opacity: 0.9;
+}\n\n`
 
     // Add element styles
     Object.entries(elementStyles).forEach(([element, style]) => {
@@ -215,6 +232,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     const template = {
       name: templateName,
       template_gsheets_id: templateGsheetsId,
+      header_content: headerContent,
+      footer_content: footerContent,
       ...colors,
       css
     }
@@ -253,10 +272,10 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     }
 
     const css = generateCSS()
-    const html = await marked.parse(mdContent)
+    const combinedHtml = await convertMarkdownToHtml(mdContent, headerContent, footerContent);
     const usedFonts = extractUsedFonts(css)
     const googleFontsUrl = generateGoogleFontsUrl(usedFonts)
-    const fullHtml = generateHtmlTemplate(html, css, googleFontsUrl)
+    const fullHtml = await generateHtmlTemplate(combinedHtml, css, googleFontsUrl)
 
     setPreviewHtml(fullHtml)
   }
@@ -278,6 +297,24 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             placeholder="Template Google Sheets ID"
             value={templateGsheetsId}
             onChange={(e) => setTemplateGsheetsId(e.target.value)}
+            className="mt-2"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium">{TRANSLATIONS.headerContent}</label>
+          <Textarea
+            placeholder={TRANSLATIONS.enterHeaderContent}
+            value={headerContent}
+            onChange={(e) => setHeaderContent(e.target.value)}
+            className="mt-2"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium">{TRANSLATIONS.footerContent}</label>
+          <Textarea
+            placeholder={TRANSLATIONS.enterFooterContent}
+            value={footerContent}
+            onChange={(e) => setFooterContent(e.target.value)}
             className="mt-2"
           />
         </div>
