@@ -36,15 +36,14 @@ export const loadCustomFonts = async () => {
 };
 
 // Function to generate @font-face rules for custom fonts
-export function generateCustomFontFaces(fonts?: Array<{ name: string, file_path: string, font_family: string, format: string }>) {
-  if (!fonts?.length) return ''
-
-  return fonts.map(font => `@font-face {
+export function generateCustomFontFaces(fonts: Array<{ name: string, file_path: string, font_family: string, format: string }>) {
+  return fonts.map(font => `
+@font-face {
   font-family: '${font.font_family}';
-  src: url('${font.file_path}') format('${font.format}');
+  src: url('${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/fonts/${font.file_path}') format('${font.format}');
   font-weight: normal;
   font-style: normal;
-}`).join('\n\n')
+}`).join('\n')
 }
 
 // Helper function to get the format string for @font-face

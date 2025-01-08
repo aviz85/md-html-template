@@ -77,8 +77,6 @@ export async function POST(req: Request) {
   ${googleFontsUrl ? `<link href="${googleFontsUrl}" rel="stylesheet">` : ''}
   <style>
     ${customFontFaces}
-  </style>
-  <style>
     ${templateData.css}
   </style>
 </head>

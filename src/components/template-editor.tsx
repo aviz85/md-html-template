@@ -26,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import { Upload } from "lucide-react"
 import { Label } from "@/components/ui/label"
@@ -432,6 +433,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{TRANSLATIONS.uploadFont}</DialogTitle>
+                <DialogDescription>{TRANSLATIONS.uploadFontDescription}</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <div>
@@ -521,6 +523,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             <DialogContent className="max-w-[90vw] max-h-[90vh]">
               <DialogHeader>
                 <DialogTitle>{TRANSLATIONS.preview}</DialogTitle>
+                <DialogDescription>{TRANSLATIONS.previewDescription}</DialogDescription>
               </DialogHeader>
               <div className="mt-4 overflow-auto max-h-[70vh]">
                 <iframe
