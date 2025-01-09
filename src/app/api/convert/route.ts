@@ -158,8 +158,7 @@ export async function POST(req: Request) {
     const html = generateHtmlTemplate(
       combinedHtml, 
       templateData.css, 
-      googleFontsUrl, 
-      templateData.logo_path,
+      googleFontsUrl,
       customFontFaces
     )
 
