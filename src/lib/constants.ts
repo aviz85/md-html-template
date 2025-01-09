@@ -97,7 +97,14 @@ body {
 }
 `;
 
-export function generateHtmlTemplate(html: string, css: string, googleFontsUrl: string): string {
+export function generateHtmlTemplate(
+  html: string, 
+  css: string, 
+  googleFontsUrl: string, 
+  logoPath?: string, 
+  customFonts?: string
+): string {
+  const logoUrl = logoPath ? getLogoUrl(logoPath) : null;
   return `<!DOCTYPE html>
 <html dir="rtl">
 <head>
@@ -105,10 +112,15 @@ export function generateHtmlTemplate(html: string, css: string, googleFontsUrl: 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   ${googleFontsUrl ? `<link href="${googleFontsUrl}" rel="stylesheet">` : ''}
   <style>
+    /* Custom Fonts */
+    ${customFonts || ''}
+
+    /* Template Styles */
     ${css}
   </style>
 </head>
 <body>
+  ${logoUrl ? `<div class="logo"><img src="${logoUrl}" alt="Logo" /></div>` : ''}
   ${html}
 </body>
 </html>`
