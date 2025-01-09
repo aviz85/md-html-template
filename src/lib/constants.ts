@@ -98,13 +98,11 @@ body {
 `;
 
 export function generateHtmlTemplate(
-  html: string, 
-  css: string, 
-  googleFontsUrl: string, 
-  logoPath?: string, 
+  html: string,
+  css: string,
+  googleFontsUrl: string,
   customFonts?: string
 ): string {
-  const logoUrl = logoPath ? getLogoUrl(logoPath) : null;
   return `<!DOCTYPE html>
 <html dir="rtl">
 <head>
@@ -120,10 +118,9 @@ export function generateHtmlTemplate(
   </style>
 </head>
 <body>
-  ${logoUrl ? `<div class="logo"><img src="${logoUrl}" alt="Logo" /></div>` : ''}
   ${html}
 </body>
-</html>`
+</html>`;
 }
 
 export const extractUsedFonts = (css: string): string[] => {
