@@ -163,6 +163,9 @@ export const generateGoogleFontsUrl = (fonts: string[]): string => {
 };
 
 export async function convertMarkdownToHtml(content: string, headerContent?: string, footerContent?: string) {
+  if (!content) {
+    throw new Error('Content is required')
+  }
   const headerHtml = headerContent ? await marked.parse(headerContent) : '';
   const contentHtml = await marked.parse(content);
   const footerHtml = footerContent ? 

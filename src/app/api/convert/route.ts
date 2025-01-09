@@ -54,9 +54,13 @@ export async function POST(req: Request) {
 
     console.log('Connection test:', { testData, testError })
 
-    const { markdown, template } = await req.json()
-    console.log('Received request:', { markdown, template })
+    const { markdowns, template } = await req.json()
+    console.log('Received request:', { markdowns, template })
     
+    if (!Array.isArray(markdowns)) {
+      throw new Error('markdowns must be an array')
+    }
+
     let templateData: TemplateData | null = null
 
     // אם נשלח template_id, נחפש לפיו
@@ -147,24 +151,31 @@ export async function POST(req: Request) {
 
     console.log('\nGenerated @font-face rules:', customFontFaces)
 
-    const combinedHtml = await convertMarkdownToHtml(
-      markdown, 
-      templateData.header_content || '', 
-      templateData.footer_content || ''
-    )
-    const usedFonts = extractUsedFonts(templateData.css)
-    const googleFontsUrl = generateGoogleFontsUrl(usedFonts)
-    
-    const html = generateHtmlTemplate(
-      combinedHtml, 
-      templateData.css, 
-      googleFontsUrl,
-      customFontFaces
-    )
+    // Convert each markdown document to HTML
+    const htmls = await Promise.all(markdowns.map(async (markdown) => {
+      const combinedHtml = await convertMarkdownToHtml(
+        markdown, 
+        templateData!.header_content || '', 
+        templateData!.footer_content || ''
+      )
+      const usedFonts = extractUsedFonts(templateData!.css)
+      const googleFontsUrl = generateGoogleFontsUrl(usedFonts)
+      
+      return generateHtmlTemplate(
+        combinedHtml, 
+        templateData!.css, 
+        googleFontsUrl,
+        customFontFaces
+      )
+    }))
 
-    console.log('Final HTML:', html)
+    console.log('Generated HTMLs:', htmls.length)
 
-    return new Response(html)
+    return new Response(JSON.stringify({ htmls }), {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
   } catch (error) {
     console.error('Error converting markdown:', error)
     return new Response(String(error), { status: 500 })
