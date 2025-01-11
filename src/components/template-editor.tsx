@@ -404,7 +404,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
     try {
       console.log('Sending preview request with:', {
-        markdown: mdContent,
+        markdowns: [mdContent],
         template: {
           id: templateId,
           css: generateCSS(),
@@ -418,7 +418,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          markdown: mdContent,
+          markdowns: [mdContent],
           template: {
             id: templateId,
             css: generateCSS(),
@@ -431,9 +431,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         throw new Error('Failed to generate preview')
       }
 
-      const html = await response.text()
-      console.log('Received preview HTML:', html)
-      setPreviewHtml(html)
+      const { htmls } = await response.json()
+      console.log('Received preview HTML:', htmls[0])
+      setPreviewHtml(htmls[0])
     } catch (error) {
       console.error('Error generating preview:', error)
       toast({
