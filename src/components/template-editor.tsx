@@ -449,12 +449,12 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        if (error.code === 'template_exists') {
+        const error = await response.text()
+        if (error.includes('duplicate key value violates unique constraint "template_name_unique"')) {
           toast({
             variant: "destructive",
             title: TRANSLATIONS.error,
-            description: TRANSLATIONS.templateExists
+            description: TRANSLATIONS.duplicateTemplateName
           })
           return
         }

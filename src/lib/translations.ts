@@ -61,5 +61,6 @@ export const TRANSLATIONS = {
   invalidColor: "ערך צבע לא תקין (לדוגמה: #FF0000, rgb(255,0,0))",
   invalidMarginPadding: "ערך שוליים/ריפוד לא תקין (לדוגמה: 10px, 1rem)",
   templateExists: "קיימת כבר תבנית עם שם זה",
-  networkError: "שגיאת תקשורת - נא לבדוק את החיבור לאינטרנט"
+  networkError: "שגיאת תקשורת - נא לבדוק את החיבור לאינטרנט",
+  duplicateTemplateName: "קיימת כבר תבנית עם שם זה. נא לבחור שם אחר"
 } as const; 
