@@ -114,10 +114,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     }
   }, [templateId])
 
-  const isValidTextAlign = (value: string): value is ElementStyle['textAlign'] => {
-    return ['right', 'left', 'center', 'justify'].includes(value)
-  }
-
   const parseCSS = (css: string) => {
     const styles: Template["elementStyles"] = {
       body: {},
