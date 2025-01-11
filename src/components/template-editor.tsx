@@ -383,18 +383,19 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                       element
 
       css += `${selector} {\n`
-      // Add standard properties
+      
+      // Add custom CSS first if exists (will be overridden by standard properties)
+      if (styles.customCss) {
+        css += `  ${styles.customCss}\n`
+      }
+      
+      // Add standard properties (these will override custom CSS)
       Object.entries(styles).forEach(([property, value]) => {
         if (property === 'customCss') return // Skip customCss here
         // Convert camelCase to kebab-case for CSS properties
         const kebabProperty = toKebabCase(property)
         css += `  ${kebabProperty}: ${value};\n`
       })
-      
-      // Add custom CSS if exists
-      if (styles.customCss) {
-        css += `  ${styles.customCss}\n`
-      }
       
       css += '}\n\n'
     })

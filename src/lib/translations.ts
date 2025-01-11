@@ -73,6 +73,16 @@ export const TRANSLATIONS = {
   alignJustify: "מיושר לשני הצדדים",
   header: "כותרת עליונה",
   footer: "כותרת תחתונה",
-  customCss: "CSS מותאם אישית",
-  enterCustomCss: "הכנס קוד CSS מותאם אישית..."
+  customCss: "CSS מותאם אישית (יתבל עדיפות על פני ההגדרות האחרות)",
+  enterCustomCss: `/* דוגמאות לשימוש ב-CSS מותאם אישית:
+  /* הגדרות אלו יקבלו עדיפות על פני ההגדרות שנקבעו למעלה */
+  border: 1px solid var(--color3);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  text-decoration: underline;
+  line-height: 1.6;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-size: 18px;  /* יעקוף את הגדרת גודל הגופן שנקבעה למעלה */
+  color: var(--color4);  /* יעקוף את הגדרת הצבע שנקבעה למעלה */
+*/`
 } as const; 
