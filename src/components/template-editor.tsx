@@ -50,7 +50,7 @@ interface ElementStyle {
   fontFamily?: string
 }
 
-type ElementType = "body" | "h1" | "h2" | "h3" | "list" | "paragraph" | "specialParagraph"
+type ElementType = "body" | "h1" | "h2" | "h3" | "list" | "p" | "specialParagraph"
 
 interface Template {
   id: string
@@ -103,7 +103,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     h2: {},
     h3: {},
     list: {},
-    paragraph: {},
+    p: {},
     specialParagraph: {}
   })
 
@@ -120,7 +120,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       h2: {},
       h3: {},
       list: {},
-      paragraph: {},
+      p: {},
       specialParagraph: {}
     }
 
@@ -134,7 +134,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
       const cleanSelector = selector.trim()
       const elementName = cleanSelector === '.special-paragraph' ? 'specialParagraph' : 
-                         cleanSelector === 'body' ? 'body' : cleanSelector
+                         cleanSelector === 'body' ? 'body' : 
+                         cleanSelector === 'p' ? 'p' : cleanSelector
 
       if (elementName in styles) {
         // Parse properties
@@ -406,8 +407,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     // Add other element styles
     Object.entries(elementStyles).forEach(([element, style]) => {
       if (element === 'body') return // Skip body as it's already handled
-      const selector = element === 'specialParagraph' ? '.special-paragraph' : 
-                      element === 'paragraph' ? 'p' : element
+      const selector = element === 'specialParagraph' ? '.special-paragraph' : element
       // Only create a rule if there are styles
       const styleEntries = Object.entries(style).filter(([_, value]) => value !== undefined && value !== '')
       if (styleEntries.length > 0) {
@@ -700,7 +700,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
               <TabsTrigger value="h2">H2</TabsTrigger>
               <TabsTrigger value="h3">H3</TabsTrigger>
               <TabsTrigger value="list">{TRANSLATIONS.list}</TabsTrigger>
-              <TabsTrigger value="paragraph">{TRANSLATIONS.paragraph}</TabsTrigger>
+              <TabsTrigger value="p">{TRANSLATIONS.paragraph}</TabsTrigger>
               <TabsTrigger value="specialParagraph">{TRANSLATIONS.special}</TabsTrigger>
             </TabsList>
             <StyleEditor 
