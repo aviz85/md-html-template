@@ -1,11 +1,10 @@
 "use client"
 
-import React from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { useState, useEffect } from "react"
 import { StyleEditor } from "@/components/style-editor"
 import { useToast } from "@/hooks/use-toast"
 import { marked } from 'marked'
@@ -69,6 +68,51 @@ interface TemplateEditorProps {
   onSave?: () => void
 }
 
+function ResizableSplitter({ onResize }: { onResize: (width: number) => void }) {
+  const splitterRef = useRef<HTMLDivElement>(null)
+  const isDraggingRef = useRef(false)
+  const startXRef = useRef(0)
+  const startWidthRef = useRef(0)
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return
+      
+      const dx = e.clientX - startXRef.current
+      const newWidth = Math.max(150, Math.min(400, startWidthRef.current + dx))
+      onResize(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false
+      document.body.style.cursor = 'default'
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [onResize])
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    isDraggingRef.current = true
+    startXRef.current = e.clientX
+    startWidthRef.current = splitterRef.current?.previousElementSibling?.getBoundingClientRect().width || 0
+    document.body.style.cursor = 'col-resize'
+  }
+
+  return (
+    <div
+      ref={splitterRef}
+      className="w-1 bg-border hover:bg-primary cursor-col-resize"
+      onMouseDown={handleMouseDown}
+    />
+  )
+}
+
 export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const { toast } = useToast()
   const [mdContent, setMdContent] = useState("")
@@ -103,6 +147,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     header: {},
     footer: {}
   })
+  const [sidebarWidth, setSidebarWidth] = useState(200)
 
   useEffect(() => {
     if (templateId) {
@@ -644,10 +689,11 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         </div>
       </div>
       <Tabs defaultValue="content" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="content">{TRANSLATIONS.content}</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="content" className="col-span-2">{TRANSLATIONS.content}</TabsTrigger>
           <TabsTrigger value="styles">{TRANSLATIONS.styles}</TabsTrigger>
         </TabsList>
+        
         <TabsContent value="content" className="space-y-4">
           <Textarea
             placeholder={TRANSLATIONS.enterMarkdownContent}
@@ -674,34 +720,99 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             </DialogContent>
           </Dialog>
         </TabsContent>
-        <TabsContent value="styles">
-          <Tabs value={activeElement} onValueChange={(value: string) => setActiveElement(value as ElementType)}>
-            <TabsList className="grid w-full grid-cols-4 gap-2 bg-muted p-1">
-              {/* General & Layout */}
-              <TabsTrigger value="body" className="font-bold">{TRANSLATIONS.generalStyles}</TabsTrigger>
-              <TabsTrigger value="header" className="font-bold">{TRANSLATIONS.header}</TabsTrigger>
-              <TabsTrigger value="footer" className="font-bold">{TRANSLATIONS.footer}</TabsTrigger>
-              <TabsTrigger value="specialParagraph" className="font-bold">{TRANSLATIONS.special}</TabsTrigger>
-              
-              {/* Headers */}
-              <TabsTrigger value="h1">H1</TabsTrigger>
-              <TabsTrigger value="h2">H2</TabsTrigger>
-              <TabsTrigger value="h3">H3</TabsTrigger>
-              <TabsTrigger value="h4">H4</TabsTrigger>
-              <TabsTrigger value="h5">H5</TabsTrigger>
-              <TabsTrigger value="h6">H6</TabsTrigger>
-              
-              {/* Content */}
-              <TabsTrigger value="p">{TRANSLATIONS.paragraph}</TabsTrigger>
-              <TabsTrigger value="list">{TRANSLATIONS.list}</TabsTrigger>
-            </TabsList>
-            <StyleEditor 
-              style={elementStyles[activeElement]} 
-              onChange={handleStyleChange}
-              templateColors={colors}
-              customFonts={customFonts}
-            />
-          </Tabs>
+
+        <TabsContent value="styles" className="h-[600px]">
+          <div className="flex h-full">
+            {/* Sidebar */}
+            <div className="w-1/4 bg-muted border-l overflow-y-auto">
+              <nav className="p-2">
+                {/* General & Layout */}
+                <div className="space-y-1">
+                  <button
+                    onClick={() => setActiveElement("body")}
+                    className={`w-full text-right px-4 py-2 text-sm rounded-md transition-colors ${
+                      activeElement === "body" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                    }`}
+                  >
+                    {TRANSLATIONS.generalStyles}
+                  </button>
+                  <button
+                    onClick={() => setActiveElement("header")}
+                    className={`w-full text-right px-4 py-2 text-sm rounded-md transition-colors ${
+                      activeElement === "header" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                    }`}
+                  >
+                    {TRANSLATIONS.header}
+                  </button>
+                  <button
+                    onClick={() => setActiveElement("footer")}
+                    className={`w-full text-right px-4 py-2 text-sm rounded-md transition-colors ${
+                      activeElement === "footer" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                    }`}
+                  >
+                    {TRANSLATIONS.footer}
+                  </button>
+                  <button
+                    onClick={() => setActiveElement("specialParagraph")}
+                    className={`w-full text-right px-4 py-2 text-sm rounded-md transition-colors ${
+                      activeElement === "specialParagraph" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                    }`}
+                  >
+                    {TRANSLATIONS.special}
+                  </button>
+                </div>
+
+                <div className="my-3 border-t border-border/40" />
+
+                {/* Headers */}
+                <div className="space-y-1">
+                  {["h1", "h2", "h3", "h4", "h5", "h6"].map((header) => (
+                    <button
+                      key={header}
+                      onClick={() => setActiveElement(header as ElementType)}
+                      className={`w-full text-right px-4 py-2 text-sm rounded-md transition-colors ${
+                        activeElement === header ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                      }`}
+                    >
+                      {header.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="my-3 border-t border-border/40" />
+
+                {/* Content */}
+                <div className="space-y-1">
+                  <button
+                    onClick={() => setActiveElement("p")}
+                    className={`w-full text-right px-4 py-2 text-sm rounded-md transition-colors ${
+                      activeElement === "p" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                    }`}
+                  >
+                    {TRANSLATIONS.paragraph}
+                  </button>
+                  <button
+                    onClick={() => setActiveElement("list")}
+                    className={`w-full text-right px-4 py-2 text-sm rounded-md transition-colors ${
+                      activeElement === "list" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                    }`}
+                  >
+                    {TRANSLATIONS.list}
+                  </button>
+                </div>
+              </nav>
+            </div>
+
+            {/* Style Editor */}
+            <div className="flex-1 overflow-y-auto">
+              <StyleEditor 
+                style={elementStyles[activeElement]} 
+                onChange={handleStyleChange}
+                templateColors={colors}
+                customFonts={customFonts}
+              />
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
       <Button onClick={handleSave} className="w-full mt-4">{TRANSLATIONS.saveTemplate}</Button>
