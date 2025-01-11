@@ -114,6 +114,10 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     }
   }, [templateId])
 
+  const isValidTextAlign = (value: string): value is ElementStyle['textAlign'] => {
+    return ['right', 'left', 'center', 'justify'].includes(value)
+  }
+
   const parseCSS = (css: string) => {
     const styles: Template["elementStyles"] = {
       body: {},
@@ -147,7 +151,10 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             // Convert kebab-case to camelCase
             const camelKey = toCamelCase(key)
             if (isValidStyleProperty(camelKey)) {
-              styles[elementName as ElementType][camelKey as keyof ElementStyle] = value
+              if (camelKey === 'textAlign' && !['right', 'left', 'center', 'justify'].includes(value)) {
+                return
+              }
+              styles[elementName as ElementType][camelKey as keyof ElementStyle] = value as any
             }
           }
         })
@@ -531,7 +538,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         template: {
           id: templateId,
           css: generateCSS(),
-          custom_fonts: customFonts
+          custom_fonts: customFonts,
+          header_content: headerContent,
+          footer_content: footerContent
         }
       })
 
@@ -545,7 +554,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           template: {
             id: templateId,
             css: generateCSS(),
-            custom_fonts: customFonts
+            custom_fonts: customFonts,
+            header_content: headerContent,
+            footer_content: footerContent
           }
         }),
       })

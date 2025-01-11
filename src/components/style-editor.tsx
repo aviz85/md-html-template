@@ -47,7 +47,7 @@ interface ElementStyle {
   margin?: string
   padding?: string
   fontFamily?: string
-  textAlign?: string
+  textAlign?: 'right' | 'left' | 'center' | 'justify'
 }
 
 interface StyleEditorProps {
