@@ -65,5 +65,10 @@ export const TRANSLATIONS = {
   duplicateTemplateName: "קיימת כבר תבנית עם שם זה. נא לבחור שם אחר",
   generalStyles: "סגנון כללי",
   list: "רשימה",
-  paragraph: "פסקה"
+  paragraph: "פסקה",
+  textAlign: "יישור טקסט",
+  alignRight: "ימין",
+  alignLeft: "שמאל",
+  alignCenter: "מרכז",
+  alignJustify: "מיושר לשני הצדדים"
 } as const; 

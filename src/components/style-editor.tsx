@@ -47,6 +47,7 @@ interface ElementStyle {
   margin?: string
   padding?: string
   fontFamily?: string
+  textAlign?: string
 }
 
 interface StyleEditorProps {
@@ -246,6 +247,24 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
                   {font.name}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>{TRANSLATIONS.textAlign}</Label>
+          <Select
+            value={style.textAlign || "inherit"}
+            onValueChange={(value) => onChange({ ...style, textAlign: value as ElementStyle['textAlign'] })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="inherit">{TRANSLATIONS.none}</SelectItem>
+              <SelectItem value="right">{TRANSLATIONS.alignRight}</SelectItem>
+              <SelectItem value="left">{TRANSLATIONS.alignLeft}</SelectItem>
+              <SelectItem value="center">{TRANSLATIONS.alignCenter}</SelectItem>
+              <SelectItem value="justify">{TRANSLATIONS.alignJustify}</SelectItem>
             </SelectContent>
           </Select>
         </div>

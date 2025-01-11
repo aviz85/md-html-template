@@ -48,6 +48,7 @@ interface ElementStyle {
   margin?: string
   padding?: string
   fontFamily?: string
+  textAlign?: 'right' | 'left' | 'center' | 'justify'
 }
 
 type ElementType = "body" | "h1" | "h2" | "h3" | "list" | "p" | "specialParagraph"

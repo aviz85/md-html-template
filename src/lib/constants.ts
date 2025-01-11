@@ -75,9 +75,10 @@ export const CSS_PROPERTIES = {
   color: 'color',
   backgroundColor: 'background-color',
   fontSize: 'font-size',
-  fontFamily: 'font-family',
   margin: 'margin',
-  padding: 'padding'
+  padding: 'padding',
+  fontFamily: 'font-family',
+  textAlign: 'text-align'
 } as const;
 
 // Default body styles
