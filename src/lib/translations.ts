@@ -62,5 +62,8 @@ export const TRANSLATIONS = {
   invalidMarginPadding: "ערך שוליים/ריפוד לא תקין (לדוגמה: 10px, 1rem)",
   templateExists: "קיימת כבר תבנית עם שם זה",
   networkError: "שגיאת תקשורת - נא לבדוק את החיבור לאינטרנט",
-  duplicateTemplateName: "קיימת כבר תבנית עם שם זה. נא לבחור שם אחר"
+  duplicateTemplateName: "קיימת כבר תבנית עם שם זה. נא לבחור שם אחר",
+  generalStyles: "סגנון כללי",
+  list: "רשימה",
+  paragraph: "פסקה"
 } as const; 

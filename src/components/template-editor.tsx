@@ -50,7 +50,7 @@ interface ElementStyle {
   fontFamily?: string
 }
 
-type ElementType = "h1" | "h2" | "h3" | "list" | "paragraph" | "specialParagraph"
+type ElementType = "body" | "h1" | "h2" | "h3" | "list" | "paragraph" | "specialParagraph"
 
 interface Template {
   id: string
@@ -98,6 +98,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     color4: "#666666"
   })
   const [elementStyles, setElementStyles] = useState<Template["elementStyles"]>({
+    body: {},
     h1: {},
     h2: {},
     h3: {},
@@ -114,6 +115,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
   const parseCSS = (css: string) => {
     const styles: Template["elementStyles"] = {
+      body: {},
       h1: {},
       h2: {},
       h3: {},
@@ -131,7 +133,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       if (!selector || !properties.length) return
 
       const cleanSelector = selector.trim()
-      const elementName = cleanSelector === '.special-paragraph' ? 'specialParagraph' : cleanSelector
+      const elementName = cleanSelector === '.special-paragraph' ? 'specialParagraph' : 
+                         cleanSelector === 'body' ? 'body' : cleanSelector
 
       if (elementName in styles) {
         // Parse properties
@@ -374,6 +377,19 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     if (colors.color4) css += `  --color4: ${colors.color4};\n`
     css += `}\n\n`
 
+    // Add body styles first
+    const bodyStyles = elementStyles.body
+    if (Object.keys(bodyStyles).length > 0) {
+      css += `body {\n`
+      Object.entries(bodyStyles).forEach(([prop, value]) => {
+        if (value !== undefined && value !== '') {
+          const kebabProp = CSS_PROPERTIES[prop as keyof typeof CSS_PROPERTIES]
+          css += `  ${kebabProp}: ${value};\n`
+        }
+      })
+      css += `}\n\n`
+    }
+
     // Add default footer styles
     css += `.template-footer {
   margin-top: 3rem;
@@ -384,8 +400,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   opacity: 0.9;
 }\n\n`
 
-    // Add element styles
+    // Add other element styles
     Object.entries(elementStyles).forEach(([element, style]) => {
+      if (element === 'body') return // Skip body as it's already handled
       const selector = element === 'specialParagraph' ? '.special-paragraph' : element
       // Only create a rule if there are styles
       const styleEntries = Object.entries(style).filter(([_, value]) => value !== undefined && value !== '')
@@ -669,12 +686,13 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         </TabsContent>
         <TabsContent value="styles">
           <Tabs value={activeElement} onValueChange={(value: string) => setActiveElement(value as ElementType)}>
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
+              <TabsTrigger value="body">{TRANSLATIONS.generalStyles}</TabsTrigger>
               <TabsTrigger value="h1">H1</TabsTrigger>
               <TabsTrigger value="h2">H2</TabsTrigger>
               <TabsTrigger value="h3">H3</TabsTrigger>
-              <TabsTrigger value="list">{TRANSLATIONS.text}</TabsTrigger>
-              <TabsTrigger value="paragraph">{TRANSLATIONS.text}</TabsTrigger>
+              <TabsTrigger value="list">{TRANSLATIONS.list}</TabsTrigger>
+              <TabsTrigger value="paragraph">{TRANSLATIONS.paragraph}</TabsTrigger>
               <TabsTrigger value="specialParagraph">{TRANSLATIONS.special}</TabsTrigger>
             </TabsList>
             <StyleEditor 
