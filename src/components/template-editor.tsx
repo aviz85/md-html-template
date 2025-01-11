@@ -83,7 +83,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const [headerContent, setHeaderContent] = useState("")
   const [footerContent, setFooterContent] = useState("")
   const [previewHtml, setPreviewHtml] = useState("")
-  const [activeElement, setActiveElement] = useState<ElementType>("h1")
+  const [activeElement, setActiveElement] = useState<ElementType>("body")
   const [templateName, setTemplateName] = useState("")
   const [templateGsheetsId, setTemplateGsheetsId] = useState("")
   const [fontName, setFontName] = useState("")
@@ -406,7 +406,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     // Add other element styles
     Object.entries(elementStyles).forEach(([element, style]) => {
       if (element === 'body') return // Skip body as it's already handled
-      const selector = element === 'specialParagraph' ? '.special-paragraph' : element
+      const selector = element === 'specialParagraph' ? '.special-paragraph' : 
+                      element === 'paragraph' ? 'p' : element
       // Only create a rule if there are styles
       const styleEntries = Object.entries(style).filter(([_, value]) => value !== undefined && value !== '')
       if (styleEntries.length > 0) {
