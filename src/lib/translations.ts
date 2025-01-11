@@ -45,5 +45,21 @@ export const TRANSLATIONS = {
   delete: 'מחק',
   duplicate: 'שכפל',
   copy: 'העתק',
-  pleaseEnterFontName: "נא להזין שם לפונט"
+  pleaseEnterFontName: "נא להזין שם לפונט",
+  validationError: "שגיאת אימות",
+  templateNameRequired: "נא להזין שם תבנית",
+  templateGsheetsIdRequired: "נא להזין מזהה תבנית",
+  headerContentRequired: "נא להזין תוכן כותרת עליונה",
+  footerContentRequired: "נא להזין תוכן כותרת תחתונה",
+  invalidFontName: "שם הפונט אינו תקין (אסור שיכיל רווחים)",
+  invalidFontFile: "קובץ הפונט אינו תקין (חייב להיות בפורמט woff2, woff, ttf או otf)",
+  fontTooLarge: "קובץ הפונט גדול מדי (מקסימום 2MB)",
+  invalidFontNameChars: "שם הפונט יכול להכיל רק אותיות באנגלית, מספרים ומקף",
+  previewNoTemplate: "לא ניתן להציג תצוגה מקדימה - נא לבחור תבנית תחילה",
+  invalidCssValue: "ערך CSS לא תקין",
+  invalidFontSize: "גודל פונט לא תקין (לדוגמה: 16px, 1.2rem)",
+  invalidColor: "ערך צבע לא תקין (לדוגמה: #FF0000, rgb(255,0,0))",
+  invalidMarginPadding: "ערך שוליים/ריפוד לא תקין (לדוגמה: 10px, 1rem)",
+  templateExists: "קיימת כבר תבנית עם שם זה",
+  networkError: "שגיאת תקשורת - נא לבדוק את החיבור לאינטרנט"
 } as const; 

@@ -157,7 +157,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   }
 
   const handleFontUpload = async () => {
-    if (!fontName?.trim() || !fontFile || !templateId) {
+    // Validate font name
+    if (!fontName?.trim()) {
       toast({
         variant: "destructive",
         title: TRANSLATIONS.error,
@@ -166,13 +167,42 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       return
     }
 
-    // Get file extension
+    // Check font name characters
+    if (!/^[a-zA-Z0-9-]+$/.test(fontName)) {
+      toast({
+        variant: "destructive",
+        title: TRANSLATIONS.error,
+        description: TRANSLATIONS.invalidFontNameChars
+      })
+      return
+    }
+
+    if (!fontFile || !templateId) {
+      toast({
+        variant: "destructive",
+        title: TRANSLATIONS.error,
+        description: TRANSLATIONS.pleaseEnterFontName
+      })
+      return
+    }
+
+    // Check file size (2MB limit)
+    if (fontFile.size > 2 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: TRANSLATIONS.error,
+        description: TRANSLATIONS.fontTooLarge
+      })
+      return
+    }
+
+    // Validate file extension
     const fileExt = fontFile.name.split('.').pop()?.toLowerCase()
     if (!fileExt || !['woff2', 'woff', 'ttf', 'otf'].includes(fileExt)) {
       toast({
         variant: "destructive",
         title: TRANSLATIONS.error,
-        description: TRANSLATIONS.uploadFontError
+        description: TRANSLATIONS.invalidFontFile
       })
       return
     }
@@ -247,7 +277,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       toast({
         variant: "destructive",
         title: TRANSLATIONS.error,
-        description: TRANSLATIONS.uploadFontError
+        description: error instanceof Error && error.message === 'Failed to fetch' 
+          ? TRANSLATIONS.networkError 
+          : TRANSLATIONS.uploadFontError
       })
     } finally {
       setIsUploading(false)
@@ -297,6 +329,34 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   }
 
   const handleStyleChange = (style: ElementStyle) => {
+    // Validate CSS values
+    const validationErrors = []
+
+    if (style.fontSize && !/^(\d+(\.\d+)?(px|rem|em|%)|inherit)$/.test(style.fontSize)) {
+      validationErrors.push(TRANSLATIONS.invalidFontSize)
+    }
+
+    if (style.margin && !/^(\d+(\.\d+)?(px|rem|em|%)|auto|inherit)$/.test(style.margin)) {
+      validationErrors.push(TRANSLATIONS.invalidMarginPadding)
+    }
+
+    if (style.padding && !/^(\d+(\.\d+)?(px|rem|em|%)|auto|inherit)$/.test(style.padding)) {
+      validationErrors.push(TRANSLATIONS.invalidMarginPadding)
+    }
+
+    if (style.color && !/^(#[0-9A-Fa-f]{3,6}|rgb\(\d{1,3},\s*\d{1,3},\s*\d{1,3}\)|inherit|var\(--color[1-4]\))$/.test(style.color)) {
+      validationErrors.push(TRANSLATIONS.invalidColor)
+    }
+
+    if (validationErrors.length > 0) {
+      toast({
+        variant: "destructive",
+        title: TRANSLATIONS.validationError,
+        description: validationErrors.join('\n')
+      })
+      return
+    }
+
     setElementStyles(prev => ({
       ...prev,
       [activeElement]: style
@@ -343,11 +403,26 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   }
 
   const handleSave = async () => {
-    if (!templateName) {
+    // Validate required fields
+    const validationErrors = []
+    if (!templateName?.trim()) {
+      validationErrors.push(TRANSLATIONS.templateNameRequired)
+    }
+    if (!templateGsheetsId?.trim()) {
+      validationErrors.push(TRANSLATIONS.templateGsheetsIdRequired)
+    }
+    if (!headerContent?.trim()) {
+      validationErrors.push(TRANSLATIONS.headerContentRequired)
+    }
+    if (!footerContent?.trim()) {
+      validationErrors.push(TRANSLATIONS.footerContentRequired)
+    }
+
+    if (validationErrors.length > 0) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Please enter a template name"
+        title: TRANSLATIONS.validationError,
+        description: validationErrors.join('\n')
       })
       return
     }
@@ -374,30 +449,52 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       })
 
       if (!response.ok) {
+        const error = await response.json()
+        if (error.code === 'template_exists') {
+          toast({
+            variant: "destructive",
+            title: TRANSLATIONS.error,
+            description: TRANSLATIONS.templateExists
+          })
+          return
+        }
         throw new Error('Failed to save template')
       }
 
       toast({
-        title: "Success",
-        description: "Template saved successfully"
+        title: TRANSLATIONS.success,
+        description: TRANSLATIONS.templateSavedSuccessfully
       })
       onSave?.()
     } catch (error) {
       console.error('Error saving template:', error)
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to save template"
+        title: TRANSLATIONS.error,
+        description: error instanceof Error && error.message === 'Failed to fetch' 
+          ? TRANSLATIONS.networkError 
+          : TRANSLATIONS.failedToSaveTemplate
       })
     }
   }
 
   const handlePreview = async () => {
-    if (!mdContent) {
+    // Validate markdown content
+    if (!mdContent?.trim()) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Please enter some markdown content"
+        title: TRANSLATIONS.error,
+        description: TRANSLATIONS.pleaseEnterContent
+      })
+      return
+    }
+
+    // Validate template ID
+    if (!templateId) {
+      toast({
+        variant: "destructive",
+        title: TRANSLATIONS.error,
+        description: TRANSLATIONS.previewNoTemplate
       })
       return
     }
@@ -438,8 +535,10 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       console.error('Error generating preview:', error)
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to generate preview"
+        title: TRANSLATIONS.error,
+        description: error instanceof Error && error.message === 'Failed to fetch' 
+          ? TRANSLATIONS.networkError 
+          : TRANSLATIONS.failedToSaveTemplate
       })
     }
   }
