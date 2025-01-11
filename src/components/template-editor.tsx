@@ -39,9 +39,10 @@ interface ElementStyle {
   padding?: string
   fontFamily?: string
   textAlign?: 'right' | 'left' | 'center' | 'justify'
+  customCss?: string
 }
 
-type ElementType = "body" | "h1" | "h2" | "h3" | "list" | "p" | "specialParagraph"
+type ElementType = "body" | "h1" | "h2" | "h3" | "list" | "p" | "specialParagraph" | "header" | "footer"
 
 interface Template {
   id: string
@@ -112,7 +113,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       h3: {},
       list: {},
       p: {},
-      specialParagraph: {}
+      specialParagraph: {},
+      header: {},
+      footer: {}
     }
 
     // Split CSS into rules
@@ -125,6 +128,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
       const cleanSelector = selector.trim()
       const elementName = cleanSelector === '.special-paragraph' ? 'specialParagraph' : 
+                         cleanSelector === '.header' ? 'header' :
+                         cleanSelector === '.footer' ? 'footer' :
                          cleanSelector === 'body' ? 'body' : 
                          cleanSelector === 'p' ? 'p' : cleanSelector
 
@@ -365,53 +370,33 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   }
 
   const generateCSS = () => {
-    let css = ""
+    let css = ''
     
-    // Add root variables
-    css += `:root {\n`
-    if (colors.color1) css += `  --color1: ${colors.color1};\n`
-    if (colors.color2) css += `  --color2: ${colors.color2};\n`
-    if (colors.color3) css += `  --color3: ${colors.color3};\n`
-    if (colors.color4) css += `  --color4: ${colors.color4};\n`
-    css += `}\n\n`
+    // Add styles for each element
+    Object.entries(elementStyles).forEach(([element, styles]) => {
+      if (Object.keys(styles).length === 0) return
 
-    // Add body styles first
-    const bodyStyles = elementStyles.body
-    if (Object.keys(bodyStyles).length > 0) {
-      css += `body {\n`
-      Object.entries(bodyStyles).forEach(([prop, value]) => {
-        if (value !== undefined && value !== '') {
-          const kebabProp = CSS_PROPERTIES[prop as keyof typeof CSS_PROPERTIES]
-          css += `  ${kebabProp}: ${value};\n`
-        }
+      // Convert element name to CSS selector
+      const selector = element === 'specialParagraph' ? '.special-paragraph' :
+                      element === 'header' ? '.header' :
+                      element === 'footer' ? '.footer' :
+                      element
+
+      css += `${selector} {\n`
+      // Add standard properties
+      Object.entries(styles).forEach(([property, value]) => {
+        if (property === 'customCss') return // Skip customCss here
+        // Convert camelCase to kebab-case for CSS properties
+        const kebabProperty = toKebabCase(property)
+        css += `  ${kebabProperty}: ${value};\n`
       })
-      css += `}\n\n`
-    }
-
-    // Add default footer styles
-    css += `.template-footer {
-  margin-top: 3rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--color3);
-  font-size: 0.875rem;
-  color: var(--color4);
-  opacity: 0.9;
-}\n\n`
-
-    // Add other element styles
-    Object.entries(elementStyles).forEach(([element, style]) => {
-      if (element === 'body') return // Skip body as it's already handled
-      const selector = element === 'specialParagraph' ? '.special-paragraph' : element
-      // Only create a rule if there are styles
-      const styleEntries = Object.entries(style).filter(([_, value]) => value !== undefined && value !== '')
-      if (styleEntries.length > 0) {
-        css += `${selector} {\n`
-        styleEntries.forEach(([prop, value]) => {
-          const kebabProp = CSS_PROPERTIES[prop as keyof typeof CSS_PROPERTIES]
-          css += `  ${kebabProp}: ${value};\n`
-        })
-        css += `}\n\n`
+      
+      // Add custom CSS if exists
+      if (styles.customCss) {
+        css += `  ${styles.customCss}\n`
       }
+      
+      css += '}\n\n'
     })
 
     return css
@@ -682,8 +667,10 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         </TabsContent>
         <TabsContent value="styles">
           <Tabs value={activeElement} onValueChange={(value: string) => setActiveElement(value as ElementType)}>
-            <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-9">
               <TabsTrigger value="body">{TRANSLATIONS.generalStyles}</TabsTrigger>
+              <TabsTrigger value="header">{TRANSLATIONS.header}</TabsTrigger>
+              <TabsTrigger value="footer">{TRANSLATIONS.footer}</TabsTrigger>
               <TabsTrigger value="h1">H1</TabsTrigger>
               <TabsTrigger value="h2">H2</TabsTrigger>
               <TabsTrigger value="h3">H3</TabsTrigger>

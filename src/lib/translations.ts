@@ -70,5 +70,9 @@ export const TRANSLATIONS = {
   alignRight: "ימין",
   alignLeft: "שמאל",
   alignCenter: "מרכז",
-  alignJustify: "מיושר לשני הצדדים"
+  alignJustify: "מיושר לשני הצדדים",
+  header: "כותרת עליונה",
+  footer: "כותרת תחתונה",
+  customCss: "CSS מותאם אישית",
+  enterCustomCss: "הכנס קוד CSS מותאם אישית..."
 } as const; 

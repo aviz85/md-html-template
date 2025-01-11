@@ -98,30 +98,34 @@ body {
 }
 `;
 
-export function generateHtmlTemplate(
-  html: string,
+export const generateHtmlTemplate = (
+  content: string,
   css: string,
-  googleFontsUrl: string,
-  customFonts?: string
-): string {
+  headerContent?: string,
+  footerContent?: string,
+  customFonts?: Array<{ name: string, font_family: string }>
+) => {
+  const fontFamilies = customFonts?.map(font => `@font-face {
+    font-family: "${font.font_family}";
+    src: url("/api/fonts/${font.name}") format("woff2");
+  }`).join('\n') || ''
+
   return `<!DOCTYPE html>
-<html dir="rtl">
+<html dir="rtl" lang="he">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  ${googleFontsUrl ? `<link href="${googleFontsUrl}" rel="stylesheet">` : ''}
   <style>
-    /* Custom Fonts */
-    ${customFonts || ''}
-
-    /* Template Styles */
+    ${fontFamilies}
     ${css}
   </style>
 </head>
 <body>
-  ${html}
+  ${headerContent ? `<div class="header">${headerContent}</div>` : ''}
+  ${content}
+  ${footerContent ? `<div class="footer">${footerContent}</div>` : ''}
 </body>
-</html>`;
+</html>`
 }
 
 export const extractUsedFonts = (css: string): string[] => {

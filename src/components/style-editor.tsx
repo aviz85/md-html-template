@@ -23,6 +23,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Upload } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
 
 const HEBREW_FONTS = [
   { name: "ברירת מחדל", value: "inherit" },
@@ -43,6 +44,7 @@ interface ElementStyle {
   padding?: string
   fontFamily?: string
   textAlign?: 'right' | 'left' | 'center' | 'justify'
+  customCss?: string
 }
 
 interface StyleEditorProps {
@@ -198,106 +200,119 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
   )
 
   return (
-    <div className="grid gap-4 p-4" dir="rtl">
-      <div className="grid grid-cols-2 gap-4">
-        <ColorPicker
-          id="color"
-          label={TRANSLATIONS.color}
-          value={style.color || ""}
-          onChange={(value) => onChange({ ...style, color: value })}
-        />
-        <ColorPicker
-          id="backgroundColor"
-          label={TRANSLATIONS.background}
-          value={style.backgroundColor || ""}
-          onChange={(value) => onChange({ ...style, backgroundColor: value })}
-        />
+    <div className="space-y-4 p-4">
+      <div className="grid gap-4 p-4" dir="rtl">
+        <div className="grid grid-cols-2 gap-4">
+          <ColorPicker
+            id="color"
+            label={TRANSLATIONS.color}
+            value={style.color || ""}
+            onChange={(value) => onChange({ ...style, color: value })}
+          />
+          <ColorPicker
+            id="backgroundColor"
+            label={TRANSLATIONS.background}
+            value={style.backgroundColor || ""}
+            onChange={(value) => onChange({ ...style, backgroundColor: value })}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>{TRANSLATIONS.fontFamily}</Label>
+            <Select
+              value={style.fontFamily || "inherit"}
+              onValueChange={(value) => onChange({ ...style, fontFamily: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {/* Custom fonts section */}
+                {customFonts && customFonts.length > 0 && (
+                  <>
+                    {customFonts.map((font) => (
+                      <SelectItem key={font.name} value={`'${font.font_family}', sans-serif`}>
+                        {font.name}
+                      </SelectItem>
+                    ))}
+                    <div className="h-[1px] my-2 bg-border" />
+                  </>
+                )}
+                
+                {/* Default fonts */}
+                {HEBREW_FONTS.map((font) => (
+                  <SelectItem key={font.value} value={font.value}>
+                    {font.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>{TRANSLATIONS.textAlign}</Label>
+            <Select
+              value={style.textAlign || "inherit"}
+              onValueChange={(value) => onChange({ ...style, textAlign: value as ElementStyle['textAlign'] })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="inherit">{TRANSLATIONS.none}</SelectItem>
+                <SelectItem value="right">{TRANSLATIONS.alignRight}</SelectItem>
+                <SelectItem value="left">{TRANSLATIONS.alignLeft}</SelectItem>
+                <SelectItem value="center">{TRANSLATIONS.alignCenter}</SelectItem>
+                <SelectItem value="justify">{TRANSLATIONS.alignJustify}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="fontSize">{TRANSLATIONS.fontSize}</Label>
+            <Input
+              id="fontSize"
+              type="text"
+              value={style.fontSize || ""}
+              placeholder="16px"
+              onChange={handleChange("fontSize")}
+              dir="ltr"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="margin">{TRANSLATIONS.margin}</Label>
+            <Input
+              id="margin"
+              type="text"
+              value={style.margin || ""}
+              placeholder="1rem"
+              onChange={handleChange("margin")}
+              dir="ltr"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="padding">{TRANSLATIONS.padding}</Label>
+            <Input
+              id="padding"
+              type="text"
+              value={style.padding || ""}
+              placeholder="1rem"
+              onChange={handleChange("padding")}
+              dir="ltr"
+            />
+          </div>
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>{TRANSLATIONS.fontFamily}</Label>
-          <Select
-            value={style.fontFamily || "inherit"}
-            onValueChange={(value) => onChange({ ...style, fontFamily: value })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {/* Custom fonts section */}
-              {customFonts && customFonts.length > 0 && (
-                <>
-                  {customFonts.map((font) => (
-                    <SelectItem key={font.name} value={`'${font.font_family}', sans-serif`}>
-                      {font.name}
-                    </SelectItem>
-                  ))}
-                  <div className="h-[1px] my-2 bg-border" />
-                </>
-              )}
-              
-              {/* Default fonts */}
-              {HEBREW_FONTS.map((font) => (
-                <SelectItem key={font.value} value={font.value}>
-                  {font.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>{TRANSLATIONS.textAlign}</Label>
-          <Select
-            value={style.textAlign || "inherit"}
-            onValueChange={(value) => onChange({ ...style, textAlign: value as ElementStyle['textAlign'] })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="inherit">{TRANSLATIONS.none}</SelectItem>
-              <SelectItem value="right">{TRANSLATIONS.alignRight}</SelectItem>
-              <SelectItem value="left">{TRANSLATIONS.alignLeft}</SelectItem>
-              <SelectItem value="center">{TRANSLATIONS.alignCenter}</SelectItem>
-              <SelectItem value="justify">{TRANSLATIONS.alignJustify}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="fontSize">{TRANSLATIONS.fontSize}</Label>
-          <Input
-            id="fontSize"
-            type="text"
-            value={style.fontSize || ""}
-            placeholder="16px"
-            onChange={handleChange("fontSize")}
-            dir="ltr"
-          />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="margin">{TRANSLATIONS.margin}</Label>
-          <Input
-            id="margin"
-            type="text"
-            value={style.margin || ""}
-            placeholder="1rem"
-            onChange={handleChange("margin")}
-            dir="ltr"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="padding">{TRANSLATIONS.padding}</Label>
-          <Input
-            id="padding"
-            type="text"
-            value={style.padding || ""}
-            placeholder="1rem"
-            onChange={handleChange("padding")}
-            dir="ltr"
-          />
-        </div>
+      
+      <div>
+        <label className="text-sm font-medium">{TRANSLATIONS.customCss}</label>
+        <Textarea
+          placeholder={TRANSLATIONS.enterCustomCss}
+          value={style.customCss || ''}
+          onChange={(e) => handleStyleChange('customCss', e.target.value)}
+          className="font-mono text-sm mt-2"
+          dir="ltr"
+        />
       </div>
     </div>
   )
