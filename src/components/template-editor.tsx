@@ -42,7 +42,7 @@ interface ElementStyle {
   customCss?: string
 }
 
-type ElementType = "body" | "h1" | "h2" | "h3" | "list" | "p" | "specialParagraph" | "header" | "footer"
+type ElementType = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "list" | "p" | "specialParagraph" | "header" | "footer"
 
 interface Template {
   id: string
@@ -94,9 +94,14 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     h1: {},
     h2: {},
     h3: {},
+    h4: {},
+    h5: {},
+    h6: {},
     list: {},
     p: {},
-    specialParagraph: {}
+    specialParagraph: {},
+    header: {},
+    footer: {}
   })
 
   useEffect(() => {
@@ -111,6 +116,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       h1: {},
       h2: {},
       h3: {},
+      h4: {},
+      h5: {},
+      h6: {},
       list: {},
       p: {},
       specialParagraph: {},
@@ -668,16 +676,24 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         </TabsContent>
         <TabsContent value="styles">
           <Tabs value={activeElement} onValueChange={(value: string) => setActiveElement(value as ElementType)}>
-            <TabsList className="grid w-full grid-cols-9">
-              <TabsTrigger value="body">{TRANSLATIONS.generalStyles}</TabsTrigger>
-              <TabsTrigger value="header">{TRANSLATIONS.header}</TabsTrigger>
-              <TabsTrigger value="footer">{TRANSLATIONS.footer}</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-4 gap-2 bg-muted p-1">
+              {/* General & Layout */}
+              <TabsTrigger value="body" className="font-bold">{TRANSLATIONS.generalStyles}</TabsTrigger>
+              <TabsTrigger value="header" className="font-bold">{TRANSLATIONS.header}</TabsTrigger>
+              <TabsTrigger value="footer" className="font-bold">{TRANSLATIONS.footer}</TabsTrigger>
+              <TabsTrigger value="specialParagraph" className="font-bold">{TRANSLATIONS.special}</TabsTrigger>
+              
+              {/* Headers */}
               <TabsTrigger value="h1">H1</TabsTrigger>
               <TabsTrigger value="h2">H2</TabsTrigger>
               <TabsTrigger value="h3">H3</TabsTrigger>
-              <TabsTrigger value="list">{TRANSLATIONS.list}</TabsTrigger>
+              <TabsTrigger value="h4">H4</TabsTrigger>
+              <TabsTrigger value="h5">H5</TabsTrigger>
+              <TabsTrigger value="h6">H6</TabsTrigger>
+              
+              {/* Content */}
               <TabsTrigger value="p">{TRANSLATIONS.paragraph}</TabsTrigger>
-              <TabsTrigger value="specialParagraph">{TRANSLATIONS.special}</TabsTrigger>
+              <TabsTrigger value="list">{TRANSLATIONS.list}</TabsTrigger>
             </TabsList>
             <StyleEditor 
               style={elementStyles[activeElement]} 
