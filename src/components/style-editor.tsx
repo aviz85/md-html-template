@@ -13,8 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { FONT_FAMILIES, CSS_PROPERTIES, loadCustomFonts } from "@/lib/constants"
-import { createClient } from '@supabase/supabase-js'
 import { useToast } from "@/hooks/use-toast"
+import { supabase } from "@/lib/supabase-client"
 import {
   Dialog,
   DialogContent,
@@ -23,11 +23,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Upload } from "lucide-react"
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 const HEBREW_FONTS = [
   { name: "ברירת מחדל", value: "inherit" },

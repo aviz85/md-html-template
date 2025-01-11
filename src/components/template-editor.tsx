@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
 import { StyleEditor } from "@/components/style-editor"
-import { createClient } from '@supabase/supabase-js'
 import { useToast } from "@/hooks/use-toast"
 import { marked } from 'marked'
 import { 
@@ -20,6 +19,7 @@ import {
   convertMarkdownToHtml
 } from "@/lib/constants"
 import { TRANSLATIONS } from "@/lib/translations"
+import { supabase } from "@/lib/supabase-client"
 import {
   Dialog,
   DialogContent,
@@ -30,16 +30,6 @@ import {
 } from "@/components/ui/dialog"
 import { Upload } from "lucide-react"
 import { Label } from "@/components/ui/label"
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    auth: {
-      persistSession: false
-    }
-  }
-)
 
 interface ElementStyle {
   color?: string
@@ -508,16 +498,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   }
 
   const handlePreview = async () => {
-    // Validate markdown content
-    if (!mdContent?.trim()) {
-      toast({
-        variant: "destructive",
-        title: TRANSLATIONS.error,
-        description: TRANSLATIONS.pleaseEnterContent
-      })
-      return
-    }
-
     // Validate template ID
     if (!templateId) {
       toast({
@@ -530,7 +510,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
     try {
       console.log('Sending preview request with:', {
-        markdowns: [mdContent],
+        markdowns: [mdContent || ''],
         template: {
           id: templateId,
           css: generateCSS(),
@@ -546,7 +526,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          markdowns: [mdContent],
+          markdowns: [mdContent || ''],
           template: {
             id: templateId,
             css: generateCSS(),
@@ -718,9 +698,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
               customFonts={customFonts}
             />
           </Tabs>
-          <Button onClick={handleSave} className="w-full mt-4">{TRANSLATIONS.saveTemplate}</Button>
         </TabsContent>
       </Tabs>
+      <Button onClick={handleSave} className="w-full mt-4">{TRANSLATIONS.saveTemplate}</Button>
     </div>
   )
 } 
