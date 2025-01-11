@@ -332,38 +332,41 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   }
 
   const handleStyleChange = (style: ElementStyle) => {
-    // Validate CSS values
-    const validationErrors = []
-
-    if (style.fontSize && !/^(\d+(\.\d+)?(px|rem|em|%)|inherit)$/.test(style.fontSize)) {
-      validationErrors.push(TRANSLATIONS.invalidFontSize)
-    }
-
-    if (style.margin && !/^(\d+(\.\d+)?(px|rem|em|%)|auto|inherit)$/.test(style.margin)) {
-      validationErrors.push(TRANSLATIONS.invalidMarginPadding)
-    }
-
-    if (style.padding && !/^(\d+(\.\d+)?(px|rem|em|%)|auto|inherit)$/.test(style.padding)) {
-      validationErrors.push(TRANSLATIONS.invalidMarginPadding)
-    }
-
-    if (style.color && !/^(#[0-9A-Fa-f]{3,6}|rgb\(\d{1,3},\s*\d{1,3},\s*\d{1,3}\)|inherit|var\(--color[1-4]\))$/.test(style.color)) {
-      validationErrors.push(TRANSLATIONS.invalidColor)
-    }
-
-    if (validationErrors.length > 0) {
-      toast({
-        variant: "destructive",
-        title: TRANSLATIONS.validationError,
-        description: validationErrors.join('\n')
-      })
-      return
-    }
-
     setElementStyles(prev => ({
       ...prev,
       [activeElement]: style
     }))
+  }
+
+  const validateStyles = (styles: Template["elementStyles"]) => {
+    const validationErrors: string[] = []
+
+    Object.entries(styles).forEach(([element, style]) => {
+      Object.entries(style).forEach(([prop, value]) => {
+        if (!value) return
+
+        switch (prop) {
+          case 'fontSize':
+            if (!/^(\d+(\.\d+)?(px|rem|em|%)|inherit)$/.test(value)) {
+              validationErrors.push(`${element}: ${TRANSLATIONS.invalidFontSize}`)
+            }
+            break
+          case 'margin':
+          case 'padding':
+            if (!/^(\d+(\.\d+)?(px|rem|em|%)|auto|inherit)$/.test(value)) {
+              validationErrors.push(`${element}: ${TRANSLATIONS.invalidMarginPadding}`)
+            }
+            break
+          case 'color':
+            if (!/^(#[0-9A-Fa-f]{3,6}|rgb\(\d{1,3},\s*\d{1,3},\s*\d{1,3}\)|inherit|var\(--color[1-4]\))$/.test(value)) {
+              validationErrors.push(`${element}: ${TRANSLATIONS.invalidColor}`)
+            }
+            break
+        }
+      })
+    })
+
+    return validationErrors
   }
 
   const generateCSS = () => {
@@ -421,7 +424,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
   const handleSave = async () => {
     // Validate required fields
-    const validationErrors = []
+    const validationErrors: string[] = []
     if (!templateName?.trim()) {
       validationErrors.push(TRANSLATIONS.templateNameRequired)
     }
@@ -434,6 +437,10 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     if (!footerContent?.trim()) {
       validationErrors.push(TRANSLATIONS.footerContentRequired)
     }
+
+    // Validate styles
+    const styleErrors = validateStyles(elementStyles)
+    validationErrors.push(...styleErrors)
 
     if (validationErrors.length > 0) {
       toast({
