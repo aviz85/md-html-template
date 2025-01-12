@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dialog"
 import { Upload } from "lucide-react"
 import { Label } from "@/components/ui/label"
+import { Trash2 } from "lucide-react"
 
 interface ElementStyle {
   color?: string
@@ -55,6 +56,12 @@ interface Template {
   template_gsheets_id?: string
   header_content?: string
   footer_content?: string
+  opening_page_content?: string
+  closing_page_content?: string
+  custom_contents?: Array<{
+    name: string
+    content: string
+  }>
   custom_fonts?: Array<{
     name: string
     file_path: string
@@ -148,6 +155,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     footer: {}
   })
   const [sidebarWidth, setSidebarWidth] = useState(200)
+  const [openingPageContent, setOpeningPageContent] = useState("")
+  const [closingPageContent, setClosingPageContent] = useState("")
+  const [customContents, setCustomContents] = useState<{ name: string; content: string }[]>([])
 
   useEffect(() => {
     if (templateId) {
@@ -302,6 +312,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         template_gsheets_id: templateGsheetsId,
         header_content: headerContent,
         footer_content: footerContent,
+        opening_page_content: openingPageContent,
+        closing_page_content: closingPageContent,
+        custom_contents: customContents,
         custom_fonts: fonts,
         ...colors,
         css
@@ -364,12 +377,35 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       setTemplateGsheetsId(template.template_gsheets_id || "")
       setHeaderContent(template.header_content || "")
       setFooterContent(template.footer_content || "")
+      setCustomFonts(template.custom_fonts || [])
       setColors({
         color1: template.color1 || "#000000",
         color2: template.color2 || "#ffffff",
         color3: template.color3 || "#cccccc",
         color4: template.color4 || "#666666"
       })
+      
+      // Load template contents
+      const { data: contentsData, error: contentsError } = await supabase
+        .from('template_contents')
+        .select('content_name, md_content')
+        .eq('template_id', id)
+
+      if (!contentsError && contentsData) {
+        contentsData.forEach(content => {
+          if (content.content_name === 'opening_page') {
+            setOpeningPageContent(content.md_content)
+          } else if (content.content_name === 'closing_page') {
+            setClosingPageContent(content.md_content)
+          } else if (content.content_name.startsWith('custom_')) {
+            const customContent = {
+              name: content.content_name.replace('custom_', ''),
+              content: content.md_content
+            }
+            setCustomContents(prev => [...prev, customContent])
+          }
+        })
+      }
       
       // Load custom fonts via API
       const response = await fetch(`/api/fonts?templateId=${id}`)
@@ -492,6 +528,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       template_gsheets_id: templateGsheetsId,
       header_content: headerContent,
       footer_content: footerContent,
+      opening_page_content: openingPageContent,
+      closing_page_content: closingPageContent,
+      custom_contents: customContents,
       custom_fonts: customFonts,
       ...colors,
       css
@@ -595,6 +634,59 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     }
   }
 
+  const handleAddCustomContent = () => {
+    // מציאת המספר הבא הפנוי
+    const existingNumbers = customContents
+      .map(c => {
+        const match = c.name.match(/^custom(\d+)$/)
+        return match ? parseInt(match[1]) : 0
+      })
+      .filter(n => !isNaN(n))
+    
+    const nextNumber = existingNumbers.length > 0 
+      ? Math.max(...existingNumbers) + 1 
+      : 1
+
+    const newContent = { name: `custom${nextNumber}`, content: '' }
+    setCustomContents(prev => [...prev, newContent])
+  }
+
+  const handleCustomContentChange = (index: number, field: 'name' | 'content', value: string) => {
+    setCustomContents(prev => {
+      const newContents = [...prev]
+      if (field === 'name') {
+        // בידוא שהשם החדש מכיל רק אותיות באנגלית ומספרים
+        if (!/^[A-Za-z0-9]+$/.test(value)) {
+          toast({
+            variant: "destructive",
+            title: TRANSLATIONS.error,
+            description: TRANSLATIONS.invalidCustomContentName
+          })
+          return prev
+        }
+        
+        // בדיקה אם השם החדש כבר קיים
+        if (newContents.some((content, i) => i !== index && content.name === value)) {
+          toast({
+            variant: "destructive",
+            title: TRANSLATIONS.error,
+            description: TRANSLATIONS.customContentNameExists
+          })
+          return prev
+        }
+      }
+      newContents[index][field] = value
+      return newContents
+    })
+  }
+
+  const handleRemoveCustomContent = (index: number) => {
+    setCustomContents(prev => {
+      const newContents = prev.filter((_, i) => i !== index)
+      return newContents
+    })
+  }
+
   return (
     <div className="space-y-4" dir="rtl">
       <div className="space-y-4">
@@ -656,24 +748,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             className="mt-2"
           />
         </div>
-        <div>
-          <label className="text-sm font-medium">{TRANSLATIONS.headerContent}</label>
-          <Textarea
-            placeholder={TRANSLATIONS.enterHeaderContent}
-            value={headerContent}
-            onChange={(e) => setHeaderContent(e.target.value)}
-            className="mt-2"
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium">{TRANSLATIONS.footerContent}</label>
-          <Textarea
-            placeholder={TRANSLATIONS.enterFooterContent}
-            value={footerContent}
-            onChange={(e) => setFooterContent(e.target.value)}
-            className="mt-2"
-          />
-        </div>
         <div className="grid grid-cols-4 gap-4">
           {Object.entries(colors).map(([key, value]) => (
             <div key={key}>
@@ -690,11 +764,12 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       </div>
       <Tabs defaultValue="content" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="content" className="col-span-2">{TRANSLATIONS.content}</TabsTrigger>
+          <TabsTrigger value="content">{TRANSLATIONS.content}</TabsTrigger>
+          <TabsTrigger value="microCopy">{TRANSLATIONS.microCopy}</TabsTrigger>
           <TabsTrigger value="styles">{TRANSLATIONS.styles}</TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="content" className="space-y-4">
+
+        <TabsContent value="content">
           <Textarea
             placeholder={TRANSLATIONS.enterMarkdownContent}
             value={mdContent}
@@ -721,7 +796,71 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           </Dialog>
         </TabsContent>
 
-        <TabsContent value="styles" className="h-[600px]">
+        <TabsContent value="microCopy">
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">{TRANSLATIONS.header}</label>
+              <Textarea
+                placeholder={TRANSLATIONS.header}
+                value={headerContent}
+                onChange={(e) => setHeaderContent(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{TRANSLATIONS.footer}</label>
+              <Textarea
+                placeholder={TRANSLATIONS.footer}
+                value={footerContent}
+                onChange={(e) => setFooterContent(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{TRANSLATIONS.openingPage}</label>
+              <Textarea
+                placeholder={TRANSLATIONS.openingPage}
+                value={openingPageContent}
+                onChange={(e) => setOpeningPageContent(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{TRANSLATIONS.closingPage}</label>
+              <Textarea
+                placeholder={TRANSLATIONS.closingPage}
+                value={closingPageContent}
+                onChange={(e) => setClosingPageContent(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+            <Button variant="outline" onClick={handleAddCustomContent} className="w-full">
+              {TRANSLATIONS.addCustomContent}
+            </Button>
+            {customContents.map((content, index) => (
+              <div key={index} className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Input
+                    value={content.name}
+                    onChange={(e) => handleCustomContentChange(index, 'name', e.target.value)}
+                    placeholder={TRANSLATIONS.customContentName}
+                    className="w-48"
+                  />
+                  <Button variant="ghost" size="sm" onClick={() => handleRemoveCustomContent(index)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Textarea
+                  value={content.content}
+                  onChange={(e) => handleCustomContentChange(index, 'content', e.target.value)}
+                  className="mt-2"
+                />
+              </div>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="styles">
           <div className="flex h-full">
             {/* Sidebar */}
             <div className="w-1/4 bg-muted border-l overflow-y-auto">

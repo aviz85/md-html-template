@@ -15,6 +15,12 @@ interface Template {
   template_gsheets_id?: string
   header_content?: string
   footer_content?: string
+  opening_page_content?: string
+  closing_page_content?: string
+  custom_contents?: Array<{
+    name: string
+    content: string
+  }>
   custom_fonts?: Array<{
     name: string
     file_path: string
@@ -63,9 +69,10 @@ export async function POST(req: Request) {
 
     let templateData: TemplateData | null = null
 
-    // אם נשלח template_id, נחפש לפיו
-    if (template.template_id) {
-      console.log('Fetching template by template_id:', template.template_id)
+    // אם נשלח template_id או id, נחפש לפיו
+    if (template.template_id || template.id) {
+      const searchId = template.template_id || template.id
+      console.log('Fetching template by id:', searchId)
       
       // בדיקה אם התבנית קיימת
       const { data: allTemplates, error: listError } = await supabase
@@ -74,7 +81,8 @@ export async function POST(req: Request) {
 
       console.log('All templates:', allTemplates)
 
-      const { data, error } = await supabase
+      // נסה למצוא לפי template_gsheets_id
+      let { data: foundTemplate, error: templateError } = await supabase
         .from('templates')
         .select(`
           *,
@@ -85,21 +93,67 @@ export async function POST(req: Request) {
             format
           )
         `)
-        .eq('id', template.template_id)
+        .eq('template_gsheets_id', searchId)
         .single()
 
-      console.log('Supabase response:', { data, error })
-
-      if (error) {
-        console.error('DB Error:', error)
-        throw new Error(`Template not found: ${error.message}`)
+      // אם לא נמצא, נסה למצוא לפי id רגיל
+      if (templateError || !foundTemplate) {
+        const { data, error } = await supabase
+          .from('templates')
+          .select(`
+            *,
+            custom_fonts (
+              name,
+              file_path,
+              font_family,
+              format
+            )
+          `)
+          .eq('id', searchId)
+          .single()
+          
+        foundTemplate = data
+        templateError = error
       }
-      if (!data) {
+
+      if (templateError) {
+        console.error('DB Error:', templateError)
+        throw new Error(`Template not found: ${templateError.message}`)
+      }
+      if (!foundTemplate) {
         console.error('No data returned from DB')
         throw new Error('Template not found: no data returned')
       }
 
-      templateData = data
+      templateData = foundTemplate
+
+      // Fetch template contents
+      const { data: contentsData, error: contentsError } = await supabase
+        .from('template_contents')
+        .select('content_name, md_content')
+        .eq('template_id', templateData!.id)
+
+      if (contentsError) {
+        console.error('Error fetching template contents:', contentsError)
+      } else if (contentsData) {
+        // Map contents to template data
+        contentsData.forEach(content => {
+          if (!templateData) return
+          
+          if (content.content_name === 'opening_page') {
+            templateData.opening_page_content = content.md_content
+          } else if (content.content_name === 'closing_page') {
+            templateData.closing_page_content = content.md_content
+          } else if (content.content_name.startsWith('custom_')) {
+            if (!templateData.custom_contents) templateData.custom_contents = []
+            templateData.custom_contents.push({
+              name: content.content_name.replace('custom_', ''),
+              content: content.md_content
+            })
+          }
+        })
+      }
+
       console.log('Found template:', templateData)
     } 
     // אם נשלח template מלא, נשתמש בו ישירות
@@ -144,6 +198,16 @@ export async function POST(req: Request) {
 
     console.log('Using template data:', templateData)
 
+    // הוספת עמודי פתיחה וסיום למערך ה-markdowns
+    const finalMarkdowns = []
+    if (templateData.opening_page_content) {
+      finalMarkdowns.push(templateData.opening_page_content)
+    }
+    finalMarkdowns.push(...markdowns)
+    if (templateData.closing_page_content) {
+      finalMarkdowns.push(templateData.closing_page_content)
+    }
+
     // Generate @font-face rules
     const customFontFaces = templateData.custom_fonts?.length 
       ? generateCustomFontFaces(templateData.custom_fonts)
@@ -152,11 +216,12 @@ export async function POST(req: Request) {
     console.log('\nGenerated @font-face rules:', customFontFaces)
 
     // Convert each markdown document to HTML
-    const htmls = await Promise.all(markdowns.map(async (markdown) => {
+    const htmls = await Promise.all(finalMarkdowns.map(async (markdown) => {
       const combinedHtml = await convertMarkdownToHtml(
         markdown, 
         templateData!.header_content || '', 
-        templateData!.footer_content || ''
+        templateData!.footer_content || '',
+        templateData!.custom_contents
       )
       const usedFonts = extractUsedFonts(templateData!.css)
       const googleFontsUrl = generateGoogleFontsUrl(usedFonts)

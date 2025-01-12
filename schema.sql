@@ -4,15 +4,19 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Templates table
 CREATE TABLE templates (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    css TEXT NOT NULL,
+    name TEXT UNIQUE NOT NULL,
+    css TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    color1 VARCHAR(7),  -- hex color format: #RRGGBB
-    color2 VARCHAR(7),
-    color3 VARCHAR(7),
-    color4 VARCHAR(7),
-    logo_url TEXT,
-    CONSTRAINT template_name_unique UNIQUE (name)
+    color1 TEXT,
+    color2 TEXT,
+    color3 TEXT,
+    color4 TEXT,
+    color5 TEXT,
+    header_content TEXT,
+    footer_content TEXT,
+    opening_page_content TEXT,
+    closing_page_content TEXT,
+    custom_fonts JSONB
 );
 
 -- Static MD content linked to templates

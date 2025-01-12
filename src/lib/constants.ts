@@ -101,29 +101,23 @@ body {
 export const generateHtmlTemplate = (
   content: string,
   css: string,
-  headerContent?: string,
-  footerContent?: string,
-  customFonts?: Array<{ name: string, font_family: string }>
+  googleFontsUrl: string,
+  customFontFaces: string
 ) => {
-  const fontFamilies = customFonts?.map(font => `@font-face {
-    font-family: "${font.font_family}";
-    src: url("/api/fonts/${font.name}") format("woff2");
-  }`).join('\n') || ''
-
   return `<!DOCTYPE html>
 <html dir="rtl" lang="he">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  ${googleFontsUrl ? `<link href="${googleFontsUrl}" rel="stylesheet">` : ''}
   <style>
-    ${fontFamilies}
+    ${DEFAULT_BODY_STYLES}
+    ${customFontFaces}
     ${css}
   </style>
 </head>
 <body>
-  ${headerContent ? `<div class="header">${headerContent}</div>` : ''}
   ${content}
-  ${footerContent ? `<div class="footer">${footerContent}</div>` : ''}
 </body>
 </html>`
 }
@@ -167,13 +161,24 @@ export const generateGoogleFontsUrl = (fonts: string[]): string => {
   return `https://fonts.googleapis.com/css2?${fontFamilies.map(f => `family=${f.replace(' ', '+')}`).join('&')}&display=swap`;
 };
 
-export async function convertMarkdownToHtml(content: string, headerContent?: string, footerContent?: string) {
+export async function convertMarkdownToHtml(content: string, headerContent?: string, footerContent?: string, customContents?: Array<{ name: string, content: string }>) {
   if (!content) {
     throw new Error('Content is required')
   }
-  const headerHtml = headerContent ? await marked.parse(headerContent) : '';
-  const contentHtml = await marked.parse(content);
-  const footerHtml = footerContent ? 
-    `<div class="template-footer">${await marked.parse(footerContent)}</div>` : '';
-  return `${headerHtml}\n${contentHtml}\n${footerHtml}`;
+
+  let processedContent = content;
+  
+  // Replace custom content placeholders
+  if (customContents) {
+    customContents.forEach(({ name, content }) => {
+      const placeholder = `[${name}]`;
+      processedContent = processedContent.replace(placeholder, content);
+    });
+  }
+
+  const headerHtml = headerContent ? `<div class="header">${await marked.parse(headerContent)}</div>\n` : '';
+  const contentHtml = await marked.parse(processedContent);
+  const footerHtml = footerContent ? `\n<div class="footer">${await marked.parse(footerContent)}</div>` : '';
+  
+  return `${headerHtml}${contentHtml}${footerHtml}`;
 } 
