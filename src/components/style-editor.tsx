@@ -85,10 +85,6 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
     })
   }
 
-  const handleTextAreaChange = (field: string) => (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange({ ...style, [field]: e.target.value })
-  }
-
   const handleFontUpload = async () => {
     if (!fontName || !fontFile) return
 
@@ -313,7 +309,7 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
         <Textarea
           placeholder={TRANSLATIONS.enterCustomCss}
           value={style.customCss || ''}
-          onChange={handleTextAreaChange("customCss")}
+          onChange={handleChange("customCss")}
           className="font-mono text-sm mt-2"
           dir="ltr"
         />

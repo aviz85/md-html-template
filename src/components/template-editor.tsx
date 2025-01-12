@@ -295,7 +295,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       setCustomFonts(fonts || [])
 
       // Save the template with the updated fonts
-      const css = generateCSS()
+      const css = generateCSS(elementStyles)
       const template = {
         id: templateId,
         name: templateName,
@@ -422,11 +422,11 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     return validationErrors
   }
 
-  const generateCSS = () => {
+  const generateCSS = (styles: Template["elementStyles"]) => {
     let css = ''
     
     // Add styles for each element
-    Object.entries(elementStyles).forEach(([element, styles]) => {
+    Object.entries(styles).forEach(([element, styles]) => {
       if (Object.keys(styles).length === 0) return
 
       // Convert element name to CSS selector
@@ -485,7 +485,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       return
     }
 
-    const css = generateCSS()
+    const css = generateCSS(elementStyles)
     const template = {
       id: templateId,
       name: templateName,
