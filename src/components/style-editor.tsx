@@ -77,7 +77,7 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
     loadFonts();
   }, []);
 
-  const handleChange = (key: keyof ElementStyle) => (e: ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (key: keyof ElementStyle) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const value = e.target.value.trim()
     onChange({ 
       ...style, 
