@@ -309,7 +309,7 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
         <Textarea
           placeholder={TRANSLATIONS.enterCustomCss}
           value={style.customCss || ''}
-          onChange={(e) => handleStyleChange('customCss', e.target.value)}
+          onChange={(e) => handleChange('customCss', e.target.value)}
           className="font-mono text-sm mt-2"
           dir="ltr"
         />

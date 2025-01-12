@@ -551,12 +551,12 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       console.log('Sending preview request with:', {
         markdowns: [mdContent || ''],
         template: {
-          id: templateId,
-          css: generateCSS(),
-          custom_fonts: customFonts,
-          header_content: headerContent,
-          footer_content: footerContent
-        }
+          template_id: templateId,
+          css: generateCSS(elementStyles),
+          custom_fonts: customFonts
+        },
+        header_content: headerContent,
+        footer_content: footerContent
       })
 
       const response = await fetch('/api/convert', {
@@ -567,12 +567,12 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         body: JSON.stringify({
           markdowns: [mdContent || ''],
           template: {
-            id: templateId,
-            css: generateCSS(),
-            custom_fonts: customFonts,
-            header_content: headerContent,
-            footer_content: footerContent
-          }
+            template_id: templateId,
+            css: generateCSS(elementStyles),
+            custom_fonts: customFonts
+          },
+          header_content: headerContent,
+          footer_content: footerContent
         }),
       })
 
