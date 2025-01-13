@@ -25,7 +25,7 @@ Converts an array of Markdown content to HTML with a styled template.
     "custom_fonts": [
       {
         "name": "font name",
-        "file_path": "font file path",
+          "file_path": "font file path",
         "font_family": "font family",
         "format": "font format"
       }

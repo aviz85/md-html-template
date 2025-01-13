@@ -59,70 +59,69 @@ const supabase = createClient(
 
 export async function POST(req: Request) {
   try {
-    // בדיקת חיבור לסופאבייס
-    console.log('Supabase config:', {
-      url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
-    })
+    // Get request body and normalize parameters
+    const body = await req.json()
+    const {
+      markdowns,
+      mdContents,
+      template_id,
+      templateId,
+      template
+    } = body
 
-    // בדיקת חיבור
-    const { data: testData, error: testError } = await supabase
-      .from('templates')
-      .select('count')
-      .limit(1)
-
-    console.log('Connection test:', { testData, testError })
-
-    const { markdowns, template_id, template } = await req.json()
-      console.log('Received request:', { markdowns, template_id, template })
+    // Normalize markdown content
+    const markdownContent = markdowns || mdContents || []
+    console.log('Received request:', { markdownContent, template_id, templateId, template })
       
-      // Handle both array and single string inputs
-      const isArray = Array.isArray(markdowns)
-      const markdownsArray = isArray ? markdowns : [markdowns]
+    // Handle both array and single string inputs
+    const isArray = Array.isArray(markdownContent)
+    const markdownsArray = isArray ? markdownContent : [markdownContent]
       
-      if (!markdownsArray.length) {
-        throw new Error('No markdown content provided')
+    if (!markdownsArray.length) {
+      throw new Error('No markdown content provided')
+    }
+
+    let templateData: TemplateData | null = null
+
+    // אם נשלח template מלא עם CSS, נשתמש בו ישירות
+    if (template?.css) {
+      console.log('Using provided template with CSS')
+      templateData = template as TemplateData
+    } 
+    // אם נשלח template_id או template.template_id, נחפש בדאטהבייס לפי gsheets_id
+    else {
+      // קביעת ה-gsheets_id לפי סדר העדיפויות
+      const gsheets_id = template?.template_id || template_id || templateId || template?.id
+      
+      if (!gsheets_id) {
+        throw new Error('No template identifier provided')
       }
 
-      let templateData: TemplateData | null = null
+      console.log('Fetching template by gsheets_id:', gsheets_id)
+      
+      const { data: foundTemplate, error: templateError } = await supabase
+        .from('templates')
+        .select(`
+          *,
+          custom_fonts (
+            name,
+            file_path,
+            font_family,
+            format
+          )
+        `)
+        .eq('template_gsheets_id', gsheets_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
 
-      // אם נשלח template מלא עם CSS, נשתמש בו ישירות
-      if (template?.css) {
-        console.log('Using provided template with CSS')
-        templateData = template as TemplateData
-      } 
-      // אם נשלח template_id או template.id/template.template_id, נחפש בדאטהבייס לפי gsheets_id
-      else {
-        // קביעת ה-gsheets_id לפי סדר העדיפויות
-        const gsheets_id = template_id || template?.template_id || template?.id
-        
-        if (!gsheets_id) {
-          throw new Error('No template identifier provided')
-        }
-
-        console.log('Fetching template by gsheets_id:', gsheets_id)
-        
-        const { data: foundTemplate, error: templateError } = await supabase
-          .from('templates')
-          .select(`
-            *,
-            custom_fonts (
-              name,
-              file_path,
-              font_family,
-              format
-            )
-          `)
-          .eq('template_gsheets_id', gsheets_id)
-          .single()
-
-        if (templateError || !foundTemplate) {
-          console.error('DB Error:', templateError)
-          throw new Error('Template not found')
-        }
-
-        templateData = foundTemplate
+      if (templateError || !foundTemplate) {
+        console.error('DB Error:', templateError)
+        throw new Error('Template not found')
       }
+
+      templateData = foundTemplate
+    }
 
     // Fetch logo data if template has an id
     if (templateData) {
