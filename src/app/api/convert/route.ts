@@ -8,6 +8,21 @@ import {
   generateCustomFontFaces 
 } from "@/lib/constants";
 
+interface ElementStyle {
+  color?: string
+  backgroundColor?: string
+  fontSize?: string
+  margin?: string
+  padding?: string
+  fontFamily?: string
+  textAlign?: 'right' | 'left' | 'center' | 'justify'
+  customCss?: string
+  logoWidth?: string
+  logoHeight?: string
+  logoPosition?: 'top-right' | 'top-left' | 'top-center' | 'center-right' | 'center-left' | 'center' | 'bottom-right' | 'bottom-left' | 'bottom-center'
+  logoMargin?: string
+}
+
 interface Template {
   id: string
   name: string
@@ -128,6 +143,10 @@ export async function POST(req: Request) {
       templateData = foundTemplate
 
       // Fetch logo data
+      if (!templateData) {
+        throw new Error('Template data is null')
+      }
+      
       const { data: logoData } = await supabase
         .from('logos')
         .select('file_path')
@@ -239,7 +258,7 @@ export async function POST(req: Request) {
         const logoHeight = template.elementStyles?.header?.logoHeight || 'auto'
         const logoMargin = template.elementStyles?.header?.logoMargin || '1rem'
 
-        const getPositionStyle = (position: string) => {
+        const getPositionStyle = (position: ElementStyle['logoPosition']) => {
           switch(position) {
             case 'top-left': return 'left: 0; top: 0;'
             case 'top-center': return 'left: 50%; transform: translateX(-50%); top: 0;'
