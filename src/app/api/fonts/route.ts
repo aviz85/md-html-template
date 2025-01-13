@@ -11,9 +11,9 @@ export async function POST(request: Request) {
     const { templateId, fontName, fileExt, fileData } = await request.json()
 
     // Upload font file to storage
-    const filePath = `${fontName}.${fileExt}`
+    const filePath = `fonts/${fontName}.${fileExt}`
     const { data: uploadData, error: fileError } = await supabase.storage
-      .from('fonts')
+      .from('storage')
       .upload(filePath, Buffer.from(fileData), {
         contentType: `font/${fileExt}`
       })
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
     // Get the public URL of the uploaded font
     const { data: { publicUrl } } = supabase.storage
-      .from('fonts')
+      .from('storage')
       .getPublicUrl(uploadData.path)
 
     // Save font metadata to custom_fonts table

@@ -30,6 +30,7 @@ import {
 import { Upload } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Trash2 } from "lucide-react"
+import { ImageIcon } from "lucide-react"
 
 interface ElementStyle {
   color?: string
@@ -58,6 +59,7 @@ interface Template {
   footer_content?: string
   opening_page_content?: string
   closing_page_content?: string
+  logo_path?: string
   custom_contents?: Array<{
     name: string
     content: string
@@ -158,6 +160,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const [openingPageContent, setOpeningPageContent] = useState("")
   const [closingPageContent, setClosingPageContent] = useState("")
   const [customContents, setCustomContents] = useState<{ name: string; content: string }[]>([])
+  const [logoPath, setLogoPath] = useState<string | null>(null)
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [isLogoModalOpen, setIsLogoModalOpen] = useState(false)
 
   useEffect(() => {
     if (templateId) {
@@ -385,6 +390,17 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         color4: template.color4 || "#666666"
       })
       
+      // Load logo
+      const { data: logoData } = await supabase
+        .from('logos')
+        .select('file_path')
+        .eq('template_id', id)
+        .single()
+
+      if (logoData) {
+        setLogoPath(logoData.file_path)
+      }
+      
       // Load template contents
       const { data: contentsData, error: contentsError } = await supabase
         .from('template_contents')
@@ -532,6 +548,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       closing_page_content: closingPageContent,
       custom_contents: customContents,
       custom_fonts: customFonts,
+      logo_path: logoPath,
       ...colors,
       css
     }
@@ -556,6 +573,22 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           return
         }
         throw new Error('Failed to save template')
+      }
+
+      // Save logo if changed
+      if (logoFile && templateId) {
+        const formData = new FormData()
+        formData.append('file', logoFile)
+        formData.append('templateId', templateId)
+
+        const logoResponse = await fetch('/api/logo', {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (!logoResponse.ok) {
+          throw new Error('Failed to upload logo')
+        }
       }
 
       toast({
@@ -687,58 +720,205 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     })
   }
 
+  const handleLogoUpload = async () => {
+    if (!logoFile || !templateId) {
+      toast({
+        variant: "destructive",
+        title: TRANSLATIONS.error,
+        description: "Please select a logo file"
+      })
+      return
+    }
+
+    try {
+      setIsUploading(true)
+      const formData = new FormData()
+      formData.append('file', logoFile)
+      formData.append('templateId', templateId)
+
+      const response = await fetch('/api/logo', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to upload logo')
+      }
+
+      const { filePath } = await response.json()
+      setLogoPath(filePath)
+      toast({
+        title: TRANSLATIONS.success,
+        description: "Logo uploaded successfully"
+      })
+    } catch (error) {
+      console.error('Error uploading logo:', error)
+      toast({
+        variant: "destructive",
+        title: TRANSLATIONS.error,
+        description: "Failed to upload logo"
+      })
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleLogoDelete = async () => {
+    if (!logoPath || !templateId) return
+
+    try {
+      const response = await fetch(`/api/logo?templateId=${templateId}&filePath=${logoPath}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete logo')
+      }
+
+      setLogoPath(null)
+      setLogoFile(null)
+      toast({
+        title: TRANSLATIONS.success,
+        description: "Logo deleted successfully"
+      })
+    } catch (error) {
+      console.error('Error deleting logo:', error)
+      toast({
+        variant: "destructive",
+        title: TRANSLATIONS.error,
+        description: "Failed to delete logo"
+      })
+    }
+  }
+
+  const getLogoPreviewUrl = () => {
+    if (!logoPath) return null
+    return supabase.storage
+      .from('storage')
+      .getPublicUrl(logoPath)
+      .data.publicUrl
+  }
+
   return (
-    <div className="space-y-4" dir="rtl">
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <div className="flex-1">
-            <label className="text-sm font-medium">{TRANSLATIONS.templateName}</label>
-            <Input
-              placeholder="Template Name"
-              value={templateName}
-              onChange={(e) => setTemplateName(e.target.value)}
-            />
+    <div className="space-y-6" dir="rtl">
+      <div className="space-y-6">
+        <div>
+          <label className="text-sm font-medium">{TRANSLATIONS.templateName}</label>
+          <Input
+            placeholder="Template Name"
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+          />
+        </div>
+
+        <div className="flex flex-col items-start gap-2">
+          <label className="text-sm font-medium">לוגו</label>
+          <div className="flex items-start gap-4">
+            <div 
+              className="w-24 h-24 border rounded-lg flex items-center justify-center bg-muted overflow-hidden"
+            >
+              {logoPath ? (
+                <img 
+                  src={getLogoPreviewUrl()} 
+                  alt="Logo" 
+                  className="max-w-full max-h-full object-contain"
+                />
+              ) : (
+                <ImageIcon className="w-8 h-8 text-muted-foreground" />
+              )}
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setIsLogoModalOpen(true)}
+            >
+              <Upload className="w-4 h-4 ml-2" />
+              העלאת לוגו
+            </Button>
           </div>
-          <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="mr-4 mt-6">
-                <Upload className="h-4 w-4 ml-2" />
-                {TRANSLATIONS.uploadFont}
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{TRANSLATIONS.uploadFont}</DialogTitle>
-                <DialogDescription>{TRANSLATIONS.uploadFontDescription}</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 mt-4">
-                <div>
-                  <Label>{TRANSLATIONS.fontName}</Label>
-                  <Input
-                    value={fontName}
-                    onChange={(e) => setFontName(e.target.value)}
-                    placeholder={TRANSLATIONS.enterFontName}
-                  />
-                </div>
-                <div>
-                  <Label>{TRANSLATIONS.uploadFontDescription}</Label>
-                  <Input
-                    type="file"
-                    accept=".woff2,.woff,.ttf,.otf"
-                    onChange={(e) => setFontFile(e.target.files?.[0] || null)}
-                  />
-                </div>
+        </div>
+
+        <div>
+          <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)}>
+            <Upload className="h-4 w-4 ml-2" />
+            {TRANSLATIONS.uploadFont}
+          </Button>
+        </div>
+
+        {/* Logo Upload Modal */}
+        <Dialog open={isLogoModalOpen} onOpenChange={setIsLogoModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>העלאת לוגו</DialogTitle>
+              <DialogDescription>בחר קובץ תמונה להעלאה</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div>
+                <Label>קובץ לוגו</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                {logoPath && (
+                  <Button
+                    variant="destructive"
+                    onClick={handleLogoDelete}
+                    type="button"
+                  >
+                    מחיקת לוגו
+                  </Button>
+                )}
                 <Button 
-                  onClick={handleFontUpload} 
-                  disabled={!fontName?.trim() || !fontFile || isUploading}
-                  className="w-full"
+                  onClick={async () => {
+                    await handleLogoUpload()
+                    setIsLogoModalOpen(false)
+                  }}
+                  disabled={!logoFile || isUploading}
                 >
-                  {isUploading ? 'מעלה...' : TRANSLATIONS.uploadFont}
+                  {isUploading ? 'מעלה...' : 'העלאה'}
                 </Button>
               </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Font Upload Modal */}
+        <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{TRANSLATIONS.uploadFont}</DialogTitle>
+              <DialogDescription>{TRANSLATIONS.uploadFontDescription}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div>
+                <Label>{TRANSLATIONS.fontName}</Label>
+                <Input
+                  value={fontName}
+                  onChange={(e) => setFontName(e.target.value)}
+                  placeholder={TRANSLATIONS.enterFontName}
+                />
+              </div>
+              <div>
+                <Label>{TRANSLATIONS.uploadFontDescription}</Label>
+                <Input
+                  type="file"
+                  accept=".woff2,.woff,.ttf,.otf"
+                  onChange={(e) => setFontFile(e.target.files?.[0] || null)}
+                />
+              </div>
+              <Button 
+                onClick={handleFontUpload} 
+                disabled={!fontName?.trim() || !fontFile || isUploading}
+                className="w-full"
+              >
+                {isUploading ? 'מעלה...' : TRANSLATIONS.uploadFont}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <div>
           <label className="text-sm font-medium">{TRANSLATIONS.templateGsheetsId}</label>
           <Input
@@ -748,6 +928,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             className="mt-2"
           />
         </div>
+
         <div className="grid grid-cols-4 gap-4">
           {Object.entries(colors).map(([key, value]) => (
             <div key={key}>
@@ -762,6 +943,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           ))}
         </div>
       </div>
+
       <Tabs defaultValue="content" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="content">{TRANSLATIONS.content}</TabsTrigger>
