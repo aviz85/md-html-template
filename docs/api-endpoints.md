@@ -15,7 +15,9 @@ Converts an array of Markdown content to HTML with a styled template.
     "# Third Document\n\nThis is document 3"
   ],
   "template": {
-    "id": "template-id"
+    // One of the following:
+    "id": "template-uuid",  // Database UUID
+    "template_id": "google-sheet-id",  // Google Sheet ID
     // or
     "css": "custom CSS",
     "header_content": "header content (optional)",
@@ -45,6 +47,7 @@ Converts an array of Markdown content to HTML with a styled template.
 
 ### Full Example
 ```bash
+# Using database UUID
 curl -X POST https://md-html-template.vercel.app/api/convert \
   -H "Content-Type: application/json" \
   -d '{
@@ -54,6 +57,19 @@ curl -X POST https://md-html-template.vercel.app/api/convert \
     ],
     "template": {
       "id": "419860f3-bea1-4453-830e-55714131f7b6"
+    }
+  }'
+
+# Using Google Sheet ID
+curl -X POST https://md-html-template.vercel.app/api/convert \
+  -H "Content-Type: application/json" \
+  -d '{
+    "markdowns": [
+      "# Document 1\n\nFirst content\n\n- Item 1.1\n- Item 1.2",
+      "# Document 2\n\nSecond content\n\n- Item 2.1\n- Item 2.2"
+    ],
+    "template": {
+      "template_id": "1hKt-OyUa-_01MzMJnw_Xa6lo-XizF4HJPH6aVSbcgBU"
     }
   }'
 ```

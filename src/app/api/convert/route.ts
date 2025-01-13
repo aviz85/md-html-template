@@ -73,91 +73,94 @@ export async function POST(req: Request) {
 
     console.log('Connection test:', { testData, testError })
 
-    const { markdowns, template } = await req.json()
-    console.log('Received request:', { markdowns, template })
-    
-    // Handle both array and single string inputs
-    const isArray = Array.isArray(markdowns)
-    const markdownsArray = isArray ? markdowns : [markdowns]
-    
-    if (!markdownsArray.length) {
-      throw new Error('No markdown content provided')
-    }
-
-    let templateData: TemplateData | null = null
-
-    // אם נשלח template מלא עם CSS, נשתמש בו ישירות
-    if (template.css) {
-      console.log('Using provided template with CSS')
-      templateData = template as TemplateData
-    } 
-    // אם נשלח template_gsheets_id, נחפש בדאטהבייס
-    else if (template.id) {
-      console.log('Fetching template by gsheets_id:', template.id)
+    const { markdowns, template_id, template } = await req.json()
+      console.log('Received request:', { markdowns, template_id, template })
       
-      const { data: foundTemplate, error: templateError } = await supabase
-        .from('templates')
-        .select(`
-          *,
-          custom_fonts (
-            name,
-            file_path,
-            font_family,
-            format
-          )
-        `)
-        .eq('template_gsheets_id', template.id)
-        .single()
-
-      if (templateError) {
-        console.error('DB Error:', templateError)
-        throw new Error(`Template not found: ${templateError.message}`)
-      }
-      if (!foundTemplate) {
-        console.error('No data returned from DB')
-        throw new Error('Template not found: no data returned')
+      // Handle both array and single string inputs
+      const isArray = Array.isArray(markdowns)
+      const markdownsArray = isArray ? markdowns : [markdowns]
+      
+      if (!markdownsArray.length) {
+        throw new Error('No markdown content provided')
       }
 
-      templateData = foundTemplate
+      let templateData: TemplateData | null = null
 
-      // Fetch logo data if template has an id
-      if (templateData) {
-        const { data: logoData } = await supabase
-          .from('logos')
-          .select('file_path')
-          .eq('template_id', templateData.id)
+      // אם נשלח template מלא עם CSS, נשתמש בו ישירות
+      if (template?.css) {
+        console.log('Using provided template with CSS')
+        templateData = template as TemplateData
+      } 
+      // אם נשלח template_id או template.id/template.template_id, נחפש בדאטהבייס לפי gsheets_id
+      else {
+        // קביעת ה-gsheets_id לפי סדר העדיפויות
+        const gsheets_id = template_id || template?.template_id || template?.id
+        
+        if (!gsheets_id) {
+          throw new Error('No template identifier provided')
+        }
+
+        console.log('Fetching template by gsheets_id:', gsheets_id)
+        
+        const { data: foundTemplate, error: templateError } = await supabase
+          .from('templates')
+          .select(`
+            *,
+            custom_fonts (
+              name,
+              file_path,
+              font_family,
+              format
+            )
+          `)
+          .eq('template_gsheets_id', gsheets_id)
           .single()
 
-        console.log('Logo data:', logoData)
-
-        if (logoData) {
-          const { data: { publicUrl } } = supabase.storage
-            .from('storage')
-            .getPublicUrl(logoData.file_path)
-          
-          console.log('Logo URL:', publicUrl)
-          templateData.logo_path = publicUrl
+        if (templateError || !foundTemplate) {
+          console.error('DB Error:', templateError)
+          throw new Error('Template not found')
         }
 
-        // Fetch template contents
-        const { data: contents, error: contentsError } = await supabase
-          .from('template_contents')
-          .select('content_name, md_content')
-          .eq('template_id', templateData.id)
+        templateData = foundTemplate
+      }
 
-        if (contentsError) {
-          console.error('Error fetching template contents:', contentsError)
-        } else if (contents?.length) {
-          templateData.header = contents.find(c => c.content_name === 'header')?.md_content
-          templateData.footer = contents.find(c => c.content_name === 'footer')?.md_content
-          templateData.customContents = contents.filter(c => !['header', 'footer'].includes(c.content_name))
-            .map(c => ({ name: c.content_name.replace('custom_', ''), content: c.md_content }))
-        }
+    // Fetch logo data if template has an id
+    if (templateData) {
+      const { data: logoData } = await supabase
+        .from('logos')
+        .select('file_path')
+        .eq('template_id', templateData.id)
+        .single()
+
+      console.log('Logo data:', logoData)
+
+      if (logoData) {
+        const { data: { publicUrl } } = supabase.storage
+          .from('storage')
+          .getPublicUrl(logoData.file_path)
+        
+        console.log('Logo URL:', publicUrl)
+        templateData.logo_path = publicUrl
+      }
+
+      // Fetch template contents
+      const { data: contents, error: contentsError } = await supabase
+        .from('template_contents')
+        .select('content_name, md_content')
+        .eq('template_id', templateData.id)
+
+      if (contentsError) {
+        console.error('Error fetching template contents:', contentsError)
+      } else if (contents?.length) {
+        templateData.header = contents.find(c => c.content_name === 'header')?.md_content
+        templateData.footer = contents.find(c => c.content_name === 'footer')?.md_content
+        templateData.customContents = contents.filter(c => !['header', 'footer'].includes(c.content_name))
+          .map(c => ({ name: c.content_name.replace('custom_', ''), content: c.md_content }))
       }
     }
 
     if (!templateData) {
-      throw new Error('Invalid template data - missing template_gsheets_id or css')
+      throw new Error('Invalid template data - missing template_id/id or css')
     }
 
     console.log('Using template data:', templateData)
