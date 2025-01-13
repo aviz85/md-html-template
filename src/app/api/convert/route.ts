@@ -153,7 +153,9 @@ export async function POST(req: Request) {
       } else if (contents?.length) {
         templateData.header = contents.find(c => c.content_name === 'header')?.md_content
         templateData.footer = contents.find(c => c.content_name === 'footer')?.md_content
-        templateData.customContents = contents.filter(c => !['header', 'footer'].includes(c.content_name))
+        templateData.opening_page_content = contents.find(c => c.content_name === 'opening_page')?.md_content
+        templateData.closing_page_content = contents.find(c => c.content_name === 'closing_page')?.md_content
+        templateData.customContents = contents.filter(c => !['header', 'footer', 'opening_page', 'closing_page'].includes(c.content_name))
           .map(c => ({ name: c.content_name.replace('custom_', ''), content: c.md_content }))
       }
     }
@@ -209,26 +211,25 @@ export async function POST(req: Request) {
 
         const getPositionStyle = (position: string) => {
           switch(position) {
-            case 'top-left': return 'left: 0; top: 0;'
-            case 'top-center': return 'left: 50%; transform: translateX(-50%); top: 0;'
-            case 'top-right': return 'right: 0; top: 0;'
-            case 'bottom-left': return 'left: 0; bottom: 0;'
-            case 'bottom-center': return 'left: 50%; transform: translateX(-50%); bottom: 0;'
-            case 'bottom-right': return 'right: 0; bottom: 0;'
-            default: return 'right: 0; top: 0;'
+            case 'top-left': return 'text-align: left;'
+            case 'top-center': return 'text-align: center;'
+            case 'top-right': return 'text-align: right;'
+            case 'bottom-left': return 'text-align: left;'
+            case 'bottom-center': return 'text-align: center;'
+            case 'bottom-right': return 'text-align: right;'
+            default: return 'text-align: right;'
           }
         }
 
-        finalHeaderContent = `<div class="header" style="position: relative;">
+        finalHeaderContent = `<div class="header" style="${getPositionStyle(logoPosition)}">
           <img 
             src="${templateData.logo_path}" 
             style="
-              position: absolute; 
-              ${getPositionStyle(logoPosition)}
               width: ${logoWidth};
               height: ${logoHeight};
               object-fit: contain;
               margin: ${logoMargin};
+              display: inline-block;
             "
           />
           ${templateData.header ? await marked.parse(templateData.header) : ''}
