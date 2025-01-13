@@ -8,6 +8,7 @@ import {
   generateCustomFontFaces 
 } from "@/lib/constants";
 import { ElementStyle } from "@/types"
+import { NextResponse } from 'next/server';
 
 interface Template {
   id: string
@@ -32,6 +33,9 @@ interface Template {
 
 interface TemplateData extends Template {
   logo_path?: string
+  element_styles?: {
+    header?: ElementStyle
+  }
 }
 
 // Configure marked with basic options
@@ -64,8 +68,12 @@ export async function POST(req: Request) {
     const { markdowns, template } = await req.json()
     console.log('Received request:', { markdowns, template })
     
-    if (!Array.isArray(markdowns)) {
-      throw new Error('markdowns must be an array')
+    // Handle both array and single string inputs
+    const isArray = Array.isArray(markdowns)
+    const markdownsArray = isArray ? markdowns : [markdowns]
+    
+    if (!markdownsArray.length) {
+      throw new Error('No markdown content provided')
     }
 
     let templateData: TemplateData | null = null
@@ -128,6 +136,13 @@ export async function POST(req: Request) {
 
       templateData = foundTemplate
 
+      // Initialize content fields as undefined
+      templateData.header_content = undefined
+      templateData.footer_content = undefined
+      templateData.opening_page_content = undefined
+      templateData.closing_page_content = undefined
+      templateData.custom_contents = []
+
       // Fetch logo data
       if (!templateData) {
         throw new Error('Template data is null')
@@ -160,7 +175,11 @@ export async function POST(req: Request) {
         contentsData.forEach(content => {
           if (!templateData) return
           
-          if (content.content_name === 'opening_page') {
+          if (content.content_name === 'header') {
+            templateData.header_content = content.md_content
+          } else if (content.content_name === 'footer') {
+            templateData.footer_content = content.md_content
+          } else if (content.content_name === 'opening_page') {
             templateData.opening_page_content = content.md_content
           } else if (content.content_name === 'closing_page') {
             templateData.closing_page_content = content.md_content
@@ -218,14 +237,18 @@ export async function POST(req: Request) {
 
     console.log('Using template data:', templateData)
 
-    // הוספת עמודי פתיחה וסיום למערך ה-markdowns
+    // הוספת עמודי פתיחה וסיום למערך ה-markdowns רק אם התקבל מערך
     const finalMarkdowns = []
-    if (templateData.opening_page_content) {
-      finalMarkdowns.push(templateData.opening_page_content)
-    }
-    finalMarkdowns.push(...markdowns)
-    if (templateData.closing_page_content) {
-      finalMarkdowns.push(templateData.closing_page_content)
+    if (isArray) {
+      if (templateData.opening_page_content) {
+        finalMarkdowns.push(templateData.opening_page_content)
+      }
+      finalMarkdowns.push(...markdownsArray)
+      if (templateData.closing_page_content) {
+        finalMarkdowns.push(templateData.closing_page_content)
+      }
+    } else {
+      finalMarkdowns.push(...markdownsArray)
     }
 
     // Generate @font-face rules
@@ -238,11 +261,11 @@ export async function POST(req: Request) {
     // Convert each markdown document to HTML
     const htmls = await Promise.all(finalMarkdowns.map(async (markdown) => {
       let finalHeaderContent = templateData!.header_content || ''
-      if (templateData?.logo_path && templateData.header_content) {
-        const logoPosition = template.elementStyles?.header?.logoPosition || 'top-right'
-        const logoWidth = template.elementStyles?.header?.logoWidth || '100px'
-        const logoHeight = template.elementStyles?.header?.logoHeight || 'auto'
-        const logoMargin = template.elementStyles?.header?.logoMargin || '1rem'
+      if (templateData?.logo_path && templateData.header_content && templateData.element_styles?.header?.showLogo) {
+        const logoPosition = templateData.element_styles?.header?.logoPosition || 'top-right'
+        const logoWidth = templateData.element_styles?.header?.logoWidth || '100px'
+        const logoHeight = templateData.element_styles?.header?.logoHeight || 'auto'
+        const logoMargin = templateData.element_styles?.header?.logoMargin || '1rem'
 
         const getPositionStyle = (position: ElementStyle['logoPosition']) => {
           switch(position) {
@@ -294,10 +317,9 @@ export async function POST(req: Request) {
 
     console.log('Generated HTMLs:', htmls.length)
 
-    return new Response(JSON.stringify({ htmls }), {
-      headers: {
-        'Content-Type': 'application/json'
-      }
+    // Return array or single string based on input type
+    return NextResponse.json({ 
+      htmls: isArray ? htmls : htmls[0]
     })
   } catch (error) {
     console.error('Error converting markdown:', error)

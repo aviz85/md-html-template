@@ -363,8 +363,11 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     if (template) {
       setTemplateName(template.name)
       setTemplateGsheetsId(template.template_gsheets_id || "")
-      setHeaderContent(template.header_content || "")
-      setFooterContent(template.footer_content || "")
+      setHeaderContent("")
+      setFooterContent("")
+      setOpeningPageContent("")
+      setClosingPageContent("")
+      setCustomContents([])  // Reset custom contents first
       setCustomFonts(template.custom_fonts || [])
       setColors({
         color1: template.color1 || "#000000",
@@ -372,6 +375,13 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         color3: template.color3 || "#cccccc",
         color4: template.color4 || "#666666"
       })
+      
+      if (template.element_styles) {
+        setElementStyles(template.element_styles)
+      } else {
+        const extractedStyles = parseCSS(template.css)
+        setElementStyles(extractedStyles)
+      }
       
       // Load logo
       const { data: logoData } = await supabase
@@ -382,6 +392,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
       if (logoData) {
         setLogoPath(logoData.file_path)
+      } else {
+        setLogoPath(null)
       }
       
       // Load template contents
@@ -391,34 +403,31 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         .eq('template_id', id)
 
       if (!contentsError && contentsData) {
-        // Reset custom contents first
-        setCustomContents([])
+        // Create a Map to store unique contents
+        const customContentMap = new Map()
         
         contentsData.forEach(content => {
-          if (content.content_name === 'opening_page') {
+          if (content.content_name === 'header') {
+            setHeaderContent(content.md_content)
+          } else if (content.content_name === 'footer') {
+            setFooterContent(content.md_content)
+          } else if (content.content_name === 'opening_page') {
             setOpeningPageContent(content.md_content)
           } else if (content.content_name === 'closing_page') {
             setClosingPageContent(content.md_content)
           } else if (content.content_name.startsWith('custom_')) {
-            const customContent = {
-              name: content.content_name.replace('custom_', ''),
+            const name = content.content_name.replace('custom_', '')
+            // Use Map to ensure uniqueness
+            customContentMap.set(name, {
+              name,
               content: content.md_content
-            }
-            setCustomContents(prev => [...prev, customContent])
+            })
           }
         })
+        
+        // Convert Map values to array and set state
+        setCustomContents(Array.from(customContentMap.values()))
       }
-      
-      // Load custom fonts via API
-      const response = await fetch(`/api/fonts?templateId=${id}`)
-      if (response.ok) {
-        const { fonts } = await response.json()
-        setCustomFonts(fonts || [])
-      }
-      
-      // Parse CSS to extract element styles
-      const extractedStyles = parseCSS(template.css)
-      setElementStyles(extractedStyles)
     }
   }
 
@@ -517,16 +526,25 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           color2: colors.color2,
           color3: colors.color3,
           color4: colors.color4,
+          element_styles: elementStyles
         })
         .select()
         .single()
 
       if (templateError) throw templateError
 
-      // Save contents
+      // Delete all existing contents first
+      const { error: deleteError } = await supabase
+        .from('template_contents')
+        .delete()
+        .eq('template_id', template.id)
+
+      if (deleteError) throw deleteError
+
+      // Prepare contents to insert
       const contents = []
 
-      // Add header and footer
+      // Add header and footer if they exist
       if (headerContent) {
         contents.push({
           template_id: template.id,
@@ -543,7 +561,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         })
       }
 
-      // Add opening and closing pages
+      // Add opening and closing pages if they exist
       if (openingPageContent) {
         contents.push({
           template_id: template.id,
@@ -560,24 +578,18 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         })
       }
 
-      // Add custom contents
+      // Add custom contents if they exist
       customContents.forEach(content => {
-        contents.push({
-          template_id: template.id,
-          content_name: `custom_${content.name}`,
-          md_content: content.content
-        })
+        if (content.content) {
+          contents.push({
+            template_id: template.id,
+            content_name: `custom_${content.name}`,
+            md_content: content.content
+          })
+        }
       })
 
-      // Delete existing contents first
-      const { error: deleteError } = await supabase
-        .from('template_contents')
-        .delete()
-        .eq('template_id', template.id)
-
-      if (deleteError) throw deleteError
-
-      // Insert new contents
+      // Insert new contents if there are any
       if (contents.length > 0) {
         const { error: contentsError } = await supabase
           .from('template_contents')
@@ -649,7 +661,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       ` : headerContent
 
       console.log('Sending preview request with:', {
-        markdowns: [mdContent || ''],
+        markdowns: mdContent || '',
         template: {
           template_id: templateId,
           css: generateCSS(elementStyles),
@@ -665,7 +677,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          markdowns: [mdContent || ''],
+          markdowns: mdContent || '',
           template: {
             template_id: templateId,
             css: generateCSS(elementStyles),
@@ -681,8 +693,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       }
 
       const { htmls } = await response.json()
-      console.log('Received preview HTML:', htmls[0])
-      setPreviewHtml(htmls[0])
+      console.log('Received preview HTML:', htmls)
+      setPreviewHtml(htmls)
     } catch (error) {
       console.error('Error generating preview:', error)
       toast({
@@ -841,10 +853,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
         <div className="flex flex-col items-start gap-2">
           <label className="text-sm font-medium">לוגו</label>
-          <div className="flex items-start gap-4">
-            <div 
-              className="w-24 h-24 border rounded-lg flex items-center justify-center bg-muted overflow-hidden"
-            >
+          <div className="flex items-center gap-4">
+            <div className="w-24 h-24 border rounded-lg flex items-center justify-center bg-muted overflow-hidden">
               {logoPath ? (
                 <img 
                   src={getLogoPreviewUrl()} 
@@ -855,13 +865,28 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                 <ImageIcon className="w-8 h-8 text-muted-foreground" />
               )}
             </div>
-            <Button
-              variant="outline"
-              onClick={() => setIsLogoModalOpen(true)}
-            >
-              <Upload className="w-4 h-4 ml-2" />
-              העלאת לוגו
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Button onClick={() => setIsLogoModalOpen(true)} className="flex items-center gap-2">
+                <ImageIcon className="w-4 h-4" />
+                העלאת לוגו
+              </Button>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="showLogo"
+                  checked={elementStyles.header.showLogo !== false}
+                  onChange={(e) => setElementStyles(prev => ({
+                    ...prev,
+                    header: {
+                      ...prev.header,
+                      showLogo: e.target.checked
+                    }
+                  }))}
+                  className="w-4 h-4"
+                />
+                <label htmlFor="showLogo" className="text-sm">הצג לוגו</label>
+              </div>
+            </div>
           </div>
         </div>
 

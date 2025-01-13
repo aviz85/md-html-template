@@ -28,6 +28,7 @@ import { ElementStyle } from "@/types"
 
 const HEBREW_FONTS = [
   { name: "ברירת מחדל", value: "inherit" },
+  { name: "דויד", value: "'David Libre', serif" },
   { name: "רוביק", value: "'Rubik', sans-serif" },
   { name: "הבו", value: "'Heebo', sans-serif" },
   { name: "אסיסטנט", value: "'Assistant', sans-serif" },
@@ -200,66 +201,58 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
   return (
     <div className="p-4 space-y-4">
       {/* Logo Controls - show first for header */}
-      {style.hasOwnProperty('logoPosition') && (
+      {'logoPosition' in style && (
         <div className="space-y-4 mb-8 bg-accent/20 p-4 rounded-lg">
           <h3 className="font-medium text-lg border-b pb-2">הגדרות לוגו</h3>
           
-          <div className="space-y-4">
-            <div>
-              <Label>רוחב לוגו</Label>
-              <Input
-                type="text"
-                value={style.logoWidth || '100px'}
-                onChange={(e) => handleLogoStyleChange('logoWidth', e.target.value)}
-                placeholder="100px"
-                dir="ltr"
-              />
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">רוחב לוגו</label>
+            <Input
+              value={style.logoWidth || '100px'}
+              onChange={(e) => onChange({ ...style, logoWidth: e.target.value })}
+              placeholder="100px"
+            />
+          </div>
 
-            <div>
-              <Label>גובה לוגו</Label>
-              <Input
-                type="text"
-                value={style.logoHeight || 'auto'}
-                onChange={(e) => handleLogoStyleChange('logoHeight', e.target.value)}
-                placeholder="auto"
-                dir="ltr"
-              />
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">גובה לוגו</label>
+            <Input
+              value={style.logoHeight || 'auto'}
+              onChange={(e) => onChange({ ...style, logoHeight: e.target.value })}
+              placeholder="auto"
+            />
+          </div>
 
-            <div>
-              <Label>מרווח מהשוליים</Label>
-              <Input
-                type="text"
-                value={style.logoMargin || '1rem'}
-                onChange={(e) => handleLogoStyleChange('logoMargin', e.target.value)}
-                placeholder="1rem"
-                dir="ltr"
-              />
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">מיקום לוגו</label>
+            <Select 
+              value={style.logoPosition || 'top-right'}
+              onValueChange={(value) => onChange({ ...style, logoPosition: value as ElementStyle['logoPosition'] })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="top-left">שמאל למעלה</SelectItem>
+                <SelectItem value="top-center">מרכז למעלה</SelectItem>
+                <SelectItem value="top-right">ימין למעלה</SelectItem>
+                <SelectItem value="center-left">שמאל מרכז</SelectItem>
+                <SelectItem value="center">מרכז</SelectItem>
+                <SelectItem value="center-right">ימין מרכז</SelectItem>
+                <SelectItem value="bottom-left">שמאל למטה</SelectItem>
+                <SelectItem value="bottom-center">מרכז למטה</SelectItem>
+                <SelectItem value="bottom-right">ימין למטה</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-            <div>
-              <Label>מיקום לוגו</Label>
-              <Select
-                value={style.logoPosition || 'top-right'}
-                onValueChange={(value) => handleLogoStyleChange('logoPosition', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="top-right">ימין למעלה</SelectItem>
-                  <SelectItem value="top-center">מרכז למעלה</SelectItem>
-                  <SelectItem value="top-left">שמאל למעלה</SelectItem>
-                  <SelectItem value="center-right">ימין באמצע</SelectItem>
-                  <SelectItem value="center">מרכז</SelectItem>
-                  <SelectItem value="center-left">שמאל באמצע</SelectItem>
-                  <SelectItem value="bottom-right">ימין למטה</SelectItem>
-                  <SelectItem value="bottom-center">מרכז למטה</SelectItem>
-                  <SelectItem value="bottom-left">שמאל למטה</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">מרווח לוגו</label>
+            <Input
+              value={style.logoMargin || '1rem'}
+              onChange={(e) => onChange({ ...style, logoMargin: e.target.value })}
+              placeholder="1rem"
+            />
           </div>
         </div>
       )}
