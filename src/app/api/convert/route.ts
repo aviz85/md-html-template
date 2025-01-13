@@ -88,6 +88,25 @@ export async function POST(req: Request) {
     if (template?.css) {
       console.log('Using provided template with CSS')
       templateData = template as TemplateData
+
+      // Fetch template contents even when template is provided directly
+      if (template.template_id) {
+        const { data: contents, error: contentsError } = await supabase
+          .from('template_contents')
+          .select('content_name, md_content')
+          .eq('template_id', template.template_id)
+
+        if (contentsError) {
+          console.error('Error fetching template contents:', contentsError)
+        } else if (contents?.length) {
+          templateData.header = contents.find(c => c.content_name === 'header')?.md_content
+          templateData.footer = contents.find(c => c.content_name === 'footer')?.md_content
+          templateData.opening_page_content = contents.find(c => c.content_name === 'opening_page')?.md_content
+          templateData.closing_page_content = contents.find(c => c.content_name === 'closing_page')?.md_content
+          templateData.customContents = contents.filter(c => !['header', 'footer', 'opening_page', 'closing_page'].includes(c.content_name))
+            .map(c => ({ name: c.content_name.replace('custom_', ''), content: c.md_content }))
+        }
+      }
     } 
     // אם נשלח template_id או template.template_id, נחפש בדאטהבייס לפי gsheets_id
     else {

@@ -171,8 +171,10 @@ export async function convertMarkdownToHtml(content: string, headerContent?: str
   // Replace custom content placeholders
   if (customContents) {
     customContents.forEach(({ name, content }) => {
-      const placeholder = `[${name}]`;
-      processedContent = processedContent.replace(placeholder, content);
+      const cleanName = name.replace('custom_', '');
+      const upperPlaceholder = `[${cleanName.toUpperCase()}]`;
+      const lowerPlaceholder = `[${cleanName.toLowerCase()}]`;
+      processedContent = processedContent.replace(upperPlaceholder, content).replace(lowerPlaceholder, content);
     });
   }
 
