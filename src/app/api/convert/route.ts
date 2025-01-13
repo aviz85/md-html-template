@@ -36,6 +36,14 @@ interface TemplateData extends Template {
   element_styles?: {
     header?: ElementStyle
   }
+  header?: string
+  footer?: string
+  customContents?: Array<{
+    name: string
+    content: string
+  }>
+  show_logo?: boolean
+  logo_position?: string
 }
 
 // Configure marked with basic options
@@ -78,20 +86,16 @@ export async function POST(req: Request) {
 
     let templateData: TemplateData | null = null
 
-    // אם נשלח template_id או id, נחפש לפיו
-    if (template.template_id || template.id) {
-      const searchId = template.template_id || template.id
-      console.log('Fetching template by id:', searchId)
+    // אם נשלח template מלא עם CSS, נשתמש בו ישירות
+    if (template.css) {
+      console.log('Using provided template with CSS')
+      templateData = template as TemplateData
+    } 
+    // אם נשלח template_gsheets_id, נחפש בדאטהבייס
+    else if (template.id) {
+      console.log('Fetching template by gsheets_id:', template.id)
       
-      // בדיקה אם התבנית קיימת
-      const { data: allTemplates, error: listError } = await supabase
-        .from('templates')
-        .select('id, template_gsheets_id')
-
-      console.log('All templates:', allTemplates)
-
-      // נסה למצוא לפי template_gsheets_id
-      let { data: foundTemplate, error: templateError } = await supabase
+      const { data: foundTemplate, error: templateError } = await supabase
         .from('templates')
         .select(`
           *,
@@ -102,28 +106,8 @@ export async function POST(req: Request) {
             format
           )
         `)
-        .eq('template_gsheets_id', searchId)
+        .eq('template_gsheets_id', template.id)
         .single()
-
-      // אם לא נמצא, נסה למצוא לפי id רגיל
-      if (templateError || !foundTemplate) {
-        const { data, error } = await supabase
-          .from('templates')
-          .select(`
-            *,
-            custom_fonts (
-              name,
-              file_path,
-              font_family,
-              format
-            )
-          `)
-          .eq('id', searchId)
-          .single()
-          
-        foundTemplate = data
-        templateError = error
-      }
 
       if (templateError) {
         console.error('DB Error:', templateError)
@@ -136,99 +120,44 @@ export async function POST(req: Request) {
 
       templateData = foundTemplate
 
-      // Initialize content fields as undefined
+      // Fetch logo data if template has an id
       if (templateData) {
-        templateData.header_content = undefined
-        templateData.footer_content = undefined
-        templateData.opening_page_content = undefined
-        templateData.closing_page_content = undefined
-        templateData.custom_contents = []
-
-        // Fetch logo data
         const { data: logoData } = await supabase
           .from('logos')
           .select('file_path')
           .eq('template_id', templateData.id)
           .single()
 
+        console.log('Logo data:', logoData)
+
         if (logoData) {
           const { data: { publicUrl } } = supabase.storage
             .from('storage')
             .getPublicUrl(logoData.file_path)
           
+          console.log('Logo URL:', publicUrl)
           templateData.logo_path = publicUrl
         }
 
         // Fetch template contents
-        const { data: contentsData, error: contentsError } = await supabase
+        const { data: contents, error: contentsError } = await supabase
           .from('template_contents')
           .select('content_name, md_content')
           .eq('template_id', templateData.id)
 
         if (contentsError) {
           console.error('Error fetching template contents:', contentsError)
-        } else if (contentsData) {
-          // Map contents to template data
-          contentsData.forEach(content => {
-            if (content.content_name === 'header') {
-              templateData!.header_content = content.md_content
-            } else if (content.content_name === 'footer') {
-              templateData!.footer_content = content.md_content
-            } else if (content.content_name === 'opening_page') {
-              templateData!.opening_page_content = content.md_content
-            } else if (content.content_name === 'closing_page') {
-              templateData!.closing_page_content = content.md_content
-            } else if (content.content_name.startsWith('custom_')) {
-              if (!templateData!.custom_contents) templateData!.custom_contents = []
-              templateData!.custom_contents.push({
-                name: content.content_name.replace('custom_', ''),
-                content: content.md_content
-              })
-            }
-          })
+        } else if (contents?.length) {
+          templateData.header = contents.find(c => c.content_name === 'header')?.md_content
+          templateData.footer = contents.find(c => c.content_name === 'footer')?.md_content
+          templateData.customContents = contents.filter(c => !['header', 'footer'].includes(c.content_name))
+            .map(c => ({ name: c.content_name.replace('custom_', ''), content: c.md_content }))
         }
       }
-
-      console.log('Found template:', templateData)
-    } 
-    // אם נשלח template מלא, נשתמש בו ישירות
-    else if (template.css) {
-      console.log('Using provided template')
-      templateData = template as TemplateData
-    } 
-    // אם נשלח id רגיל
-    else if (template.id) {
-      console.log('Fetching template by id:', template.id)
-      const { data, error } = await supabase
-        .from('templates')
-        .select(`
-          *,
-          custom_fonts (
-            name,
-            file_path,
-            font_family,
-            format
-          )
-        `)
-        .eq('id', template.id)
-        .single()
-
-      if (error) {
-        console.error('DB Error:', error)
-        throw new Error('Template not found')
-      }
-      if (!data) {
-        console.error('No data returned from DB')
-        throw new Error('Template not found')
-      }
-
-      templateData = data
-    } else {
-      throw new Error('Invalid template data - missing template_gsheets_id, css or id')
     }
 
     if (!templateData) {
-      throw new Error('Template data is null')
+      throw new Error('Invalid template data - missing template_gsheets_id or css')
     }
 
     console.log('Using template data:', templateData)
@@ -254,23 +183,33 @@ export async function POST(req: Request) {
 
     console.log('\nGenerated @font-face rules:', customFontFaces)
 
-    // Convert each markdown document to HTML
+    // Convert each markdown to HTML
     const htmls = await Promise.all(finalMarkdowns.map(async (markdown) => {
-      let finalHeaderContent = templateData!.header_content || ''
-      if (templateData?.logo_path && templateData.header_content && templateData.element_styles?.header?.showLogo) {
-        const logoPosition = templateData.element_styles?.header?.logoPosition || 'top-right'
+      let finalHeaderContent = templateData!.header || ''
+      console.log('Logo check:', {
+        logo_path: templateData?.logo_path,
+        show_logo: templateData?.show_logo,
+        logo_position: templateData?.logo_position
+      })
+      
+      if (templateData?.logo_path && templateData.show_logo !== false) {
+        const logoPosition = templateData.logo_position || 'top-right'
         const logoWidth = templateData.element_styles?.header?.logoWidth || '100px'
         const logoHeight = templateData.element_styles?.header?.logoHeight || 'auto'
         const logoMargin = templateData.element_styles?.header?.logoMargin || '1rem'
 
-        const getPositionStyle = (position: ElementStyle['logoPosition']) => {
+        console.log('Logo settings:', {
+          logoPosition,
+          logoWidth,
+          logoHeight,
+          logoMargin
+        })
+
+        const getPositionStyle = (position: string) => {
           switch(position) {
             case 'top-left': return 'left: 0; top: 0;'
             case 'top-center': return 'left: 50%; transform: translateX(-50%); top: 0;'
             case 'top-right': return 'right: 0; top: 0;'
-            case 'center-left': return 'left: 0; top: 50%; transform: translateY(-50%);'
-            case 'center': return 'left: 50%; top: 50%; transform: translate(-50%, -50%);'
-            case 'center-right': return 'right: 0; top: 50%; transform: translateY(-50%);'
             case 'bottom-left': return 'left: 0; bottom: 0;'
             case 'bottom-center': return 'left: 50%; transform: translateX(-50%); bottom: 0;'
             case 'bottom-right': return 'right: 0; bottom: 0;'
@@ -278,7 +217,7 @@ export async function POST(req: Request) {
           }
         }
 
-        finalHeaderContent = `<div style="position: relative;">
+        finalHeaderContent = `<div class="header" style="position: relative;">
           <img 
             src="${templateData.logo_path}" 
             style="
@@ -290,15 +229,17 @@ export async function POST(req: Request) {
               margin: ${logoMargin};
             "
           />
-          ${templateData.header_content}
+          ${templateData.header ? await marked.parse(templateData.header) : ''}
         </div>`
+        
+        console.log('Final header content:', finalHeaderContent)
       }
 
       const combinedHtml = await convertMarkdownToHtml(
         markdown, 
         finalHeaderContent, 
-        templateData!.footer_content || '',
-        templateData!.custom_contents
+        templateData!.footer || '',
+        templateData!.customContents
       )
       const usedFonts = extractUsedFonts(templateData!.css)
       const googleFontsUrl = generateGoogleFontsUrl(usedFonts)

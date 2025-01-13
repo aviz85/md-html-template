@@ -176,8 +176,11 @@ export async function convertMarkdownToHtml(content: string, headerContent?: str
     });
   }
 
-  const headerHtml = headerContent ? `<div class="header">${await marked.parse(headerContent)}</div>\n` : '';
+  // Parse markdown content first
   const contentHtml = await marked.parse(processedContent);
+  
+  // Add header and footer if provided
+  const headerHtml = headerContent ? headerContent : '';
   const footerHtml = footerContent ? `\n<div class="footer">${await marked.parse(footerContent)}</div>` : '';
   
   return `${headerHtml}${contentHtml}${footerHtml}`;

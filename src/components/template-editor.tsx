@@ -526,7 +526,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           color2: colors.color2,
           color3: colors.color3,
           color4: colors.color4,
-          element_styles: elementStyles
+          element_styles: elementStyles,
+          show_logo: elementStyles.header.showLogo !== false,
+          logo_position: elementStyles.header.logoPosition || 'top-right'
         })
         .select()
         .single()
@@ -870,21 +872,46 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                 <ImageIcon className="w-4 h-4" />
                 העלאת לוגו
               </Button>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="showLogo"
-                  checked={elementStyles.header.showLogo !== false}
-                  onChange={(e) => setElementStyles(prev => ({
-                    ...prev,
-                    header: {
-                      ...prev.header,
-                      showLogo: e.target.checked
-                    }
-                  }))}
-                  className="w-4 h-4"
-                />
-                <label htmlFor="showLogo" className="text-sm">הצג לוגו</label>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="showLogo"
+                    checked={elementStyles.header.showLogo !== false}
+                    onChange={(e) => setElementStyles(prev => ({
+                      ...prev,
+                      header: {
+                        ...prev.header,
+                        showLogo: e.target.checked
+                      }
+                    }))}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="showLogo" className="text-sm">הצג לוגו</label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="logoPosition" className="text-sm">מיקום לוגו:</label>
+                  <select
+                    id="logoPosition"
+                    value={elementStyles.header.logoPosition || 'top-right'}
+                    onChange={(e) => setElementStyles(prev => ({
+                      ...prev,
+                      header: {
+                        ...prev.header,
+                        logoPosition: e.target.value as ElementStyle['logoPosition']
+                      }
+                    }))}
+                    className="text-sm p-1 border rounded"
+                    disabled={elementStyles.header.showLogo === false}
+                  >
+                    <option value="top-right">ימין למעלה</option>
+                    <option value="top-center">מרכז למעלה</option>
+                    <option value="top-left">שמאל למעלה</option>
+                    <option value="bottom-right">ימין למטה</option>
+                    <option value="bottom-center">מרכז למטה</option>
+                    <option value="bottom-left">שמאל למטה</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
