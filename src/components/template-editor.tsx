@@ -780,7 +780,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   }
 
   const getLogoPreviewUrl = () => {
-    if (!logoPath) return null
+    if (!logoPath) return undefined
     return supabase.storage
       .from('storage')
       .getPublicUrl(logoPath)
