@@ -7,18 +7,18 @@ Base URL: `https://md-html-template.vercel.app`
 
 Converts an array of Markdown content to HTML with a styled template.
 
-### Request```json
+### Request
+```json
 {
   "markdowns": [
     "# First Document\n\nThis is document 1",
     "# Second Document\n\nThis is document 2",
     "# Third Document\n\nThis is document 3"
   ],
+  "template_id": "google-sheet-id",
   "template": {
-    // One of the following:
-    "id": "template-uuid",  // Database UUID
-    "template_id": "google-sheet-id",  // Google Sheet ID
-    // or
+    "template_id": "google-sheet-id",
+    "id": "google-sheet-id",
     "css": "custom CSS",
     "header_content": "header content (optional)",
     "footer_content": "footer content (optional)",
@@ -47,7 +47,7 @@ Converts an array of Markdown content to HTML with a styled template.
 
 ### Full Example
 ```bash
-# Using database UUID
+# Using root level template_id
 curl -X POST https://md-html-template.vercel.app/api/convert \
   -H "Content-Type: application/json" \
   -d '{
@@ -55,12 +55,10 @@ curl -X POST https://md-html-template.vercel.app/api/convert \
       "# Document 1\n\nFirst content\n\n- Item 1.1\n- Item 1.2",
       "# Document 2\n\nSecond content\n\n- Item 2.1\n- Item 2.2"
     ],
-    "template": {
-      "id": "419860f3-bea1-4453-830e-55714131f7b6"
-    }
+    "template_id": "1hKt-OyUa-_01MzMJnw_Xa6lo-XizF4HJPH6aVSbcgBU"
   }'
 
-# Using Google Sheet ID
+# Using template object
 curl -X POST https://md-html-template.vercel.app/api/convert \
   -H "Content-Type: application/json" \
   -d '{
