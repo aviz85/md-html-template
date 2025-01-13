@@ -405,6 +405,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         .eq('template_id', id)
 
       if (!contentsError && contentsData) {
+        // Reset custom contents first
+        setCustomContents([])
+        
         contentsData.forEach(content => {
           if (content.content_name === 'opening_page') {
             setOpeningPageContent(content.md_content)
@@ -506,101 +509,111 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   }
 
   const handleSave = async () => {
-    // Validate required fields
-    const validationErrors: string[] = []
-    if (!templateName?.trim()) {
-      validationErrors.push(TRANSLATIONS.templateNameRequired)
-    }
-    if (!templateGsheetsId?.trim()) {
-      validationErrors.push(TRANSLATIONS.templateGsheetsIdRequired)
-    }
-    if (!headerContent?.trim()) {
-      validationErrors.push(TRANSLATIONS.headerContentRequired)
-    }
-    if (!footerContent?.trim()) {
-      validationErrors.push(TRANSLATIONS.footerContentRequired)
-    }
-
-    // Validate styles
-    const styleErrors = validateStyles(elementStyles)
-    validationErrors.push(...styleErrors)
-
-    if (validationErrors.length > 0) {
+    if (!templateName) {
       toast({
         variant: "destructive",
-        title: TRANSLATIONS.validationError,
-        description: validationErrors.join('\n')
+        title: TRANSLATIONS.error,
+        description: TRANSLATIONS.pleaseEnterTemplateName
       })
       return
     }
 
-    const css = generateCSS(elementStyles)
-    const template = {
-      id: templateId,
-      name: templateName,
-      template_gsheets_id: templateGsheetsId,
-      header_content: headerContent,
-      footer_content: footerContent,
-      opening_page_content: openingPageContent,
-      closing_page_content: closingPageContent,
-      custom_contents: customContents,
-      custom_fonts: customFonts,
-      logo_path: logoPath,
-      ...colors,
-      css
-    }
-
     try {
-      const response = await fetch('/api/templates', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(template),
-      })
+      // Save template
+      const { data: template, error: templateError } = await supabase
+        .from('templates')
+        .upsert({
+          id: templateId,
+          name: templateName,
+          css: generateCSS(elementStyles),
+          template_gsheets_id: templateGsheetsId,
+          color1: colors.color1,
+          color2: colors.color2,
+          color3: colors.color3,
+          color4: colors.color4,
+        })
+        .select()
+        .single()
 
-      if (!response.ok) {
-        const error = await response.text()
-        if (error.includes('duplicate key value violates unique constraint "template_name_unique"')) {
-          toast({
-            variant: "destructive",
-            title: TRANSLATIONS.error,
-            description: TRANSLATIONS.duplicateTemplateName
-          })
-          return
-        }
-        throw new Error('Failed to save template')
+      if (templateError) throw templateError
+
+      // Save contents
+      const contents = []
+
+      // Add header and footer
+      if (headerContent) {
+        contents.push({
+          template_id: template.id,
+          content_name: 'header',
+          md_content: headerContent
+        })
       }
 
-      // Save logo if changed
-      if (logoFile && templateId) {
-        const formData = new FormData()
-        formData.append('file', logoFile)
-        formData.append('templateId', templateId)
-
-        const logoResponse = await fetch('/api/logo', {
-          method: 'POST',
-          body: formData,
+      if (footerContent) {
+        contents.push({
+          template_id: template.id,
+          content_name: 'footer',
+          md_content: footerContent
         })
+      }
 
-        if (!logoResponse.ok) {
-          throw new Error('Failed to upload logo')
-        }
+      // Add opening and closing pages
+      if (openingPageContent) {
+        contents.push({
+          template_id: template.id,
+          content_name: 'opening_page',
+          md_content: openingPageContent
+        })
+      }
+
+      if (closingPageContent) {
+        contents.push({
+          template_id: template.id,
+          content_name: 'closing_page',
+          md_content: closingPageContent
+        })
+      }
+
+      // Add custom contents
+      customContents.forEach(content => {
+        contents.push({
+          template_id: template.id,
+          content_name: `custom_${content.name}`,
+          md_content: content.content
+        })
+      })
+
+      // Delete existing contents first
+      const { error: deleteError } = await supabase
+        .from('template_contents')
+        .delete()
+        .eq('template_id', template.id)
+
+      if (deleteError) throw deleteError
+
+      // Insert new contents
+      if (contents.length > 0) {
+        const { error: contentsError } = await supabase
+          .from('template_contents')
+          .insert(contents)
+
+        if (contentsError) throw contentsError
       }
 
       toast({
         title: TRANSLATIONS.success,
         description: TRANSLATIONS.templateSavedSuccessfully
       })
-      onSave?.()
+
+      if (onSave) {
+        onSave()
+      }
     } catch (error) {
       console.error('Error saving template:', error)
       toast({
         variant: "destructive",
         title: TRANSLATIONS.error,
-        description: error instanceof Error && error.message === 'Failed to fetch' 
-          ? TRANSLATIONS.networkError 
-          : TRANSLATIONS.failedToSaveTemplate
+        description: TRANSLATIONS.failedToSaveTemplate
       })
     }
   }
