@@ -137,60 +137,56 @@ export async function POST(req: Request) {
       templateData = foundTemplate
 
       // Initialize content fields as undefined
-      templateData.header_content = undefined
-      templateData.footer_content = undefined
-      templateData.opening_page_content = undefined
-      templateData.closing_page_content = undefined
-      templateData.custom_contents = []
+      if (templateData) {
+        templateData.header_content = undefined
+        templateData.footer_content = undefined
+        templateData.opening_page_content = undefined
+        templateData.closing_page_content = undefined
+        templateData.custom_contents = []
 
-      // Fetch logo data
-      if (!templateData) {
-        throw new Error('Template data is null')
-      }
-      
-      const { data: logoData } = await supabase
-        .from('logos')
-        .select('file_path')
-        .eq('template_id', templateData.id)
-        .single()
+        // Fetch logo data
+        const { data: logoData } = await supabase
+          .from('logos')
+          .select('file_path')
+          .eq('template_id', templateData.id)
+          .single()
 
-      if (logoData) {
-        const { data: { publicUrl } } = supabase.storage
-          .from('storage')
-          .getPublicUrl(logoData.file_path)
-        
-        templateData.logo_path = publicUrl
-      }
-
-      // Fetch template contents
-      const { data: contentsData, error: contentsError } = await supabase
-        .from('template_contents')
-        .select('content_name, md_content')
-        .eq('template_id', templateData!.id)
-
-      if (contentsError) {
-        console.error('Error fetching template contents:', contentsError)
-      } else if (contentsData) {
-        // Map contents to template data
-        contentsData.forEach(content => {
-          if (!templateData) return
+        if (logoData) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('storage')
+            .getPublicUrl(logoData.file_path)
           
-          if (content.content_name === 'header') {
-            templateData.header_content = content.md_content
-          } else if (content.content_name === 'footer') {
-            templateData.footer_content = content.md_content
-          } else if (content.content_name === 'opening_page') {
-            templateData.opening_page_content = content.md_content
-          } else if (content.content_name === 'closing_page') {
-            templateData.closing_page_content = content.md_content
-          } else if (content.content_name.startsWith('custom_')) {
-            if (!templateData.custom_contents) templateData.custom_contents = []
-            templateData.custom_contents.push({
-              name: content.content_name.replace('custom_', ''),
-              content: content.md_content
-            })
-          }
-        })
+          templateData.logo_path = publicUrl
+        }
+
+        // Fetch template contents
+        const { data: contentsData, error: contentsError } = await supabase
+          .from('template_contents')
+          .select('content_name, md_content')
+          .eq('template_id', templateData.id)
+
+        if (contentsError) {
+          console.error('Error fetching template contents:', contentsError)
+        } else if (contentsData) {
+          // Map contents to template data
+          contentsData.forEach(content => {
+            if (content.content_name === 'header') {
+              templateData!.header_content = content.md_content
+            } else if (content.content_name === 'footer') {
+              templateData!.footer_content = content.md_content
+            } else if (content.content_name === 'opening_page') {
+              templateData!.opening_page_content = content.md_content
+            } else if (content.content_name === 'closing_page') {
+              templateData!.closing_page_content = content.md_content
+            } else if (content.content_name.startsWith('custom_')) {
+              if (!templateData!.custom_contents) templateData!.custom_contents = []
+              templateData!.custom_contents.push({
+                name: content.content_name.replace('custom_', ''),
+                content: content.md_content
+              })
+            }
+          })
+        }
       }
 
       console.log('Found template:', templateData)
