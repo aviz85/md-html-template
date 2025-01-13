@@ -188,17 +188,26 @@ export async function POST(req: Request) {
 
     // הוספת עמודי פתיחה וסיום למערך ה-markdowns רק אם התקבל מערך
     const finalMarkdowns = []
-    if (isArray) {
-      if (templateData.opening_page_content) {
-        finalMarkdowns.push(templateData.opening_page_content)
-      }
-      finalMarkdowns.push(...markdownsArray)
-      if (templateData.closing_page_content) {
-        finalMarkdowns.push(templateData.closing_page_content)
-      }
-    } else {
-      finalMarkdowns.push(...markdownsArray)
+    
+    // Add opening page if array
+    if (isArray && templateData.opening_page_content) {
+      finalMarkdowns.push(templateData.opening_page_content)
     }
+    
+    // Add main content
+    finalMarkdowns.push(...markdownsArray)
+    
+    // Add closing page if array
+    if (isArray && templateData.closing_page_content) {
+      finalMarkdowns.push(templateData.closing_page_content)
+    }
+
+    // Get logo URL if exists
+    const logoUrl = templateData.logo_path ? 
+      supabase.storage
+        .from('storage')
+        .getPublicUrl(templateData.logo_path)
+        .data.publicUrl : undefined
 
     // Generate @font-face rules
     const customFontFaces = templateData.custom_fonts?.length 
@@ -208,65 +217,45 @@ export async function POST(req: Request) {
     console.log('\nGenerated @font-face rules:', customFontFaces)
 
     // Convert each markdown to HTML
-    const htmls = await Promise.all(finalMarkdowns.map(async (markdown, index) => {
-      let finalHeaderContent = templateData!.header || ''
-      console.log('Logo check:', {
-        logo_path: templateData?.logo_path,
-        show_logo: templateData?.show_logo,
-        logo_position: templateData?.logo_position,
-        show_logo_on_all_pages: templateData?.show_logo_on_all_pages,
-        index
-      })
+    const htmlContents = await Promise.all(finalMarkdowns.map(async (md, index) => {
+      const isFirstPage = index === 0
+      const showLogo = templateData.element_styles?.header?.showLogo !== false && 
+                      (isFirstPage || templateData.element_styles?.header?.showLogoOnAllPages)
       
-      // הצג לוגו רק בעמוד הראשון אם show_logo_on_all_pages = false
-      const shouldShowLogo = templateData?.show_logo !== false && 
-        (templateData?.show_logo_on_all_pages || index === 0)
-      
-      if (templateData?.logo_path && shouldShowLogo) {
-        const logoPosition = templateData.logo_position || 'top-right'
-        const logoWidth = templateData.element_styles?.header?.logoWidth || '100px'
-        const logoHeight = templateData.element_styles?.header?.logoHeight || 'auto'
-        const logoMargin = templateData.element_styles?.header?.logoMargin || '1rem'
-
-        console.log('Logo settings:', {
-          logoPosition,
-          logoWidth,
-          logoHeight,
-          logoMargin
-        })
-
-        const getPositionStyle = (position: string) => {
-          switch(position) {
-            case 'top-left': return 'text-align: left;'
-            case 'top-center': return 'text-align: center;'
-            case 'top-right': return 'text-align: right;'
-            case 'bottom-left': return 'text-align: left;'
-            case 'bottom-center': return 'text-align: center;'
-            case 'bottom-right': return 'text-align: right;'
-            default: return 'text-align: right;'
-          }
-        }
-
-        finalHeaderContent = `<div class="header" style="${getPositionStyle(logoPosition)}">
+      const headerWithLogo = showLogo && logoUrl ? `
+        <div style="position: relative;">
           <img 
-            src="${templateData.logo_path}" 
+            src="${logoUrl}" 
             style="
-              width: ${logoWidth};
-              height: ${logoHeight};
+              position: absolute; 
+              ${(() => {
+                const position = templateData.element_styles?.header?.logoPosition || 'top-right'
+                switch(position) {
+                  case 'top-left': return 'left: 0; top: 0;'
+                  case 'top-center': return 'left: 50%; transform: translateX(-50%); top: 0;'
+                  case 'top-right': return 'right: 0; top: 0;'
+                  case 'center-left': return 'left: 0; top: 50%; transform: translateY(-50%);'
+                  case 'center': return 'left: 50%; top: 50%; transform: translate(-50%, -50%);'
+                  case 'center-right': return 'right: 0; top: 50%; transform: translateY(-50%);'
+                  case 'bottom-left': return 'left: 0; bottom: 0;'
+                  case 'bottom-center': return 'left: 50%; transform: translateX(-50%); bottom: 0;'
+                  case 'bottom-right': return 'right: 0; bottom: 0;'
+                  default: return 'right: 0; top: 0;'
+                }
+              })()}
+              width: ${templateData.element_styles?.header?.logoWidth || '100px'};
+              height: ${templateData.element_styles?.header?.logoHeight || 'auto'};
               object-fit: contain;
-              margin: ${logoMargin};
-              display: inline-block;
+              margin: ${templateData.element_styles?.header?.logoMargin || '1rem'};
             "
           />
-          ${templateData.header ? await marked.parse(templateData.header) : ''}
-        </div>`
-        
-        console.log('Final header content:', finalHeaderContent)
-      }
+          ${templateData.header_content || ''}
+        </div>
+      ` : templateData.header_content || ''
 
       const combinedHtml = await convertMarkdownToHtml(
-        markdown, 
-        finalHeaderContent, 
+        md, 
+        headerWithLogo, 
         templateData!.footer || '',
         templateData!.customContents
       )
@@ -281,11 +270,11 @@ export async function POST(req: Request) {
       )
     }))
 
-    console.log('Generated HTMLs:', htmls.length)
+    console.log('Generated HTMLs:', htmlContents.length)
 
     // Return array or single string based on input type
     return NextResponse.json({ 
-      htmls: isArray ? htmls : htmls[0]
+      htmls: isArray ? htmlContents : htmlContents[0]
     })
   } catch (error) {
     console.error('Error converting markdown:', error)

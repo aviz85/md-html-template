@@ -69,6 +69,25 @@ CTA_TEMPLATE_DATA="{
     }
   }"
 
+# New test data for templateId and mdContents
+TEMPLATE_ID_DATA="{
+    \"mdContents\": [
+      \"# Document 1\\n\\nFirst content\\n\\n- Item 1.1\\n- Item 1.2\",
+      \"# Document 2\\n\\nSecond content\\n\\n- Item 2.1\\n- Item 2.2\"
+    ],
+    \"templateId\": \"$TEMPLATE_ID\"
+  }"
+
+TEMPLATE_ID_SINGLE_DATA="{
+    \"mdContents\": \"# Single Document\\n\\nThis is a test\",
+    \"templateId\": \"$TEMPLATE_ID\"
+  }"
+
+TEMPLATE_ID_CTA_DATA="{
+    \"mdContents\": \"# Test Document\\n\\nThis is a test\\n\\n[CTA]\",
+    \"templateId\": \"$TEMPLATE_ID\"
+  }"
+
 # Local tests
 echo -e "${BLUE}Running local tests...${NC}\n"
 
@@ -78,6 +97,9 @@ run_test "Local" "Test 3: Root level template_id with CTA" "$CTA_DATA" "$LOCAL_U
 run_test "Local" "Test 4: Template object with template_id and array" "$ARRAY_TEMPLATE_DATA" "$LOCAL_URL"
 run_test "Local" "Test 5: Template object with id and single string" "$SINGLE_TEMPLATE_DATA" "$LOCAL_URL"
 run_test "Local" "Test 6: Template object with template_id and CTA" "$CTA_TEMPLATE_DATA" "$LOCAL_URL"
+run_test "Local" "Test 7: Root level templateId with array" "$TEMPLATE_ID_DATA" "$LOCAL_URL"
+run_test "Local" "Test 8: Root level templateId with single string" "$TEMPLATE_ID_SINGLE_DATA" "$LOCAL_URL"
+run_test "Local" "Test 9: Root level templateId with CTA" "$TEMPLATE_ID_CTA_DATA" "$LOCAL_URL"
 
 # Vercel tests
 echo -e "${BLUE}Running Vercel tests...${NC}\n"
@@ -88,5 +110,8 @@ run_test "Vercel" "Test 3: Root level template_id with CTA" "$CTA_DATA" "$VERCEL
 run_test "Vercel" "Test 4: Template object with template_id and array" "$ARRAY_TEMPLATE_DATA" "$VERCEL_URL"
 run_test "Vercel" "Test 5: Template object with id and single string" "$SINGLE_TEMPLATE_DATA" "$VERCEL_URL"
 run_test "Vercel" "Test 6: Template object with template_id and CTA" "$CTA_TEMPLATE_DATA" "$VERCEL_URL"
+run_test "Vercel" "Test 7: Root level templateId with array" "$TEMPLATE_ID_DATA" "$VERCEL_URL"
+run_test "Vercel" "Test 8: Root level templateId with single string" "$TEMPLATE_ID_SINGLE_DATA" "$VERCEL_URL"
+run_test "Vercel" "Test 9: Root level templateId with CTA" "$TEMPLATE_ID_CTA_DATA" "$VERCEL_URL"
 
 echo -e "${GREEN}All tests completed!${NC}" 

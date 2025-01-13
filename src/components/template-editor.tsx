@@ -528,6 +528,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           color4: colors.color4,
           element_styles: elementStyles,
           show_logo: elementStyles.header.showLogo !== false,
+          show_logo_on_all_pages: elementStyles.header.showLogoOnAllPages !== false,
           logo_position: elementStyles.header.logoPosition || 'top-right'
         })
         .select()
@@ -888,6 +889,22 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                     className="w-4 h-4"
                   />
                   <label htmlFor="showLogo" className="text-sm">הצג לוגו</label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="showLogoOnAllPages"
+                    checked={elementStyles.header.showLogoOnAllPages !== false}
+                    onChange={(e) => setElementStyles(prev => ({
+                      ...prev,
+                      header: {
+                        ...prev.header,
+                        showLogoOnAllPages: e.target.checked
+                      }
+                    }))}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="showLogoOnAllPages" className="text-sm">הצג לוגו בכל העמודים</label>
                 </div>
                 <div className="flex items-center gap-2">
                   <label htmlFor="logoPosition" className="text-sm">מיקום לוגו:</label>
