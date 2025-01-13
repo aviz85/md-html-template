@@ -31,21 +31,7 @@ import { Upload } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Trash2 } from "lucide-react"
 import { ImageIcon } from "lucide-react"
-
-interface ElementStyle {
-  color?: string
-  backgroundColor?: string
-  fontSize?: string
-  margin?: string
-  padding?: string
-  fontFamily?: string
-  textAlign?: 'right' | 'left' | 'center' | 'justify'
-  customCss?: string
-  logoWidth?: string
-  logoHeight?: string
-  logoPosition?: 'top-right' | 'top-left' | 'top-center' | 'center-right' | 'center-left' | 'center' | 'bottom-right' | 'bottom-left' | 'bottom-center'
-  logoMargin?: string
-}
+import { ElementStyle } from "@/types"
 
 type ElementType = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "list" | "p" | "specialParagraph" | "header" | "footer"
 

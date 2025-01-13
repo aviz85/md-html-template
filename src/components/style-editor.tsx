@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog"
 import { Upload } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
+import { ElementStyle } from "@/types"
 
 const HEBREW_FONTS = [
   { name: "ברירת מחדל", value: "inherit" },
@@ -35,21 +36,6 @@ const HEBREW_FONTS = [
   { name: "סואץ", value: "'Suez One', serif" },
   { name: "פרנק רול", value: "'Frank Ruhl Libre', serif" },
 ]
-
-interface ElementStyle {
-  color?: string
-  backgroundColor?: string
-  fontSize?: string
-  margin?: string
-  padding?: string
-  fontFamily?: string
-  textAlign?: 'right' | 'left' | 'center' | 'justify'
-  customCss?: string
-  logoWidth?: string
-  logoHeight?: string
-  logoPosition?: string
-  logoMargin?: string
-}
 
 interface StyleEditorProps {
   style: ElementStyle
