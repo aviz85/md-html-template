@@ -19,6 +19,7 @@ interface Template {
   footer_content?: string
   opening_page_content?: string
   closing_page_content?: string
+  show_logo_on_all_pages?: boolean
   custom_contents?: Array<{
     name: string
     content: string
@@ -188,15 +189,21 @@ export async function POST(req: Request) {
     console.log('\nGenerated @font-face rules:', customFontFaces)
 
     // Convert each markdown to HTML
-    const htmls = await Promise.all(finalMarkdowns.map(async (markdown) => {
+    const htmls = await Promise.all(finalMarkdowns.map(async (markdown, index) => {
       let finalHeaderContent = templateData!.header || ''
       console.log('Logo check:', {
         logo_path: templateData?.logo_path,
         show_logo: templateData?.show_logo,
-        logo_position: templateData?.logo_position
+        logo_position: templateData?.logo_position,
+        show_logo_on_all_pages: templateData?.show_logo_on_all_pages,
+        index
       })
       
-      if (templateData?.logo_path && templateData.show_logo !== false) {
+      // הצג לוגו רק בעמוד הראשון אם show_logo_on_all_pages = false
+      const shouldShowLogo = templateData?.show_logo !== false && 
+        (templateData?.show_logo_on_all_pages || index === 0)
+      
+      if (templateData?.logo_path && shouldShowLogo) {
         const logoPosition = templateData.logo_position || 'top-right'
         const logoWidth = templateData.element_styles?.header?.logoWidth || '100px'
         const logoHeight = templateData.element_styles?.header?.logoHeight || 'auto'
