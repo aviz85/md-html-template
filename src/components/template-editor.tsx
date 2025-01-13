@@ -309,32 +309,20 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       const { fonts } = await response.json()
       setCustomFonts(fonts || [])
 
-      // Save the template with the updated fonts
-      const css = generateCSS(elementStyles)
-      const template = {
-        id: templateId,
-        name: templateName,
-        template_gsheets_id: templateGsheetsId,
-        header_content: headerContent,
-        footer_content: footerContent,
-        opening_page_content: openingPageContent,
-        closing_page_content: closingPageContent,
-        custom_contents: customContents,
-        custom_fonts: fonts,
-        ...colors,
-        css
-      }
-
-      const saveResponse = await fetch('/api/templates', {
-        method: 'POST',
+      // Update only the custom_fonts field in the template
+      const updateResponse = await fetch('/api/templates', {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(template),
+        body: JSON.stringify({
+          id: templateId,
+          custom_fonts: fonts
+        }),
       })
 
-      if (!saveResponse.ok) {
-        throw new Error('Failed to save template')
+      if (!updateResponse.ok) {
+        throw new Error('Failed to update template')
       }
 
       toast({

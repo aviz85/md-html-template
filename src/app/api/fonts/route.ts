@@ -10,12 +10,30 @@ export async function POST(request: Request) {
   try {
     const { templateId, fontName, fileExt, fileData } = await request.json()
 
+    // Check if font already exists
+    const { data: existingFont } = await supabase
+      .from('custom_fonts')
+      .select('*')
+      .eq('template_id', templateId)
+      .eq('name', fontName)
+      .single()
+
+    // If font exists, delete the old file
+    if (existingFont) {
+      const { error: deleteError } = await supabase.storage
+        .from('storage')
+        .remove([existingFont.file_path])
+
+      if (deleteError) throw deleteError
+    }
+
     // Upload font file to storage
     const filePath = `fonts/${fontName}.${fileExt}`
     const { data: uploadData, error: fileError } = await supabase.storage
       .from('storage')
       .upload(filePath, Buffer.from(fileData), {
-        contentType: `font/${fileExt}`
+        contentType: `font/${fileExt}`,
+        upsert: true
       })
 
     if (fileError) throw fileError
@@ -25,18 +43,29 @@ export async function POST(request: Request) {
       .from('storage')
       .getPublicUrl(uploadData.path)
 
-    // Save font metadata to custom_fonts table
-    const { data: font, error: fontError } = await supabase
-      .from('custom_fonts')
-      .insert({
-        template_id: templateId,
-        name: fontName,
-        file_path: filePath,
-        font_family: fontName,
-        format: fileExt
-      })
-      .select()
-      .single()
+    // Save or update font metadata in custom_fonts table
+    const fontData = {
+      template_id: templateId,
+      name: fontName,
+      file_path: filePath,
+      font_family: fontName,
+      format: fileExt
+    }
+
+    let fontError
+    if (existingFont) {
+      const { error } = await supabase
+        .from('custom_fonts')
+        .update(fontData)
+        .eq('template_id', templateId)
+        .eq('name', fontName)
+      fontError = error
+    } else {
+      const { error } = await supabase
+        .from('custom_fonts')
+        .insert([fontData])
+      fontError = error
+    }
 
     if (fontError) throw fontError
 

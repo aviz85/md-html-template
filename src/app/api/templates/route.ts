@@ -52,14 +52,22 @@ export async function POST(req: Request) {
       })
     }
 
+    // Handle custom contents with duplicate check
     if (template.custom_contents?.length > 0) {
+      // Use a Map to keep only the latest version of each content
+      const contentMap = new Map()
+      
       template.custom_contents.forEach((content: any) => {
-        contents.push({
+        const contentName = `custom_${content.name}`
+        contentMap.set(contentName, {
           template_id: savedTemplate.id,
-          content_name: `custom_${content.name}`,
+          content_name: contentName,
           md_content: content.content
         })
       })
+
+      // Add unique custom contents to the contents array
+      contents.push(...contentMap.values())
     }
 
     if (contents.length > 0) {
@@ -79,5 +87,26 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('Error:', error)
     return new Response('Error saving template', { status: 500 })
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const { id, custom_fonts } = await req.json()
+    
+    const { error } = await supabase
+      .from('templates')
+      .update({ custom_fonts })
+      .eq('id', id)
+
+    if (error) {
+      console.error('Error updating template fonts:', error)
+      return new Response('Error updating template fonts', { status: 500 })
+    }
+
+    return new Response('Template fonts updated successfully')
+  } catch (error) {
+    console.error('Error:', error)
+    return new Response('Error updating template', { status: 500 })
   }
 } 
