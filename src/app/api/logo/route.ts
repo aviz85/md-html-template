@@ -20,7 +20,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const fileExt = file.name.split('.').pop()
+    // Check if logo already exists
+    const { data: existingLogo } = await supabase
+      .from('logos')
+      .select('file_path')
+      .eq('template_id', templateId)
+      .single()
+
+    // If logo exists, delete the old file
+    if (existingLogo) {
+      const { error: deleteError } = await supabase.storage
+        .from('storage')
+        .remove([existingLogo.file_path])
+
+      if (deleteError) {
+        console.error('Error deleting old logo:', deleteError)
+        // Continue even if delete fails
+      }
+
+      // Delete the old record
+      await supabase
+        .from('logos')
+        .delete()
+        .eq('template_id', templateId)
+    }
+
+    const fileExt = file.name.split('.').pop()?.toLowerCase() || 'png'
     const fileName = `${templateId}-${Date.now()}.${fileExt}`
     const filePath = `logos/${fileName}`
 
@@ -31,7 +56,8 @@ export async function POST(request: NextRequest) {
     const { error: uploadError } = await supabase.storage
       .from('storage')
       .upload(filePath, buffer, {
-        contentType: file.type
+        contentType: file.type || 'image/png',
+        upsert: true
       })
 
     if (uploadError) {
@@ -40,13 +66,26 @@ export async function POST(request: NextRequest) {
 
     const { error: dbError } = await supabase
       .from('logos')
-      .insert([{ template_id: templateId, file_path: filePath }])
+      .insert([{ 
+        template_id: templateId, 
+        file_path: filePath,
+        created_at: new Date().toISOString()
+      }])
 
     if (dbError) {
+      // If DB insert fails, try to clean up the uploaded file
+      await supabase.storage
+        .from('storage')
+        .remove([filePath])
       throw dbError
     }
 
-    return NextResponse.json({ filePath })
+    // Get the public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('storage')
+      .getPublicUrl(filePath)
+
+    return NextResponse.json({ filePath, publicUrl })
   } catch (error) {
     console.error('Error handling logo upload:', error)
     return NextResponse.json(
@@ -69,18 +108,21 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
+    // Delete file first
     const { error: storageError } = await supabase.storage
       .from('storage')
       .remove([filePath])
 
     if (storageError) {
-      throw storageError
+      console.error('Error deleting logo file:', storageError)
+      // Continue to delete DB record even if file delete fails
     }
 
+    // Then delete DB record
     const { error: dbError } = await supabase
       .from('logos')
       .delete()
-      .match({ template_id: templateId })
+      .eq('template_id', templateId)
 
     if (dbError) {
       throw dbError

@@ -67,14 +67,15 @@ export async function POST(req: Request) {
       })
 
       // Add unique custom contents to the contents array
-      contents.push(...contentMap.values())
+      contents.push(...Array.from(contentMap.values()))
     }
 
     if (contents.length > 0) {
       const { error: contentsError } = await supabase
         .from('template_contents')
         .upsert(contents, {
-          onConflict: 'template_id,content_name'
+          onConflict: 'template_id,content_name',
+          ignoreDuplicates: true
         })
 
       if (contentsError) {

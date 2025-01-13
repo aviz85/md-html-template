@@ -10,10 +10,18 @@ export async function POST(request: Request) {
   try {
     const { templateId, fontName, fileExt, fileData } = await request.json()
 
+    // Validate input
+    if (!templateId || !fontName || !fileExt || !fileData) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      )
+    }
+
     // Check if font already exists
     const { data: existingFont } = await supabase
       .from('custom_fonts')
-      .select('*')
+      .select('file_path')
       .eq('template_id', templateId)
       .eq('name', fontName)
       .single()
@@ -24,7 +32,17 @@ export async function POST(request: Request) {
         .from('storage')
         .remove([existingFont.file_path])
 
-      if (deleteError) throw deleteError
+      if (deleteError) {
+        console.error('Error deleting old font:', deleteError)
+        // Continue even if delete fails
+      }
+
+      // Delete the old record
+      await supabase
+        .from('custom_fonts')
+        .delete()
+        .eq('template_id', templateId)
+        .eq('name', fontName)
     }
 
     // Upload font file to storage
@@ -36,46 +54,47 @@ export async function POST(request: Request) {
         upsert: true
       })
 
-    if (fileError) throw fileError
+    if (fileError) {
+      throw fileError
+    }
 
     // Get the public URL of the uploaded font
     const { data: { publicUrl } } = supabase.storage
       .from('storage')
       .getPublicUrl(uploadData.path)
 
-    // Save or update font metadata in custom_fonts table
+    // Save font metadata to custom_fonts table
     const fontData = {
       template_id: templateId,
       name: fontName,
       file_path: filePath,
       font_family: fontName,
-      format: fileExt
+      format: fileExt,
+      created_at: new Date().toISOString()
     }
 
-    let fontError
-    if (existingFont) {
-      const { error } = await supabase
-        .from('custom_fonts')
-        .update(fontData)
-        .eq('template_id', templateId)
-        .eq('name', fontName)
-      fontError = error
-    } else {
-      const { error } = await supabase
-        .from('custom_fonts')
-        .insert([fontData])
-      fontError = error
-    }
+    const { error: fontError } = await supabase
+      .from('custom_fonts')
+      .insert([fontData])
 
-    if (fontError) throw fontError
+    if (fontError) {
+      // If DB insert fails, try to clean up the uploaded file
+      await supabase.storage
+        .from('storage')
+        .remove([filePath])
+      throw fontError
+    }
 
     // Load the updated fonts
-    const { data: fonts } = await supabase
+    const { data: fonts, error: loadError } = await supabase
       .from('custom_fonts')
       .select('*')
       .eq('template_id', templateId)
+      .order('created_at', { ascending: false })
 
-    return NextResponse.json({ fonts })
+    if (loadError) throw loadError
+
+    return NextResponse.json({ fonts, publicUrl })
   } catch (error) {
     console.error('Error uploading font:', error)
     return NextResponse.json({ error }, { status: 500 })
@@ -95,6 +114,7 @@ export async function GET(request: Request) {
       .from('custom_fonts')
       .select('*')
       .eq('template_id', templateId)
+      .order('created_at', { ascending: false })
 
     if (error) throw error
 
