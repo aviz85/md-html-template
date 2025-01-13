@@ -41,6 +41,10 @@ interface ElementStyle {
   fontFamily?: string
   textAlign?: 'right' | 'left' | 'center' | 'justify'
   customCss?: string
+  logoWidth?: string
+  logoHeight?: string
+  logoPosition?: 'top-right' | 'top-left' | 'top-center' | 'center-right' | 'center-left' | 'center' | 'bottom-right' | 'bottom-left' | 'bottom-center'
+  logoMargin?: string
 }
 
 type ElementType = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "list" | "p" | "specialParagraph" | "header" | "footer"
@@ -153,7 +157,12 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     list: {},
     p: {},
     specialParagraph: {},
-    header: {},
+    header: {
+      logoWidth: '100px',
+      logoHeight: 'auto',
+      logoPosition: 'top-right',
+      logoMargin: '1rem'
+    },
     footer: {}
   })
   const [sidebarWidth, setSidebarWidth] = useState(200)
@@ -608,6 +617,38 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     }
 
     try {
+      // Get logo URL if exists
+      const logoUrl = getLogoPreviewUrl()
+      const headerWithLogo = logoUrl ? `
+        <div style="position: relative;">
+          <img 
+            src="${logoUrl}" 
+            style="
+              position: absolute; 
+              ${(() => {
+                switch(elementStyles.header.logoPosition) {
+                  case 'top-left': return 'left: 0; top: 0;'
+                  case 'top-center': return 'left: 50%; transform: translateX(-50%); top: 0;'
+                  case 'top-right': return 'right: 0; top: 0;'
+                  case 'center-left': return 'left: 0; top: 50%; transform: translateY(-50%);'
+                  case 'center': return 'left: 50%; top: 50%; transform: translate(-50%, -50%);'
+                  case 'center-right': return 'right: 0; top: 50%; transform: translateY(-50%);'
+                  case 'bottom-left': return 'left: 0; bottom: 0;'
+                  case 'bottom-center': return 'left: 50%; transform: translateX(-50%); bottom: 0;'
+                  case 'bottom-right': return 'right: 0; bottom: 0;'
+                  default: return 'right: 0; top: 0;'
+                }
+              })()}
+              width: ${elementStyles.header.logoWidth || '100px'};
+              height: ${elementStyles.header.logoHeight || 'auto'};
+              object-fit: contain;
+              margin: ${elementStyles.header.logoMargin || '1rem'};
+            "
+          />
+          ${headerContent}
+        </div>
+      ` : headerContent
+
       console.log('Sending preview request with:', {
         markdowns: [mdContent || ''],
         template: {
@@ -615,7 +656,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           css: generateCSS(elementStyles),
           custom_fonts: customFonts
         },
-        header_content: headerContent,
+        header_content: headerWithLogo,
         footer_content: footerContent
       })
 
@@ -631,7 +672,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             css: generateCSS(elementStyles),
             custom_fonts: customFonts
           },
-          header_content: headerContent,
+          header_content: headerWithLogo,
           footer_content: footerContent
         }),
       })
@@ -1051,7 +1092,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                       activeElement === "header" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
                     }`}
                   >
-                    {TRANSLATIONS.header}
+                    {TRANSLATIONS.header} (כולל הגדרות לוגו)
                   </button>
                   <button
                     onClick={() => setActiveElement("footer")}

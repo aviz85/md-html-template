@@ -127,6 +127,21 @@ export async function POST(req: Request) {
 
       templateData = foundTemplate
 
+      // Fetch logo data
+      const { data: logoData } = await supabase
+        .from('logos')
+        .select('file_path')
+        .eq('template_id', templateData.id)
+        .single()
+
+      if (logoData) {
+        const { data: { publicUrl } } = supabase.storage
+          .from('storage')
+          .getPublicUrl(logoData.file_path)
+        
+        templateData.logo_path = publicUrl
+      }
+
       // Fetch template contents
       const { data: contentsData, error: contentsError } = await supabase
         .from('template_contents')
@@ -217,9 +232,47 @@ export async function POST(req: Request) {
 
     // Convert each markdown document to HTML
     const htmls = await Promise.all(finalMarkdowns.map(async (markdown) => {
+      let finalHeaderContent = templateData!.header_content || ''
+      if (templateData?.logo_path && templateData.header_content) {
+        const logoPosition = template.elementStyles?.header?.logoPosition || 'top-right'
+        const logoWidth = template.elementStyles?.header?.logoWidth || '100px'
+        const logoHeight = template.elementStyles?.header?.logoHeight || 'auto'
+        const logoMargin = template.elementStyles?.header?.logoMargin || '1rem'
+
+        const getPositionStyle = (position: string) => {
+          switch(position) {
+            case 'top-left': return 'left: 0; top: 0;'
+            case 'top-center': return 'left: 50%; transform: translateX(-50%); top: 0;'
+            case 'top-right': return 'right: 0; top: 0;'
+            case 'center-left': return 'left: 0; top: 50%; transform: translateY(-50%);'
+            case 'center': return 'left: 50%; top: 50%; transform: translate(-50%, -50%);'
+            case 'center-right': return 'right: 0; top: 50%; transform: translateY(-50%);'
+            case 'bottom-left': return 'left: 0; bottom: 0;'
+            case 'bottom-center': return 'left: 50%; transform: translateX(-50%); bottom: 0;'
+            case 'bottom-right': return 'right: 0; bottom: 0;'
+            default: return 'right: 0; top: 0;'
+          }
+        }
+
+        finalHeaderContent = `<div style="position: relative;">
+          <img 
+            src="${templateData.logo_path}" 
+            style="
+              position: absolute; 
+              ${getPositionStyle(logoPosition)}
+              width: ${logoWidth};
+              height: ${logoHeight};
+              object-fit: contain;
+              margin: ${logoMargin};
+            "
+          />
+          ${templateData.header_content}
+        </div>`
+      }
+
       const combinedHtml = await convertMarkdownToHtml(
         markdown, 
-        templateData!.header_content || '', 
+        finalHeaderContent, 
         templateData!.footer_content || '',
         templateData!.custom_contents
       )

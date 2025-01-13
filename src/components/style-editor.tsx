@@ -45,6 +45,10 @@ interface ElementStyle {
   fontFamily?: string
   textAlign?: 'right' | 'left' | 'center' | 'justify'
   customCss?: string
+  logoWidth?: string
+  logoHeight?: string
+  logoPosition?: string
+  logoMargin?: string
 }
 
 interface StyleEditorProps {
@@ -199,8 +203,82 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
     </div>
   )
 
+  // Logo style handler
+  const handleLogoStyleChange = (key: keyof ElementStyle, value: string) => {
+    onChange({ 
+      ...style, 
+      [key]: value || undefined
+    })
+  }
+
   return (
-    <div className="space-y-4 p-4">
+    <div className="p-4 space-y-4">
+      {/* Logo Controls - show first for header */}
+      {style.hasOwnProperty('logoPosition') && (
+        <div className="space-y-4 mb-8 bg-accent/20 p-4 rounded-lg">
+          <h3 className="font-medium text-lg border-b pb-2">הגדרות לוגו</h3>
+          
+          <div className="space-y-4">
+            <div>
+              <Label>רוחב לוגו</Label>
+              <Input
+                type="text"
+                value={style.logoWidth || '100px'}
+                onChange={(e) => handleLogoStyleChange('logoWidth', e.target.value)}
+                placeholder="100px"
+                dir="ltr"
+              />
+            </div>
+
+            <div>
+              <Label>גובה לוגו</Label>
+              <Input
+                type="text"
+                value={style.logoHeight || 'auto'}
+                onChange={(e) => handleLogoStyleChange('logoHeight', e.target.value)}
+                placeholder="auto"
+                dir="ltr"
+              />
+            </div>
+
+            <div>
+              <Label>מרווח מהשוליים</Label>
+              <Input
+                type="text"
+                value={style.logoMargin || '1rem'}
+                onChange={(e) => handleLogoStyleChange('logoMargin', e.target.value)}
+                placeholder="1rem"
+                dir="ltr"
+              />
+            </div>
+
+            <div>
+              <Label>מיקום לוגו</Label>
+              <Select
+                value={style.logoPosition || 'top-right'}
+                onValueChange={(value) => handleLogoStyleChange('logoPosition', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="top-right">ימין למעלה</SelectItem>
+                  <SelectItem value="top-center">מרכז למעלה</SelectItem>
+                  <SelectItem value="top-left">שמאל למעלה</SelectItem>
+                  <SelectItem value="center-right">ימין באמצע</SelectItem>
+                  <SelectItem value="center">מרכז</SelectItem>
+                  <SelectItem value="center-left">שמאל באמצע</SelectItem>
+                  <SelectItem value="bottom-right">ימין למטה</SelectItem>
+                  <SelectItem value="bottom-center">מרכז למטה</SelectItem>
+                  <SelectItem value="bottom-left">שמאל למטה</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Regular style controls */}
       <div className="grid gap-4 p-4" dir="rtl">
         <div className="grid grid-cols-2 gap-4">
           <ColorPicker
