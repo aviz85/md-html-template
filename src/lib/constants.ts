@@ -154,6 +154,8 @@ export const generateGoogleFontsUrl = (fonts: string[]): string => {
         return font;
       case 'Frank Ruhl Libre':
         return `${font}:wght@400;700`;
+      case 'David Libre':
+        return `${font}:wght@400;500;700`;
       default:
         return font;
     }
