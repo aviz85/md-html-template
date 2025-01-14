@@ -118,6 +118,16 @@ MULTIPLE_BACKTICKS_IN_STRING="{
     \"template_id\": \"$TEMPLATE_ID\"
   }"
 
+# Test array with mixed content - some strings with backticks, some without
+MIXED_ARRAY_DATA='{
+  "template_id": "1FnBxuZQZnIxZy2JDyxr-uR7JR7hqQUvEJVhNcgX_Ono",
+  "markdowns": [
+    "First normal string",
+    "Some text `````Split content 1````` more text `````Split content 2````` end text",
+    "Last normal string"
+  ]
+}'
+
 # Local tests
 echo -e "${BLUE}Running local tests...${NC}\n"
 
@@ -134,6 +144,7 @@ run_test "Local" "Test 10: Template.id with sheet_id" "$SHEET_ID_TEMPLATE_DATA" 
 run_test "Local" "Test 11: Single string with backticks" "$BACKTICKS_DATA" "$LOCAL_URL"
 run_test "Local" "Test 12: Array with backticks" "$BACKTICKS_ARRAY_DATA" "$LOCAL_URL"
 run_test "Local" "Test 13: Multiple backticks in single string" "$MULTIPLE_BACKTICKS_IN_STRING" "$LOCAL_URL"
+run_test "Local" "Test 14: Array with mixed backticks content" "$MIXED_ARRAY_DATA" "$LOCAL_URL"
 
 # Vercel tests
 echo -e "${BLUE}Running Vercel tests...${NC}\n"
@@ -151,5 +162,6 @@ run_test "Vercel" "Test 10: Template.id with sheet_id" "$SHEET_ID_TEMPLATE_DATA"
 run_test "Vercel" "Test 11: Single string with backticks" "$BACKTICKS_DATA" "$VERCEL_URL"
 run_test "Vercel" "Test 12: Array with backticks" "$BACKTICKS_ARRAY_DATA" "$VERCEL_URL"
 run_test "Vercel" "Test 13: Multiple backticks in single string" "$MULTIPLE_BACKTICKS_IN_STRING" "$VERCEL_URL"
+run_test "Vercel" "Test 14: Array with mixed backticks content" "$MIXED_ARRAY_DATA" "$VERCEL_URL"
 
 echo -e "${GREEN}All tests completed!${NC}" 
