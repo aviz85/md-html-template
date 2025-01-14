@@ -72,7 +72,7 @@ export async function POST(req: Request) {
 
     // Function to split text by backticks
     const splitByBackticks = (text: string) => {
-      const regex = /`{5}(.*?)`{5}/g;
+      const regex = /`{5}(.*?)`{5}/gs;
       const matches: string[] = [];
       let match;
       while ((match = regex.exec(text)) !== null) {
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
     const markdownContent = Array.isArray(rawContent) 
       ? rawContent.flatMap(text => {
           // Check if this string has backticks
-          const hasBackticks = /`{5}.*`{5}/.test(text);
+          const hasBackticks = /`{5}.*`{5}/s.test(text);
           // If it has backticks, extract only the content within them
           // If not, keep the original string
           return hasBackticks ? splitByBackticks(text) : [text];
@@ -104,7 +104,8 @@ export async function POST(req: Request) {
       
     // Now markdownContent is already an array of all content pieces
     const markdownsArray = markdownContent
-    const isArray = Array.isArray(rawContent) || markdownContent.length > 1
+    const wasOriginallyArray = Array.isArray(rawContent)
+    const isArray = wasOriginallyArray || markdownContent.length > 1
 
     if (!markdownsArray.length) {
       throw new Error('No markdown content provided')
@@ -217,16 +218,16 @@ export async function POST(req: Request) {
     // הוספת עמודי פתיחה וסיום למערך ה-markdowns רק אם התקבל מערך
     const finalMarkdowns = []
     
-    // Add opening page if array
-    if (isArray && templateData.opening_page_content) {
+    // Add opening page if original input was array
+    if (wasOriginallyArray && templateData.opening_page_content) {
       finalMarkdowns.push(templateData.opening_page_content)
     }
     
     // Add main content
     finalMarkdowns.push(...markdownsArray)
     
-    // Add closing page if array
-    if (isArray && templateData.closing_page_content) {
+    // Add closing page if original input was array
+    if (wasOriginallyArray && templateData.closing_page_content) {
       finalMarkdowns.push(templateData.closing_page_content)
     }
 
