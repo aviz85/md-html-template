@@ -13,7 +13,8 @@ export const FONT_FAMILIES = {
   'Varela Round': "'Varela Round', sans-serif",
   'Secular One': "'Secular One', sans-serif",
   'Suez One': "'Suez One', serif",
-  'Frank Ruhl Libre': "'Frank Ruhl Libre', serif"
+  'Frank Ruhl Libre': "'Frank Ruhl Libre', serif",
+  'David Libre': "'David Libre', serif"
 } as const;
 
 // Function to load custom fonts from Supabase
