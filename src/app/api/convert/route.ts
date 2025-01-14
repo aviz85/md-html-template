@@ -72,7 +72,7 @@ export async function POST(req: Request) {
 
     // Function to split text by backticks
     const splitByBackticks = (text: string) => {
-      const regex = /`{5}(.*?)`{5}/gs;
+      const regex = /`{5}([\s\S]*?)`{5}/g;
       const matches: string[] = [];
       let match;
       while ((match = regex.exec(text)) !== null) {
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
     const markdownContent = Array.isArray(rawContent) 
       ? rawContent.flatMap(text => {
           // Check if this string has backticks
-          const hasBackticks = /`{5}.*`{5}/s.test(text);
+          const hasBackticks = /`{5}[\s\S]*`{5}/g.test(text);
           // If it has backticks, extract only the content within them
           // If not, keep the original string
           return hasBackticks ? splitByBackticks(text) : [text];
