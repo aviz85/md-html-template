@@ -78,26 +78,34 @@ export async function POST(req: Request) {
       while ((match = regex.exec(text)) !== null) {
         matches.push(match[1]);
       }
+      // If we found backticks content, return only that content
+      // Otherwise return the original text
       return matches.length > 0 ? matches : [text];
     };
 
     // Normalize markdown content and handle backticks splitting
     const rawContent = markdowns || mdContents || []
     const markdownContent = Array.isArray(rawContent) 
-      ? rawContent.flatMap(splitByBackticks)
-      : splitByBackticks(rawContent)
+      ? rawContent.flatMap(text => {
+          // Check if this string has backticks
+          const hasBackticks = /`{5}.*`{5}/.test(text);
+          // If it has backticks, extract only the content within them
+          // If not, keep the original string
+          return hasBackticks ? splitByBackticks(text) : [text];
+        })
+      : splitByBackticks(rawContent)          // If single string, just split it
 
-    // If no content was found after splitting by backticks, return empty array
+    // If no content was found, return empty array
     if (markdownContent.length === 0) {
       return NextResponse.json({ htmls: [] })
     }
 
     console.log('Received request:', { markdownContent, template_id, templateId, template })
       
-    // Handle both array and single string inputs
-    const isArray = Array.isArray(rawContent)
-    const markdownsArray = isArray ? markdownContent : [markdownContent[0]]
-      
+    // Now markdownContent is already an array of all content pieces
+    const markdownsArray = markdownContent
+    const isArray = Array.isArray(rawContent) || markdownContent.length > 1
+
     if (!markdownsArray.length) {
       throw new Error('No markdown content provided')
     }
