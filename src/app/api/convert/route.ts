@@ -70,13 +70,29 @@ export async function POST(req: Request) {
       template
     } = body
 
-    // Normalize markdown content
-    const markdownContent = markdowns || mdContents || []
+    // Function to split text by backticks
+    const splitByBackticks = (text: string) => {
+      const regex = /`{5}(.*?)`{5}/g;
+      const matches = [...text.matchAll(regex)].map(match => match[1]);
+      return matches.length > 0 ? matches : [text];
+    };
+
+    // Normalize markdown content and handle backticks splitting
+    const rawContent = markdowns || mdContents || []
+    const markdownContent = Array.isArray(rawContent) 
+      ? rawContent.flatMap(splitByBackticks)
+      : splitByBackticks(rawContent)
+
+    // If no content was found after splitting by backticks, return empty array
+    if (markdownContent.length === 0) {
+      return NextResponse.json({ htmls: [] })
+    }
+
     console.log('Received request:', { markdownContent, template_id, templateId, template })
       
     // Handle both array and single string inputs
-    const isArray = Array.isArray(markdownContent)
-    const markdownsArray = isArray ? markdownContent : [markdownContent]
+    const isArray = Array.isArray(rawContent)
+    const markdownsArray = isArray ? markdownContent : [markdownContent[0]]
       
     if (!markdownsArray.length) {
       throw new Error('No markdown content provided')
