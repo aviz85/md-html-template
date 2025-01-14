@@ -244,6 +244,12 @@ export async function POST(req: Request) {
 
     console.log('\nGenerated @font-face rules:', customFontFaces)
 
+    // Get used fonts and generate Google Fonts URL
+    const usedFonts = extractUsedFonts(templateData!.css)
+    console.log('Used fonts:', usedFonts)
+    const googleFontsUrl = generateGoogleFontsUrl(usedFonts)
+    console.log('Google Fonts URL:', googleFontsUrl)
+
     // Convert each markdown to HTML
     const htmlContents = await Promise.all(finalMarkdowns.map(async (md, index) => {
       const isFirstPage = index === 0
@@ -287,8 +293,6 @@ export async function POST(req: Request) {
         templateData!.footer || '',
         templateData!.customContents
       )
-      const usedFonts = extractUsedFonts(templateData!.css)
-      const googleFontsUrl = generateGoogleFontsUrl(usedFonts)
       
       return generateHtmlTemplate(
         combinedHtml, 

@@ -129,12 +129,20 @@ export const extractUsedFonts = (css: string): string[] => {
   // Always include Assistant as it's used in body
   usedFonts.add('Assistant');
   
-  Object.entries(FONT_FAMILIES).forEach(([fontName, fontValue]) => {
-    if (css.includes(fontValue)) {
+  console.log('Checking CSS:', css);
+  
+  Object.entries(FONT_FAMILIES).forEach(([fontName]) => {
+    // Check if the font name appears in the CSS, ignoring quotes and case
+    // This will match both font-family declarations and font shorthand
+    const fontNameRegex = new RegExp(fontName, 'i');
+    console.log(`Checking for font ${fontName} with regex ${fontNameRegex}`);
+    if (fontNameRegex.test(css)) {
+      console.log(`Found font ${fontName}`);
       usedFonts.add(fontName);
     }
   });
 
+  console.log('Found fonts:', Array.from(usedFonts));
   return Array.from(usedFonts);
 };
 
