@@ -105,6 +105,10 @@ export const generateHtmlTemplate = (
   googleFontsUrl: string,
   customFontFaces: string
 ) => {
+  // Extract font-family from css to override default body font if needed
+  const bodyFontMatch = css.match(/body\s*{[^}]*font-family:\s*([^;}]+)/);
+  const bodyFont = bodyFontMatch ? bodyFontMatch[1].trim() : "'Assistant', sans-serif";
+  
   return `<!DOCTYPE html>
 <html dir="rtl" lang="he">
 <head>
@@ -112,7 +116,20 @@ export const generateHtmlTemplate = (
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   ${googleFontsUrl ? `<link href="${googleFontsUrl}" rel="stylesheet">` : ''}
   <style>
-    ${DEFAULT_BODY_STYLES}
+    body {
+      margin: 0;
+      padding: 2rem;
+      font-family: ${bodyFont};
+      line-height: 1.5;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     ${customFontFaces}
     ${css}
   </style>
@@ -126,22 +143,26 @@ export const generateHtmlTemplate = (
 export const extractUsedFonts = (css: string): string[] => {
   const usedFonts = new Set<string>();
   
-  // Always include Assistant as it's used in body
+  // Extract all font-family declarations
+  const fontFamilyRegex = /font-family:\s*([^;}]+)/g;
+  let match;
+  
+  while ((match = fontFamilyRegex.exec(css)) !== null) {
+    const fontValue = match[1].trim();
+    // Remove quotes and get the first font in the stack
+    const primaryFont = fontValue.replace(/["']/g, '').split(',')[0].trim();
+    
+    // Check if this font is in our FONT_FAMILIES
+    Object.entries(FONT_FAMILIES).forEach(([fontName]) => {
+      if (primaryFont.toLowerCase() === fontName.toLowerCase()) {
+        usedFonts.add(fontName);
+      }
+    });
+  }
+  
+  // Always include Assistant as it's used in body by default
   usedFonts.add('Assistant');
   
-  console.log('Checking CSS:', css);
-  
-  Object.entries(FONT_FAMILIES).forEach(([fontName]) => {
-    // Check if the font name appears in the CSS, ignoring quotes and case
-    // This will match both font-family declarations and font shorthand
-    const fontNameRegex = new RegExp(fontName, 'i');
-    console.log(`Checking for font ${fontName} with regex ${fontNameRegex}`);
-    if (fontNameRegex.test(css)) {
-      console.log(`Found font ${fontName}`);
-      usedFonts.add(fontName);
-    }
-  });
-
   console.log('Found fonts:', Array.from(usedFonts));
   return Array.from(usedFonts);
 };
