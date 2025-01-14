@@ -104,8 +104,7 @@ export async function POST(req: Request) {
       
     // Now markdownContent is already an array of all content pieces
     const markdownsArray = markdownContent
-    const wasOriginallyArray = Array.isArray(rawContent)
-    const isArray = wasOriginallyArray || markdownContent.length > 1
+    const isArray = markdownContent.length > 1
 
     if (!markdownsArray.length) {
       throw new Error('No markdown content provided')
@@ -215,19 +214,19 @@ export async function POST(req: Request) {
 
     console.log('Using template data:', templateData)
 
-    // הוספת עמודי פתיחה וסיום למערך ה-markdowns רק אם התקבל מערך
+    // הוספת עמודי פתיחה וסיום למערך ה-markdowns רק אם יש יותר ממחרוזת אחת
     const finalMarkdowns = []
     
-    // Add opening page if original input was array
-    if (wasOriginallyArray && templateData.opening_page_content) {
+    // Add opening page if we have multiple contents
+    if (isArray && templateData.opening_page_content) {
       finalMarkdowns.push(templateData.opening_page_content)
     }
     
     // Add main content
     finalMarkdowns.push(...markdownsArray)
     
-    // Add closing page if original input was array
-    if (wasOriginallyArray && templateData.closing_page_content) {
+    // Add closing page if we have multiple contents
+    if (isArray && templateData.closing_page_content) {
       finalMarkdowns.push(templateData.closing_page_content)
     }
 
