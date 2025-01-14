@@ -6,6 +6,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+
 export const FONT_FAMILIES = {
   'Rubik': "'Rubik', sans-serif",
   'Heebo': "'Heebo', sans-serif",

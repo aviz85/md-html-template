@@ -9,6 +9,7 @@ import {
 } from "@/lib/constants";
 import { ElementStyle } from "@/types"
 import { NextResponse } from 'next/server';
+import { SUPABASE_URL } from '@/lib/constants';
 
 interface Template {
   id: string
@@ -115,7 +116,19 @@ export async function POST(req: Request) {
     // אם נשלח template מלא עם CSS, נשתמש בו ישירות
     if (template?.css) {
       console.log('Using provided template with CSS')
-      templateData = template as TemplateData
+      templateData = {
+        ...template,
+        element_styles: {
+          header: {
+            showLogo: template.element_styles?.header?.showLogo ?? true,
+            showLogoOnAllPages: template.element_styles?.header?.showLogoOnAllPages ?? false,
+            logoPosition: template.element_styles?.header?.logoPosition || 'top-right',
+            logoWidth: template.element_styles?.header?.logoWidth || '100px',
+            logoHeight: template.element_styles?.header?.logoHeight || 'auto',
+            logoMargin: template.element_styles?.header?.logoMargin || '1rem'
+          }
+        }
+      } as TemplateData
 
       // Fetch template contents even when template is provided directly
       if (template.template_id) {
@@ -182,12 +195,13 @@ export async function POST(req: Request) {
       console.log('Logo data:', logoData)
 
       if (logoData) {
-        const { data: { publicUrl } } = supabase.storage
-          .from('storage')
-          .getPublicUrl(logoData.file_path)
+        console.log('Logo URL:', logoData.file_path)
+        const cleanPath = logoData.file_path
+          .replace(/\/+/g, '/')
+          .replace(/^\/+|\/+$/g, '')
         
-        console.log('Logo URL:', publicUrl)
-        templateData.logo_path = publicUrl
+        templateData.logo_path = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${cleanPath}`
+          .replace(/([^:]\/)\/+/g, '$1')
       }
 
       // Fetch template contents
@@ -231,11 +245,7 @@ export async function POST(req: Request) {
     }
 
     // Get logo URL if exists
-    const logoUrl = templateData.logo_path ? 
-      supabase.storage
-        .from('storage')
-        .getPublicUrl(templateData.logo_path)
-        .data.publicUrl : undefined
+    const logoUrl = templateData.logo_path;
 
     // Generate @font-face rules
     const customFontFaces = templateData.custom_fonts?.length 
@@ -254,38 +264,32 @@ export async function POST(req: Request) {
     const htmlContents = await Promise.all(finalMarkdowns.map(async (md, index) => {
       const isFirstPage = index === 0
       const showLogo = templateData.element_styles?.header?.showLogo !== false && 
-                      (isFirstPage || templateData.element_styles?.header?.showLogoOnAllPages)
+                      (index === 0 || templateData.element_styles?.header?.showLogoOnAllPages)
       
       const headerWithLogo = showLogo && logoUrl ? `
-        <div style="position: relative;">
+        <div>
           <img 
             src="${logoUrl}" 
             style="
-              position: absolute; 
-              ${(() => {
-                const position = templateData.element_styles?.header?.logoPosition || 'top-right'
-                switch(position) {
-                  case 'top-left': return 'left: 0; top: 0;'
-                  case 'top-center': return 'left: 50%; transform: translateX(-50%); top: 0;'
-                  case 'top-right': return 'right: 0; top: 0;'
-                  case 'center-left': return 'left: 0; top: 50%; transform: translateY(-50%);'
-                  case 'center': return 'left: 50%; top: 50%; transform: translate(-50%, -50%);'
-                  case 'center-right': return 'right: 0; top: 50%; transform: translateY(-50%);'
-                  case 'bottom-left': return 'left: 0; bottom: 0;'
-                  case 'bottom-center': return 'left: 50%; transform: translateX(-50%); bottom: 0;'
-                  case 'bottom-right': return 'right: 0; bottom: 0;'
-                  default: return 'right: 0; top: 0;'
-                }
-              })()}
               width: ${templateData.element_styles?.header?.logoWidth || '100px'};
               height: ${templateData.element_styles?.header?.logoHeight || 'auto'};
               object-fit: contain;
               margin: ${templateData.element_styles?.header?.logoMargin || '1rem'};
+              display: block;
+              ${(() => {
+                const position = templateData.element_styles?.header?.logoPosition;
+                switch(position) {
+                  case 'top-left': return 'margin-right: auto; margin-left: 0;';
+                  case 'top-center': return 'margin-left: auto; margin-right: auto;';
+                  case 'top-right': return 'margin-left: auto; margin-right: 0;';
+                  default: return 'margin-left: auto; margin-right: 0;'; // default to top-right
+                }
+              })()}
             "
           />
           ${templateData.header_content || ''}
         </div>
-      ` : templateData.header_content || ''
+      ` : templateData.header_content || '';
 
       const combinedHtml = await convertMarkdownToHtml(
         md, 
