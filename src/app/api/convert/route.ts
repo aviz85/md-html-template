@@ -73,7 +73,11 @@ export async function POST(req: Request) {
     // Function to split text by backticks
     const splitByBackticks = (text: string) => {
       const regex = /`{5}(.*?)`{5}/g;
-      const matches = [...text.matchAll(regex)].map(match => match[1]);
+      const matches: string[] = [];
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        matches.push(match[1]);
+      }
       return matches.length > 0 ? matches : [text];
     };
 
