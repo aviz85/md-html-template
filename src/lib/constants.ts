@@ -42,7 +42,7 @@ export const loadCustomFonts = async () => {
 export function generateCustomFontFaces(fonts: Array<{ name: string, file_path: string, font_family: string, format: string }>) {
   return fonts.map(font => {
     const format = font.format === 'ttf' ? 'truetype' : font.format;
-    const fullUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/fonts/${font.file_path}`;
+    const fullUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${font.file_path}`;
     return `
 @font-face {
   font-family: '${font.name}';
