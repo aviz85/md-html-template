@@ -30,6 +30,9 @@ interface Template {
     file_path: string
     font_family: string
     format: string
+    weight_range?: number[]
+    has_italic?: boolean
+    font_display?: string
   }>
 }
 

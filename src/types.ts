@@ -30,3 +30,27 @@ export interface ElementStyle {
   showLogo?: boolean;
   showLogoOnAllPages?: boolean;
 } 
+
+export interface CustomFont {
+  id: string;
+  template_id: string;
+  name: string;
+  file_path: string;
+  font_family: string;
+  format: string;
+  weight_range: number[];
+  has_italic: boolean;
+  font_display: 'auto' | 'block' | 'swap' | 'fallback' | 'optional';
+  created_at: string;
+  publicUrl?: string;
+}
+
+export interface FontUploadRequest {
+  templateId: string;
+  fontName: string;
+  fileExt: string;
+  fileData: string;
+  weightRange?: number[];
+  hasItalic?: boolean;
+  fontDisplay?: 'auto' | 'block' | 'swap' | 'fallback' | 'optional';
+} 

@@ -39,18 +39,41 @@ export const loadCustomFonts = async () => {
 };
 
 // Function to generate @font-face rules for custom fonts
-export function generateCustomFontFaces(fonts: Array<{ name: string, file_path: string, font_family: string, format: string }>) {
+export function generateCustomFontFaces(fonts: Array<{ 
+  name: string, 
+  file_path: string, 
+  font_family: string, 
+  format: string,
+  weight_range?: number[],
+  has_italic?: boolean,
+  font_display?: string 
+}>) {
   return fonts.map(font => {
     const format = font.format === 'ttf' ? 'truetype' : font.format;
     const fullUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${font.file_path}`;
-    return `
+    const weights = font.weight_range || [400];
+    
+    return weights.map(weight => {
+      const normalStyle = `
 @font-face {
   font-family: '${font.name}';
   src: url('${fullUrl}') format('${format}');
-  font-weight: normal;
+  font-weight: ${weight};
   font-style: normal;
-}
-`
+  font-display: ${font.font_display || 'swap'};
+}`;
+
+      const italicStyle = font.has_italic ? `
+@font-face {
+  font-family: '${font.name}';
+  src: url('${fullUrl}') format('${format}');
+  font-weight: ${weight};
+  font-style: italic;
+  font-display: ${font.font_display || 'swap'};
+}` : '';
+
+      return `${normalStyle}${italicStyle}`;
+    }).join('\n');
   }).join('\n');
 }
 
@@ -111,13 +134,28 @@ export const generateHtmlTemplate = (
   const bodyFontMatch = css.match(/body\s*{[^}]*font-family:\s*([^;}]+)/);
   const bodyFont = bodyFontMatch ? bodyFontMatch[1].trim() : "'Assistant', sans-serif";
   
+  // Get Supabase storage URL
+  const supabaseStorageUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ? 
+    new URL(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage`).origin : null;
+  
   return `<!DOCTYPE html>
 <html dir="rtl" lang="he">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  ${googleFontsUrl ? `<link href="${googleFontsUrl}" rel="stylesheet">` : ''}
-  <style>
+  ${googleFontsUrl ? `
+  <!-- Google Fonts preconnect -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="${googleFontsUrl}" rel="stylesheet" type="text/css">` : ''}
+  ${supabaseStorageUrl ? `
+  <!-- Supabase Storage preconnect -->
+  <link rel="preconnect" href="${supabaseStorageUrl}" crossorigin>` : ''}
+  <style type="text/css">
+    html * {
+      font-family: ${bodyFont};
+    }
+
     body {
       margin: 0;
       padding: 2rem;
@@ -173,22 +211,22 @@ export const generateGoogleFontsUrl = (fonts: string[]): string => {
   if (fonts.length === 0) return '';
   
   const fontFamilies = fonts.map(font => {
-    // Add weights for each font
+    // Add weights and italics for each font
     switch (font) {
       case 'Rubik':
       case 'Heebo':
       case 'Assistant':
-        return `${font}:wght@400;500;700`;
+        return `${font}:ital,wght@0,300..800;1,300..800`;
       case 'Varela Round':
       case 'Secular One':
       case 'Suez One':
         return font;
       case 'Frank Ruhl Libre':
-        return `${font}:wght@400;700`;
+        return `${font}:wght@300..900`;
       case 'David Libre':
         return `${font}:wght@400;500;700`;
       default:
-        return font;
+        return `${font}:ital,wght@0,300..800;1,300..800`;
     }
   });
 

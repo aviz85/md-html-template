@@ -29,6 +29,22 @@ CREATE TABLE template_contents (
     CONSTRAINT unique_content_per_template UNIQUE (template_id, content_name)
 );
 
+-- Custom fonts table
+CREATE TABLE custom_fonts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    template_id UUID NOT NULL REFERENCES templates(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    font_family TEXT NOT NULL,
+    format TEXT NOT NULL,
+    weight_range INT[] NOT NULL DEFAULT '{400}',
+    has_italic BOOLEAN DEFAULT false,
+    font_display TEXT DEFAULT 'swap',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_font_per_template UNIQUE (template_id, name)
+);
+
 -- Create indexes
 CREATE INDEX idx_template_contents_template_id ON template_contents(template_id);
-CREATE INDEX idx_templates_name ON templates(name); 
+CREATE INDEX idx_templates_name ON templates(name);
+CREATE INDEX idx_custom_fonts_template_id ON custom_fonts(template_id); 

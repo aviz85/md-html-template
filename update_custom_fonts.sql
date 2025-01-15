@@ -1,0 +1,1 @@
+ALTER TABLE custom_fonts ADD COLUMN weight_range INT[] NOT NULL DEFAULT '{400}', ADD COLUMN has_italic BOOLEAN DEFAULT false, ADD COLUMN font_display TEXT DEFAULT 'swap', ALTER COLUMN format SET NOT NULL, ALTER COLUMN template_id SET NOT NULL, DROP CONSTRAINT IF EXISTS custom_fonts_name_unique, ADD CONSTRAINT unique_font_per_template UNIQUE (template_id, name);

@@ -8,7 +8,15 @@ const supabase = createClient(
 
 export async function POST(request: Request) {
   try {
-    const { templateId, fontName, fileExt, fileData } = await request.json()
+    const { 
+      templateId, 
+      fontName, 
+      fileExt, 
+      fileData,
+      weightRange = [400],
+      hasItalic = false,
+      fontDisplay = 'swap'
+    } = await request.json()
 
     // Validate input
     if (!templateId || !fontName || !fileExt || !fileData) {
@@ -34,7 +42,6 @@ export async function POST(request: Request) {
 
       if (deleteError) {
         console.error('Error deleting old font:', deleteError)
-        // Continue even if delete fails
       }
 
       // Delete the old record
@@ -70,6 +77,9 @@ export async function POST(request: Request) {
       file_path: filePath,
       font_family: fontName,
       format: fileExt,
+      weight_range: weightRange,
+      has_italic: hasItalic,
+      font_display: fontDisplay,
       created_at: new Date().toISOString()
     }
 
@@ -94,11 +104,41 @@ export async function POST(request: Request) {
 
     if (loadError) throw loadError
 
-    return NextResponse.json({ fonts, publicUrl })
+    return NextResponse.json({ 
+      fonts, 
+      publicUrl,
+      cssSnippet: generateFontFaceCSS(fontData, publicUrl)
+    })
   } catch (error) {
     console.error('Error uploading font:', error)
     return NextResponse.json({ error }, { status: 500 })
   }
+}
+
+function generateFontFaceCSS(font: any, publicUrl: string) {
+  const weights = font.weight_range.map((weight: number) => {
+    const base = `
+      @font-face {
+        font-family: '${font.font_family}';
+        src: url('${publicUrl}') format('${font.format}');
+        font-weight: ${weight};
+        font-style: normal;
+        font-display: ${font.font_display};
+      }
+    `
+    
+    return font.has_italic ? base + `
+      @font-face {
+        font-family: '${font.font_family}';
+        src: url('${publicUrl}') format('${font.format}');
+        font-weight: ${weight};
+        font-style: italic;
+        font-display: ${font.font_display};
+      }
+    ` : base
+  })
+
+  return weights.join('\n')
 }
 
 export async function GET(request: Request) {
