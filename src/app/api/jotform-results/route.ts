@@ -50,7 +50,8 @@ export async function POST(request: Request) {
         .update({ parsed_body: formData })
         .eq('body', rawBody);
         
-    } catch (e) {
+    } catch (error) {
+      const e = error as Error;
       parseError = e;
       console.error('Error parsing form data:', e);
       
