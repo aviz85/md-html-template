@@ -2,3 +2,38 @@ node_modules
 .next
 .env.local
 .vercel
+*.pdf
+*.html
+test_results/
+
+# dependencies
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# build
+/build
+/dist
+.next/
+out/

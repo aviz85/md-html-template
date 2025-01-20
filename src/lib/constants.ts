@@ -250,12 +250,25 @@ export async function convertMarkdownToHtml(content: string, headerContent?: str
     });
   }
 
+  // Configure marked for proper line breaks
+  marked.setOptions({
+    breaks: true,
+    gfm: true,
+    mangle: false,
+    headerIds: false,
+    smartLists: true,
+    smartypants: true,
+    xhtml: true,
+    headerPrefix: '',
+    html: true
+  });
+
   // Parse markdown content first
   const contentHtml = await marked.parse(processedContent);
   
   // Add header and footer if provided
-  const headerHtml = headerContent ? headerContent : '';
   const footerHtml = footerContent ? `\n<div class="footer">${await marked.parse(footerContent)}</div>` : '';
   
-  return `${headerHtml}${contentHtml}${footerHtml}`;
+  // Return combined HTML with raw header content
+  return `${headerContent || ''}${contentHtml}${footerHtml}`;
 } 
