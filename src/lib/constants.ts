@@ -254,7 +254,7 @@ export async function convertMarkdownToHtml(content: string, headerContent?: str
   marked.setOptions({
     breaks: true,
     gfm: true,
-    headerIds: false,
+    headerid: false,
     smartLists: true,
     smartypants: true,
   });
