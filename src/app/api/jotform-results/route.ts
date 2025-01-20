@@ -21,6 +21,15 @@ export async function POST(request: Request) {
     if (contentType.includes('application/json')) {
       rawBody = await request.text();
       formData = JSON.parse(rawBody);
+      
+      // Parse the rawRequest field if it exists
+      if (formData.rawRequest) {
+        try {
+          formData.parsedRequest = JSON.parse(formData.rawRequest);
+        } catch (e) {
+          console.error('Failed to parse rawRequest:', e);
+        }
+      }
     } else if (contentType.includes('multipart/form-data') || contentType.includes('application/x-www-form-urlencoded')) {
       const formDataObj = await request.formData();
       formData = Object.fromEntries(formDataObj.entries());
@@ -42,14 +51,17 @@ export async function POST(request: Request) {
     if (rawError) {
       console.error('Error saving raw data:', rawError);
     }
+
+    // Extract form and submission IDs from the webhook data
+    const formId = formData.formID || formData.parsedRequest?.formID || 'unknown';
+    const submissionId = formData.submissionID || formData.parsedRequest?.submissionID || new Date().getTime().toString();
     
-    // Extract form and submission IDs
-    const formId = formData.formID || formData['form_id'] || 'unknown';
-    const submissionId = formData.submissionID || formData['submission_id'] || new Date().getTime().toString();
+    // Prepare the content object with all form fields
+    const content = formData.parsedRequest || {};
     
     console.log('Form ID:', formId);
     console.log('Submission ID:', submissionId);
-    console.log('Parsed form data:', formData);
+    console.log('Content:', content);
 
     // Save to database
     console.log('Saving to database...');
@@ -58,7 +70,7 @@ export async function POST(request: Request) {
       .insert({
         form_id: formId,
         submission_id: submissionId,
-        content: formData,
+        content: content,
         status: 'pending'
       })
       .select('*')
