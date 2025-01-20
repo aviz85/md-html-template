@@ -254,13 +254,9 @@ export async function convertMarkdownToHtml(content: string, headerContent?: str
   marked.setOptions({
     breaks: true,
     gfm: true,
-    mangle: false,
     headerIds: false,
     smartLists: true,
     smartypants: true,
-    xhtml: true,
-    headerPrefix: '',
-    html: true
   });
 
   // Parse markdown content first
