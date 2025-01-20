@@ -7,6 +7,14 @@ const nextConfig = {
     config.externals = [...config.externals, 'canvas', 'jsdom']
     return config
   },
+  async rewrites() {
+    return [
+      {
+        source: '/api/jotform-results',
+        destination: '/api/jotform-results'
+      }
+    ]
+  }
 }
 
 module.exports = nextConfig 
