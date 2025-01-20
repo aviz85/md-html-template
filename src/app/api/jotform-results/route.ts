@@ -10,10 +10,8 @@ export async function POST(request: Request) {
       formData = await request.json();
     } else {
       const rawFormData = await request.formData();
-      // Convert FormData to object
-      for (const [key, value] of rawFormData.entries()) {
-        formData[key] = value;
-      }
+      // Convert FormData to object using Array.from
+      formData = Object.fromEntries(Array.from(rawFormData.entries()));
     }
     
     if (!formData || Object.keys(formData).length === 0) {
