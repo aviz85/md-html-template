@@ -2,9 +2,21 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.json();
+    // Handle both JSON and form-urlencoded data
+    const contentType = request.headers.get('content-type') || '';
+    let formData: any = {};
     
-    if (!formData) {
+    if (contentType.includes('application/json')) {
+      formData = await request.json();
+    } else {
+      const rawFormData = await request.formData();
+      // Convert FormData to object
+      for (const [key, value] of rawFormData.entries()) {
+        formData[key] = value;
+      }
+    }
+    
+    if (!formData || Object.keys(formData).length === 0) {
       return new Response(`
         <html dir="rtl">
           <head>
