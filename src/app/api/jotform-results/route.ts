@@ -10,95 +10,46 @@ export async function POST(request: Request) {
   try {
     console.log('Starting to process request...');
     
-    // Get raw body and headers for logging
-    const rawBody = await request.text();
-    const headers = Object.fromEntries(request.headers.entries());
-    const contentType = headers['content-type'] || '';
-    
+    // Get content type
+    const contentType = request.headers.get('content-type') || '';
     console.log('Content-Type:', contentType);
-    console.log('Raw Headers:', headers);
-    console.log('Raw Body:', rawBody);
+    
+    // Parse the body based on content type
+    let formData: any = {};
+    let rawBody = '';
+    
+    if (contentType.includes('application/json')) {
+      rawBody = await request.text();
+      formData = JSON.parse(rawBody);
+    } else if (contentType.includes('multipart/form-data') || contentType.includes('application/x-www-form-urlencoded')) {
+      const formDataObj = await request.formData();
+      formData = Object.fromEntries(formDataObj.entries());
+      rawBody = JSON.stringify(formData);
+    } else {
+      throw new Error('Content-Type must be one of "application/json", "multipart/form-data", or "application/x-www-form-urlencoded"');
+    }
     
     // Save raw data
     const { error: rawError } = await supabase
       .from('raw_submissions')
       .insert({
-        headers,
+        headers: Object.fromEntries(request.headers.entries()),
         body: rawBody,
         content_type: contentType,
+        parsed_body: formData
       });
       
     if (rawError) {
       console.error('Error saving raw data:', rawError);
     }
     
-    // Parse the body based on content type
-    let formData: any = {};
-    let parseError = null;
-    
-    try {
-      if (contentType.includes('application/json')) {
-        formData = JSON.parse(rawBody);
-      } else {
-        const rawFormData = await (new Response(rawBody).formData());
-        formData = Object.fromEntries(Array.from(rawFormData.entries()));
-      }
-      
-      // Update raw submission with parsed data
-      await supabase
-        .from('raw_submissions')
-        .update({ parsed_body: formData })
-        .eq('body', rawBody);
-        
-    } catch (error) {
-      const e = error as Error;
-      parseError = e;
-      console.error('Error parsing form data:', e);
-      
-      // Update raw submission with error
-      await supabase
-        .from('raw_submissions')
-        .update({ error: e.message })
-        .eq('body', rawBody);
-        
-      return new Response(`
-        <html dir="rtl">
-          <head><title>שגיאה בעיבוד הנתונים</title></head>
-          <body>
-            <h1>שגיאה בעיבוד הנתונים מהטופס</h1>
-            <pre dir="ltr">${e.message}</pre>
-          </body>
-        </html>
-      `, {
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-        status: 400
-      });
-    }
-    
-    if (!formData || Object.keys(formData).length === 0) {
-      console.log('No form data received');
-      return new Response(`
-        <html dir="rtl">
-          <head>
-            <title>שגיאה</title>
-            <meta charset="utf-8">
-          </head>
-          <body>
-            <h1>שגיאה: לא התקבל מידע מהטופס</h1>
-          </body>
-        </html>
-      `, {
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-        status: 400
-      });
-    }
-
-    // Extract form and submission IDs from JotForm data
-    const formId = formData.formID || 'unknown';
-    const submissionId = formData.submissionID || new Date().getTime().toString();
+    // Extract form and submission IDs
+    const formId = formData.formID || formData['form_id'] || 'unknown';
+    const submissionId = formData.submissionID || formData['submission_id'] || new Date().getTime().toString();
     
     console.log('Form ID:', formId);
     console.log('Submission ID:', submissionId);
+    console.log('Parsed form data:', formData);
 
     // Save to database
     console.log('Saving to database...');
@@ -120,7 +71,7 @@ export async function POST(request: Request) {
 
     console.log('Successfully saved submission:', submission);
 
-    // Return response page with realtime subscription
+    // Return response page
     return new Response(`
       <!DOCTYPE html>
       <html dir="rtl">
@@ -191,7 +142,7 @@ export async function POST(request: Request) {
         </head>
         <body>
           <h1>שגיאה בעיבוד הטופס</h1>
-          <pre dir="ltr">${error instanceof Error ? error.message + '\n' + error.stack : JSON.stringify(error, null, 2)}</pre>
+          <pre dir="ltr">${error instanceof Error ? error.message : JSON.stringify(error, null, 2)}</pre>
         </body>
       </html>
     `, {
