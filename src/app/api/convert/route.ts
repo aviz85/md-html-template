@@ -287,6 +287,10 @@ export async function POST(req: Request) {
       }
     }
 
+    if (!templateData) {
+      return NextResponse.json({ error: "Template data not found" }, { status: 404 });
+    }
+
     const styles = getStyles(templateData);
     console.log('Generated styles:', styles);
 
