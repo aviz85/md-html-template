@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 type Database = {
   public: {
@@ -53,10 +54,9 @@ type Message = {
 }
 
 async function getPrompts(formId: string) {
-  const supabase = getSupabase();
   try {
     // קבלת ה-template על פי form_id
-    const { data: template, error } = await supabase
+    const { data: template, error } = await supabaseAdmin
       .from('templates')
       .select('template_gsheets_id')
       .eq('form_id', formId)
@@ -96,7 +96,6 @@ async function getPrompts(formId: string) {
 }
 
 export async function processSubmission(submissionId: string) {
-  const supabase = getSupabase();
   let submissionUUID: string | null = null;
   
   try {
@@ -104,7 +103,7 @@ export async function processSubmission(submissionId: string) {
     
     // קבלת הנתונים מ-Supabase
     console.log('Fetching submission from Supabase...');
-    const { data: submission, error } = await supabase
+    const { data: submission, error } = await supabaseAdmin
       .from('form_submissions')
       .select('*')
       .eq('submission_id', submissionId)
@@ -174,7 +173,7 @@ export async function processSubmission(submissionId: string) {
     const lastResponse = msg.content.find(block => 'text' in block)?.text || ''
     
     console.log('Updating submission with results...');
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('form_submissions')
       .update({
         status: 'completed',
@@ -196,7 +195,7 @@ export async function processSubmission(submissionId: string) {
     console.error('Error in processSubmission:', error)
     
     if (submissionUUID) {
-      await supabase
+      await supabaseAdmin
         .from('form_submissions')
         .update({
           status: 'error',
