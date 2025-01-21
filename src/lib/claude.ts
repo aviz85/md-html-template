@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { supabaseAdmin } from './supabase-admin'
 
 type Database = {
   public: {
@@ -43,15 +43,15 @@ function getSupabase() {
   );
 }
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-})
-
 type MessageRole = "user" | "assistant"
 type Message = {
   role: MessageRole
   content: string
 }
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY!,
+})
 
 async function getPrompts(formId: string) {
   try {
