@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { processSubmission } from '@/lib/claude';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -81,7 +82,17 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    console.log('Successfully saved submission:', submission);
+    // התחל עיבוד מול קלוד באופן אסינכרוני
+    processSubmission(submission.id).catch(error => {
+      console.error('Error processing submission:', error);
+      supabase
+        .from('form_submissions')
+        .update({
+          status: 'error',
+          result: { error: error.message }
+        })
+        .eq('id', submission.id);
+    });
 
     // Return response page
     return new Response(`

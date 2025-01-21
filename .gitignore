@@ -37,3 +37,6 @@ Thumbs.db
 /dist
 .next/
 out/
+
+igor-sources/
+sources.zip

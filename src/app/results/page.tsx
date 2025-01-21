@@ -2,49 +2,64 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function ResultsPage() {
-  const [loading, setLoading] = useState(true);
-  const [result, setResult] = useState<any>(null);
-  const [debugData, setDebugData] = useState<any>(null);
   const searchParams = useSearchParams();
+  const formId = searchParams.get('formId');
+  const submissionId = searchParams.get('submissionId');
+  
+  const [status, setStatus] = useState('loading');
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const getFormData = async () => {
-      try {
-        // Try to get POST data first
-        const response = await fetch('/api/jotform-results', {
-          method: 'POST',
-          body: JSON.stringify(Object.fromEntries(searchParams.entries())),
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        
-        const data = await response.json();
-        if (data.success) {
-          setResult(data.mockResult);
-          setDebugData(data.formData);
-        } else {
-          setResult("שגיאה בעיבוד הטופס");
-          setDebugData({ error: data.error });
+    if (!formId || !submissionId) {
+      setError('Missing parameters');
+      return;
+    }
+
+    const checkStatus = async () => {
+      const { data, error } = await supabase
+        .from('form_submissions')
+        .select('*')
+        .eq('form_id', formId)
+        .eq('submission_id', submissionId)
+        .single();
+
+      if (error) {
+        setError(error.message);
+        return;
+      }
+
+      if (data) {
+        setStatus(data.status);
+        if (data.status === 'completed') {
+          setResult(data.result);
         }
-      } catch (error) {
-        console.error('Error processing form data:', error);
-        setResult("שגיאה בעיבוד הטופס");
-        setDebugData({ error: error instanceof Error ? error.message : 'Unknown error' });
-      } finally {
-        setLoading(false);
       }
     };
 
-    getFormData();
-  }, [searchParams]);
+    // בדיקה ראשונית
+    checkStatus();
 
-  if (loading) {
+    // polling כל 5 שניות
+    const interval = setInterval(checkStatus, 5000);
+
+    return () => clearInterval(interval);
+  }, [formId, submissionId]);
+
+  if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      <div className="container mx-auto p-8">
+        <div className="bg-red-50 text-red-500 p-4 rounded">
+          {error}
+        </div>
       </div>
     );
   }
@@ -53,14 +68,27 @@ export default function ResultsPage() {
     <div dir="rtl" className="container mx-auto p-8">
       <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
         <h1 className="text-2xl font-bold mb-4">תוצאות</h1>
-        <div className="text-lg">{result}</div>
-      </div>
-      
-      <div className="bg-gray-100 rounded-lg p-6">
-        <h2 className="text-xl font-semibold mb-4">מידע מהטופס</h2>
-        <pre className="bg-gray-800 text-white p-4 rounded overflow-auto" dir="ltr">
-          {JSON.stringify(debugData, null, 2)}
-        </pre>
+        
+        {status === 'pending' && (
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+            <p>מעבד את התוצאות, אנא המתן...</p>
+          </div>
+        )}
+
+        {status === 'completed' && result && (
+          <div className="prose max-w-none">
+            <pre className="bg-gray-50 p-4 rounded overflow-auto">
+              {JSON.stringify(result, null, 2)}
+            </pre>
+          </div>
+        )}
+
+        {status === 'error' && (
+          <div className="bg-red-50 text-red-500 p-4 rounded">
+            אירעה שגיאה בעיבוד התוצאות
+          </div>
+        )}
       </div>
     </div>
   );
