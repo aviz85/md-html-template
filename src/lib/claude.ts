@@ -136,17 +136,22 @@ export async function processSubmission(submissionId: string) {
     console.log('Form data:', submission.content.form_data);
 
     // המרת התשובות לפורמט הנכון
-    const relevantFields = {
-      'q26_input26': 'שם',
-      'q20_input20': 'מגדר',
-      'q9_input9': 'אתגר',
-      'q10_ltstronggt10': 'השפעה',
-      'q28_input28': 'שינוי רצוי'
-    } as const;
+    const technicalFields = [
+      'path',
+      'slug',
+      'event_id',
+      'buildDate',
+      'submitSource',
+      'timeToSubmit',
+      'eventObserver',
+      'uploadServerUrl',
+      'jsExecutionTracker',
+      'validatedNewRequiredFieldIDs'
+    ];
 
     const answers = Object.entries(submission.content.form_data)
-      .filter(([key]) => key in relevantFields)
-      .map(([key]) => `${relevantFields[key as keyof typeof relevantFields]}: ${submission.content.form_data[key]}`)
+      .filter(([key]) => !technicalFields.includes(key))
+      .map(([key, value]) => `${key}: ${value}`)
       .join('\n');
 
     console.log('Formatted answers:', answers);
