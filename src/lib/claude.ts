@@ -142,11 +142,11 @@ export async function processSubmission(submissionId: string) {
       'q9_input9': 'אתגר',
       'q10_ltstronggt10': 'השפעה',
       'q28_input28': 'שינוי רצוי'
-    };
+    } as const;
 
     const answers = Object.entries(submission.content.form_data)
       .filter(([key]) => key in relevantFields)
-      .map(([key, value]) => `${relevantFields[key]}: ${value}`)
+      .map(([key]) => `${relevantFields[key as keyof typeof relevantFields]}: ${submission.content.form_data[key]}`)
       .join('\n');
 
     console.log('Formatted answers:', answers);
