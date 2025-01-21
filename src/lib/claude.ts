@@ -35,10 +35,12 @@ type Database = {
 }
 
 // יצירת חיבור server-side ל-Supabase
-const supabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -51,6 +53,7 @@ type Message = {
 }
 
 async function getPrompts(formId: string) {
+  const supabase = getSupabase();
   try {
     // קבלת ה-template על פי form_id
     const { data: template, error } = await supabase
@@ -93,6 +96,7 @@ async function getPrompts(formId: string) {
 }
 
 export async function processSubmission(submissionId: string) {
+  const supabase = getSupabase();
   let submissionUUID: string | null = null;
   
   try {
