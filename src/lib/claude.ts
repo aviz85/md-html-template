@@ -71,13 +71,15 @@ export async function processSubmission(submissionId: string) {
     }
 
     // שמירת התוצאות ב-Supabase
+    const lastResponse = msg.content.find(block => 'text' in block)?.text || ''
+    
     const { error: updateError } = await supabase
       .from('form_submissions')
       .update({
         status: 'completed',
         result: {
           claudeResponses,
-          completeChat: [...messages, { role: 'assistant', content: msg.content[0].text }]
+          completeChat: [...messages, { role: 'assistant' as const, content: lastResponse }]
         }
       })
       .eq('id', submissionId)
