@@ -89,12 +89,14 @@ export async function processSubmission(submissionId: string) {
     return msg
   } catch (error) {
     console.error('Error in processSubmission:', error)
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
+    
     // עדכון סטטוס שגיאה
     await supabase
       .from('form_submissions')
       .update({
         status: 'error',
-        result: { error: error.message }
+        result: { error: errorMessage }
       })
       .eq('id', submissionId)
     throw error
