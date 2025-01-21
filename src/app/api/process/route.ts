@@ -1,6 +1,8 @@
 import { processSubmission } from '@/lib/claude'
 import { NextResponse } from 'next/server'
 
+export const runtime = 'nodejs' // Force Node.js runtime
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const submissionId = searchParams.get('submissionId')
