@@ -55,13 +55,18 @@ const anthropic = new Anthropic({
 
 async function getPrompts(formId: string) {
   try {
+    console.log('Starting getPrompts for formId:', formId);
+    
     // קבלת ה-template על פי form_id
+    console.log('Fetching template from Supabase...');
     const { data: template, error } = await supabaseAdmin
       .from('templates')
       .select('template_gsheets_id')
       .eq('form_id', formId)
       .single();
     
+    console.log('Template query result:', { template, error });
+
     if (error) {
       console.error('Error fetching template:', error);
       return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
@@ -73,22 +78,28 @@ async function getPrompts(formId: string) {
     }
 
     const API_KEY = process.env.GOOGLE_API_KEY;
+    console.log('Google API Key:', API_KEY ? 'Set' : 'Missing');
+    
     if (!API_KEY) {
       console.error('Missing Google API key');
       return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
     }
     
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${template.template_gsheets_id}/values/A:A?key=${API_KEY}`;
+    console.log('Fetching from Google Sheets:', url);
     
     const response = await fetch(url);
     const data = await response.json();
+    console.log('Google Sheets response:', data);
     
     if (!data.values) {
       console.error('No data returned from Google Sheets:', data);
       return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
     }
     
-    return data.values.map((row: string[]) => row[0]);
+    const prompts = data.values.map((row: string[]) => row[0]);
+    console.log('Extracted prompts:', prompts);
+    return prompts;
   } catch (error) {
     console.error('Error in getPrompts:', error);
     return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
@@ -125,8 +136,17 @@ export async function processSubmission(submissionId: string) {
     console.log('Form data:', submission.content.form_data);
 
     // המרת התשובות לפורמט הנכון
+    const relevantFields = {
+      'q26_input26': 'שם',
+      'q20_input20': 'מגדר',
+      'q9_input9': 'אתגר',
+      'q10_ltstronggt10': 'השפעה',
+      'q28_input28': 'שינוי רצוי'
+    };
+
     const answers = Object.entries(submission.content.form_data)
-      .map(([key, value]) => `שאלה: ${key} - תשובה: ${value}`)
+      .filter(([key]) => key in relevantFields)
+      .map(([key, value]) => `${relevantFields[key]}: ${value}`)
       .join('\n');
 
     console.log('Formatted answers:', answers);
