@@ -1,8 +1,41 @@
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 
+type Database = {
+  public: {
+    Tables: {
+      form_submissions: {
+        Row: {
+          id: string;
+          submission_id: string;
+          status: string;
+          form_id: string;
+          content: any;
+          result: any;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Insert: {
+          submission_id: string;
+          status?: string;
+          form_id: string;
+          content?: any;
+          result?: any;
+        };
+        Update: {
+          submission_id?: string;
+          status?: string;
+          form_id?: string;
+          content?: any;
+          result?: any;
+        };
+      }
+    }
+  }
+}
+
 // יצירת חיבור server-side ל-Supabase
-const supabase = createClient(
+const supabase = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
@@ -65,7 +98,7 @@ export async function processSubmission(submissionId: string) {
     const { data: submission, error } = await supabase
       .from('form_submissions')
       .select('*')
-      .eq('id', submissionId)
+      .eq('submission_id', submissionId)  // Changed from 'id' to 'submission_id'
       .single();
 
     if (error) throw error;
@@ -119,7 +152,7 @@ export async function processSubmission(submissionId: string) {
           completeChat: [...messages, { role: 'assistant' as const, content: lastResponse }]
         }
       })
-      .eq('id', submissionId)
+      .eq('submission_id', submissionId)  // Changed from 'id' to 'submission_id'
 
     if (updateError) throw updateError
 
@@ -135,7 +168,7 @@ export async function processSubmission(submissionId: string) {
         status: 'error',
         result: { error: error instanceof Error ? error.message : 'Unknown error' }
       })
-      .eq('id', submissionId)
+      .eq('submission_id', submissionId)  // Changed from 'id' to 'submission_id'
     throw error
   }
 } 
