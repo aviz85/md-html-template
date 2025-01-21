@@ -4,7 +4,13 @@ import { processSubmission } from '@/lib/claude';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
 );
 
 export async function POST(request: Request) {
@@ -117,13 +123,19 @@ export async function POST(request: Request) {
     }
 
     // התחל עיבוד מול קלוד באופן אסינכרוני
-    processSubmission(submission.id).catch(error => {
+    console.log('Starting async processing for submission:', { id: submission.id, submission_id: submission.submission_id });
+    processSubmission(submission.submission_id).catch(error => {
       console.error('Error processing submission:', error);
+      console.error('Error stack:', error.stack);
       supabase
         .from('form_submissions')
         .update({
           status: 'error',
-          result: { error: error.message }
+          result: { 
+            error: error.message,
+            stack: error.stack,
+            details: error
+          }
         })
         .eq('id', submission.id);
     });
@@ -136,68 +148,15 @@ export async function POST(request: Request) {
           <title>תוצאות הטופס</title>
           <meta charset="utf-8">
           <script src="https://cdn.tailwindcss.com"></script>
-          <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
           <script>
-            const supabase = supabase.createClient(
-              '${process.env.NEXT_PUBLIC_SUPABASE_URL}',
-              '${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}'
-            );
-
-            // Subscribe to changes
-            const subscription = supabase
-              .channel('form_results')
-              .on(
-                'postgres_changes',
-                {
-                  event: 'UPDATE',
-                  schema: 'public',
-                  table: 'form_submissions',
-                  filter: 'id=eq.${submission.id}'
-                },
-                (payload) => {
-                  if (payload.new.status === 'completed') {
-                    document.getElementById('status').textContent = 'הושלם';
-                    document.getElementById('result').textContent = 
-                      JSON.stringify(payload.new.result, null, 2);
-                    subscription.unsubscribe();
-                  }
-                }
-              )
-              .subscribe();
+            window.location.href = '/results?s=${submission.submission_id}';
           </script>
         </head>
-        <body class="bg-gray-50">
-          <div class="container mx-auto p-8">
-            <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
-              <h1 class="text-2xl font-bold mb-4">תוצאות</h1>
-              <div class="flex items-center gap-2 mb-4">
-                <span>סטטוס:</span>
-                <span id="status" class="font-bold">בעיבוד...</span>
-              </div>
-              <div class="text-lg" id="result">מעבד את הנתונים...</div>
-            </div>
-            
-            <div class="bg-gray-100 rounded-lg p-6 space-y-6">
-              <div>
-                <h2 class="text-xl font-semibold mb-4">מידע גולמי מהטופס</h2>
-                <pre class="bg-gray-800 text-white p-4 rounded overflow-auto" dir="ltr">
-                  ${JSON.stringify(formData, null, 2)}
-                </pre>
-              </div>
-
-              <div>
-                <h2 class="text-xl font-semibold mb-4">תוכן שנשמר ב-DB</h2>
-                <pre class="bg-gray-800 text-white p-4 rounded overflow-auto" dir="ltr">
-                  ${JSON.stringify(content, null, 2)}
-                </pre>
-              </div>
-
-              <div>
-                <h2 class="text-xl font-semibold mb-4">פרטי ההגשה</h2>
-                <pre class="bg-gray-800 text-white p-4 rounded overflow-auto" dir="ltr">
-                  ${JSON.stringify(submission, null, 2)}
-                </pre>
-              </div>
+        <body>
+          <div class="flex items-center justify-center min-h-screen">
+            <div class="text-center">
+              <div class="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
+              <p class="mt-4 text-xl">מעבד את הנתונים...</p>
             </div>
           </div>
         </body>

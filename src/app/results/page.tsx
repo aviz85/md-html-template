@@ -2,13 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
 import ReactMarkdown from 'react-markdown';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type Template = {
   id: string;
@@ -44,8 +38,7 @@ type Template = {
 
 export default function ResultsPage() {
   const searchParams = useSearchParams();
-  const formId = searchParams.get('formId');
-  const submissionId = searchParams.get('submissionId');
+  const submissionId = searchParams.get('submissionId') || searchParams.get('s');
   
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState('loading');
@@ -55,71 +48,33 @@ export default function ResultsPage() {
   const [userName, setUserName] = useState<string>('');
 
   useEffect(() => {
-    if (!formId || !submissionId) {
-      setError('חסרים פרמטרים בכתובת');
+    if (!submissionId) {
+      setError('חסר מזהה טופס');
       setIsLoading(false);
       return;
     }
 
-    const loadTemplate = async () => {
-      const { data, error } = await supabase
-        .from('templates')
-        .select('*')
-        .eq('form_id', formId)
-        .single();
+    const fetchData = async () => {
+      try {
+        console.log('Fetching data for submissionId:', submissionId);
+        const response = await fetch(`/api/submission?s=${submissionId}`);
+        const data = await response.json();
+        console.log('API Response:', data);
 
-      if (error) {
-        console.error('Error loading template:', error);
-        setIsLoading(false);
-        return;
-      }
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to fetch data');
+        }
 
-      setTemplate(data);
-      setIsLoading(false);
+        const { submission, template: templateData } = data;
+        console.log('Parsed data:', { submission, templateData });
 
-      // הוספת הגדרות CSS דינמיות
-      if (data.css) {
-        const styleSheet = document.createElement('style');
-        styleSheet.textContent = data.css;
-        document.head.appendChild(styleSheet);
-      }
-
-      // טעינת פונטים מותאמים אישית
-      if (data.custom_fonts) {
-        data.custom_fonts.forEach((font: { font_family: string; file_path: string }) => {
-          const fontFace = new FontFace(font.font_family, `url(${font.file_path})`);
-          fontFace.load().then(loadedFont => {
-            document.fonts.add(loadedFont);
-          });
-        });
-      }
-    };
-
-    loadTemplate();
-  }, [formId]);
-
-  useEffect(() => {
-    const checkStatus = async () => {
-      const { data, error } = await supabase
-        .from('form_submissions')
-        .select('*')
-        .eq('submission_id', submissionId)
-        .single();
-
-      if (error) {
-        setError(error.message);
-        return;
-      }
-
-      if (data) {
-        setStatus(data.status);
-        if (data.status === 'completed') {
-          setResult(data.result);
+        setStatus(submission.status);
+        if (submission.status === 'completed') {
+          setResult(submission.result);
         }
 
         try {
-          // Extract user name directly from q26_input26
-          const formData = data.content?.form_data || {};
+          const formData = submission.content?.form_data || {};
           const name = formData.q26_input26;
           if (name && typeof name === 'string') {
             setUserName(name.trim());
@@ -127,11 +82,35 @@ export default function ResultsPage() {
         } catch (e) {
           console.error('Error extracting name:', e);
         }
+
+        setTemplate(templateData);
+        
+        // Add CSS and fonts
+        if (templateData.css) {
+          const styleSheet = document.createElement('style');
+          styleSheet.textContent = templateData.css;
+          document.head.appendChild(styleSheet);
+        }
+
+        if (templateData.custom_fonts) {
+          templateData.custom_fonts.forEach((font: { font_family: string; file_path: string }) => {
+            const fontFace = new FontFace(font.font_family, `url(${font.file_path})`);
+            fontFace.load().then(loadedFont => {
+              document.fonts.add(loadedFont);
+            });
+          });
+        }
+
+        setIsLoading(false);
+      } catch (e) {
+        console.error('Error fetching data:', e);
+        setError(e instanceof Error ? e.message : 'An unknown error occurred');
+        setIsLoading(false);
       }
     };
 
-    checkStatus();
-    const interval = setInterval(checkStatus, 5000);
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, [submissionId]);
 
@@ -216,24 +195,35 @@ export default function ResultsPage() {
                 className="text-lg text-gray-500"
                 style={template?.element_styles?.p}
               >
-                תודה שהקדשת מזמנך למילוי השאלון. להלן התוצאות המפורטות:
+                תודה שהקדשת מזמנך למילוי השאלון.
+                {status === 'completed' ? ' להלן התוצאות המפורטות:' : ' התוצאות נמצאות בתהליך עיבוד.'}
               </p>
             </div>
           )}
         </header>
         
         {status === 'pending' && (
-          <div className="flex flex-col items-center gap-6 my-16">
-            <div className="relative w-20 h-20">
-              <div className="absolute border-4 border-gray-200/30 rounded-full w-full h-full"></div>
-              <div className="absolute border-4 border-blue-500/80 rounded-full w-full h-full animate-spin border-t-transparent"></div>
+          <div className="space-y-8 animate-fade-in">
+            <div className="flex flex-col items-center gap-6 py-16 px-8 rounded-2xl bg-gray-50/50 backdrop-blur-sm border border-gray-100">
+              <div className="relative w-16 h-16">
+                <div className="absolute border-4 border-gray-200/30 rounded-full w-full h-full"></div>
+                <div className="absolute border-4 border-blue-500/80 rounded-full w-full h-full animate-spin border-t-transparent"></div>
+              </div>
+              <div className="text-center">
+                <p 
+                  className="text-lg text-gray-600 mb-2"
+                  style={template?.element_styles?.p}
+                >
+                  התוצאות בתהליך עיבוד
+                </p>
+                <p 
+                  className="text-sm text-gray-500"
+                  style={template?.element_styles?.p}
+                >
+                  אנא המתן מספר רגעים...
+                </p>
+              </div>
             </div>
-            <p 
-              className="text-lg text-gray-600 animate-pulse"
-              style={template?.element_styles?.p}
-            >
-              מעבד את התוצאות, אנא המתן...
-            </p>
           </div>
         )}
 

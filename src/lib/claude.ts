@@ -94,33 +94,55 @@ async function getPrompts(formId: string) {
 
 export async function processSubmission(submissionId: string) {
   try {
+    console.log('Starting processSubmission with submissionId:', submissionId);
+    
     // קבלת הנתונים מ-Supabase
+    console.log('Fetching submission from Supabase...');
     const { data: submission, error } = await supabase
       .from('form_submissions')
       .select('*')
-      .eq('submission_id', submissionId)  // Changed from 'id' to 'submission_id'
+      .eq('submission_id', submissionId)
       .single();
 
-    if (error) throw error;
+    console.log('Supabase response:', { submission, error });
+
+    if (error) {
+      console.error('Error fetching submission:', error);
+      throw error;
+    }
+
+    if (!submission) {
+      console.error('No submission found for ID:', submissionId);
+      throw new Error('Submission not found');
+    }
+
+    console.log('Found submission:', submission);
+    console.log('Form data:', submission.content.form_data);
 
     // המרת התשובות לפורמט הנכון
     const answers = Object.entries(submission.content.form_data)
       .map(([key, value]) => `שאלה: ${key} - תשובה: ${value}`)
       .join('\n');
 
+    console.log('Formatted answers:', answers);
+
     // קבלת הפרומפטים מגוגל שיטס לפי form_id
+    console.log('Getting prompts for form_id:', submission.form_id);
     const prompts = await getPrompts(submission.form_id);
+    console.log('Got prompts:', prompts);
     
     // שיחה עם קלוד - הודעה ראשונה
     let messages: Message[] = [{ role: "user", content: answers + '\n' + prompts[0] }]
     let claudeResponses = []
     
+    console.log('Sending first message to Claude:', messages[0]);
     let msg = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20240620",
       max_tokens: 8192,
       messages: messages
     })
     claudeResponses.push(msg)
+    console.log('Got first response from Claude:', msg);
 
     // המשך השיחה עם שאר הפרומפטים
     for (let i = 1; i < prompts.length; i++) {
@@ -132,17 +154,20 @@ export async function processSubmission(submissionId: string) {
         { role: 'user' as const, content: prompts[i] }
       ]
       
+      console.log(`Sending message ${i + 1} to Claude:`, messages[messages.length - 1]);
       msg = await anthropic.messages.create({
         model: "claude-3-5-sonnet-20240620",
         max_tokens: 8192,
         messages: messages
       })
       claudeResponses.push(msg)
+      console.log(`Got response ${i + 1} from Claude:`, msg);
     }
 
     // שמירת התוצאות ב-Supabase
     const lastResponse = msg.content.find(block => 'text' in block)?.text || ''
     
+    console.log('Updating submission with results...');
     const { error: updateError } = await supabase
       .from('form_submissions')
       .update({
@@ -152,23 +177,28 @@ export async function processSubmission(submissionId: string) {
           completeChat: [...messages, { role: 'assistant' as const, content: lastResponse }]
         }
       })
-      .eq('submission_id', submissionId)  // Changed from 'id' to 'submission_id'
+      .eq('id', submission.id)
 
-    if (updateError) throw updateError
+    if (updateError) {
+      console.error('Error updating submission:', updateError);
+      throw updateError;
+    }
 
-    return msg
+    console.log('Successfully completed processing');
+    return msg;
   } catch (error) {
     console.error('Error in processSubmission:', error)
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
     
     // עדכון סטטוס שגיאה
+    console.log('Updating submission with error status...');
     await supabase
       .from('form_submissions')
       .update({
         status: 'error',
         result: { error: error instanceof Error ? error.message : 'Unknown error' }
       })
-      .eq('submission_id', submissionId)  // Changed from 'id' to 'submission_id'
+      .eq('id', submission.id)
     throw error
   }
 } 
