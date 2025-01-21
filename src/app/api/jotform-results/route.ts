@@ -29,11 +29,27 @@ export async function POST(request: Request) {
           formData.parsedRequest = JSON.parse(formData.rawRequest);
         } catch (e) {
           console.error('Failed to parse rawRequest:', e);
+          // אם הפרסור נכשל, נשמור את ה-rawRequest כמו שהוא
+          formData.parsedRequest = formData.rawRequest;
         }
       }
     } else if (contentType.includes('multipart/form-data') || contentType.includes('application/x-www-form-urlencoded')) {
       const formDataObj = await request.formData();
       formData = Object.fromEntries(formDataObj.entries());
+      console.log('Form data after parsing:', formData);
+      
+      // פרסור של rawRequest אם קיים
+      if (formData.rawRequest) {
+        try {
+          const parsedRawRequest = JSON.parse(formData.rawRequest);
+          console.log('Parsed rawRequest:', parsedRawRequest);
+          formData.parsedRequest = parsedRawRequest;
+        } catch (e) {
+          console.error('Failed to parse rawRequest:', e);
+          formData.parsedRequest = formData.rawRequest;
+        }
+      }
+      
       rawBody = JSON.stringify(formData);
     } else {
       throw new Error('Content-Type must be one of "application/json", "multipart/form-data", or "application/x-www-form-urlencoded"');
@@ -54,12 +70,28 @@ export async function POST(request: Request) {
     }
 
     // Extract form and submission IDs from the webhook data
-    const formId = formData.formID || formData.parsedRequest?.formID || 'unknown';
-    const submissionId = formData.submissionID || formData.parsedRequest?.submissionID || new Date().getTime().toString();
+    const formId = formData.formID;
+    const submissionId = formData.submissionID;
     
     // Prepare the content object with all form fields
-    const content = formData.parsedRequest || {};
-    
+    let content;
+    try {
+      const parsedFields = JSON.parse(formData.rawRequest);
+      content = {
+        form_data: parsedFields,
+        metadata: {
+          submission_id: formData.submissionID,
+          form_id: formData.formID
+        },
+        raw: formData
+      };
+      
+      console.log('Content before save:', content);
+    } catch (e) {
+      console.error('Failed to parse content:', e);
+      content = formData;
+    }
+
     console.log('Form ID:', formId);
     console.log('Submission ID:', submissionId);
     console.log('Content:', content);
@@ -69,13 +101,15 @@ export async function POST(request: Request) {
     const { data: submission, error } = await supabase
       .from('form_submissions')
       .insert({
-        form_id: formId,
-        submission_id: submissionId,
-        content: content,
+        form_id: formData.formID,
+        submission_id: formData.submissionID,
+        content: content || {},
         status: 'pending'
       })
       .select('*')
       .single();
+
+    console.log('Saved submission:', submission);
 
     if (error) {
       console.error('Database error:', error);
@@ -143,11 +177,27 @@ export async function POST(request: Request) {
               <div class="text-lg" id="result">מעבד את הנתונים...</div>
             </div>
             
-            <div class="bg-gray-100 rounded-lg p-6">
-              <h2 class="text-xl font-semibold mb-4">מידע מהטופס</h2>
-              <pre class="bg-gray-800 text-white p-4 rounded overflow-auto" dir="ltr">
-                ${JSON.stringify(formData, null, 2)}
-              </pre>
+            <div class="bg-gray-100 rounded-lg p-6 space-y-6">
+              <div>
+                <h2 class="text-xl font-semibold mb-4">מידע גולמי מהטופס</h2>
+                <pre class="bg-gray-800 text-white p-4 rounded overflow-auto" dir="ltr">
+                  ${JSON.stringify(formData, null, 2)}
+                </pre>
+              </div>
+
+              <div>
+                <h2 class="text-xl font-semibold mb-4">תוכן שנשמר ב-DB</h2>
+                <pre class="bg-gray-800 text-white p-4 rounded overflow-auto" dir="ltr">
+                  ${JSON.stringify(content, null, 2)}
+                </pre>
+              </div>
+
+              <div>
+                <h2 class="text-xl font-semibold mb-4">פרטי ההגשה</h2>
+                <pre class="bg-gray-800 text-white p-4 rounded overflow-auto" dir="ltr">
+                  ${JSON.stringify(submission, null, 2)}
+                </pre>
+              </div>
             </div>
           </div>
         </body>

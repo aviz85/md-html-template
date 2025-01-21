@@ -1,6 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
-import { supabase } from './supabase-client'
+
+// יצירת חיבור server-side ל-Supabase
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -12,14 +17,46 @@ type Message = {
   content: string
 }
 
-async function getPrompts() {
-  const SHEET_ID = process.env.GOOGLE_SHEET_ID!
-  const API_KEY = process.env.GOOGLE_API_KEY!
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/A:A?key=${API_KEY}`
-  
-  const response = await fetch(url)
-  const data = await response.json()
-  return data.values.map((row: string[]) => row[0])
+async function getPrompts(formId: string) {
+  try {
+    // קבלת ה-template על פי form_id
+    const { data: template, error } = await supabase
+      .from('templates')
+      .select('template_gsheets_id')
+      .eq('form_id', formId)
+      .single();
+    
+    if (error) {
+      console.error('Error fetching template:', error);
+      return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
+    }
+
+    if (!template?.template_gsheets_id) {
+      console.error('No Google Sheet ID found for form:', formId);
+      return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
+    }
+
+    const API_KEY = process.env.GOOGLE_API_KEY;
+    if (!API_KEY) {
+      console.error('Missing Google API key');
+      return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
+    }
+    
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${template.template_gsheets_id}/values/A:A?key=${API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (!data.values) {
+      console.error('No data returned from Google Sheets:', data);
+      return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
+    }
+    
+    return data.values.map((row: string[]) => row[0]);
+  } catch (error) {
+    console.error('Error in getPrompts:', error);
+    return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
+  }
 }
 
 export async function processSubmission(submissionId: string) {
@@ -29,17 +66,17 @@ export async function processSubmission(submissionId: string) {
       .from('form_submissions')
       .select('*')
       .eq('id', submissionId)
-      .single()
+      .single();
 
-    if (error) throw error
+    if (error) throw error;
 
     // המרת התשובות לפורמט הנכון
-    const answers = Object.entries(submission.content)
+    const answers = Object.entries(submission.content.form_data)
       .map(([key, value]) => `שאלה: ${key} - תשובה: ${value}`)
-      .join('\n')
+      .join('\n');
 
-    // קבלת הפרומפטים מגוגל שיטס
-    const prompts = await getPrompts()
+    // קבלת הפרומפטים מגוגל שיטס לפי form_id
+    const prompts = await getPrompts(submission.form_id);
     
     // שיחה עם קלוד - הודעה ראשונה
     let messages: Message[] = [{ role: "user", content: answers + '\n' + prompts[0] }]
@@ -96,7 +133,7 @@ export async function processSubmission(submissionId: string) {
       .from('form_submissions')
       .update({
         status: 'error',
-        result: { error: errorMessage }
+        result: { error: error instanceof Error ? error.message : 'Unknown error' }
       })
       .eq('id', submissionId)
     throw error
