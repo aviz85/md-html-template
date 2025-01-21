@@ -93,6 +93,8 @@ async function getPrompts(formId: string) {
 }
 
 export async function processSubmission(submissionId: string) {
+  let submissionUUID: string | null = null;
+  
   try {
     console.log('Starting processSubmission with submissionId:', submissionId);
     
@@ -104,8 +106,6 @@ export async function processSubmission(submissionId: string) {
       .eq('submission_id', submissionId)
       .single();
 
-    console.log('Supabase response:', { submission, error });
-
     if (error) {
       console.error('Error fetching submission:', error);
       throw error;
@@ -115,6 +115,8 @@ export async function processSubmission(submissionId: string) {
       console.error('No submission found for ID:', submissionId);
       throw new Error('Submission not found');
     }
+
+    submissionUUID = submission.id;
 
     console.log('Found submission:', submission);
     console.log('Form data:', submission.content.form_data);
@@ -177,7 +179,7 @@ export async function processSubmission(submissionId: string) {
           completeChat: [...messages, { role: 'assistant' as const, content: lastResponse }]
         }
       })
-      .eq('id', submission.id)
+      .eq('id', submissionUUID)
 
     if (updateError) {
       console.error('Error updating submission:', updateError);
@@ -188,17 +190,16 @@ export async function processSubmission(submissionId: string) {
     return msg;
   } catch (error) {
     console.error('Error in processSubmission:', error)
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
     
-    // עדכון סטטוס שגיאה
-    console.log('Updating submission with error status...');
-    await supabase
-      .from('form_submissions')
-      .update({
-        status: 'error',
-        result: { error: error instanceof Error ? error.message : 'Unknown error' }
-      })
-      .eq('id', submission.id)
+    if (submissionUUID) {
+      await supabase
+        .from('form_submissions')
+        .update({
+          status: 'error',
+          result: { error: error instanceof Error ? error.message : 'Unknown error' }
+        })
+        .eq('id', submissionUUID)
+    }
     throw error
   }
 } 
