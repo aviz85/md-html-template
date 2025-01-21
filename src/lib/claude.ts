@@ -54,11 +54,14 @@ export async function processSubmission(submissionId: string) {
 
     // המשך השיחה עם שאר הפרומפטים
     for (let i = 1; i < prompts.length; i++) {
+      const lastResponse = msg.content.find(block => 'text' in block)?.text || ''
+      
       messages = [
         ...messages,
-        { role: 'assistant' as const, content: msg.content[0].text },
+        { role: 'assistant' as const, content: lastResponse },
         { role: 'user' as const, content: prompts[i] }
       ]
+      
       msg = await anthropic.messages.create({
         model: "claude-3-5-sonnet-20240620",
         max_tokens: 8192,
