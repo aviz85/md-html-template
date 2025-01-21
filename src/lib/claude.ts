@@ -6,6 +6,12 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 })
 
+type MessageRole = "user" | "assistant"
+type Message = {
+  role: MessageRole
+  content: string
+}
+
 async function getPrompts() {
   const SHEET_ID = process.env.GOOGLE_SHEET_ID!
   const API_KEY = process.env.GOOGLE_API_KEY!
@@ -36,7 +42,7 @@ export async function processSubmission(submissionId: string) {
     const prompts = await getPrompts()
     
     // שיחה עם קלוד - הודעה ראשונה
-    let messages = [{ role: "user", content: answers + '\n' + prompts[0] }]
+    let messages: Message[] = [{ role: "user", content: answers + '\n' + prompts[0] }]
     let claudeResponses = []
     
     let msg = await anthropic.messages.create({
@@ -50,8 +56,8 @@ export async function processSubmission(submissionId: string) {
     for (let i = 1; i < prompts.length; i++) {
       messages = [
         ...messages,
-        { role: 'assistant', content: msg.content[0].text },
-        { role: 'user', content: prompts[i] }
+        { role: 'assistant' as const, content: msg.content[0].text },
+        { role: 'user' as const, content: prompts[i] }
       ]
       msg = await anthropic.messages.create({
         model: "claude-3-5-sonnet-20240620",
