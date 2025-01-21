@@ -60,6 +60,7 @@ interface Template {
     font_family: string
     format: string
   }>
+  form_id?: string
 }
 
 interface TemplateEditorProps {
@@ -121,6 +122,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const [activeElement, setActiveElement] = useState<ElementType>("body")
   const [templateName, setTemplateName] = useState("")
   const [templateGsheetsId, setTemplateGsheetsId] = useState("")
+  const [formId, setFormId] = useState<string>("")
   const [fontName, setFontName] = useState("")
   const [fontFile, setFontFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -428,6 +430,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         // Convert Map values to array and set state
         setCustomContents(Array.from(customContentMap.values()))
       }
+
+      setFormId(template.form_id || '')
     }
   }
 
@@ -529,7 +533,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           element_styles: elementStyles,
           show_logo: elementStyles.header.showLogo !== false,
           show_logo_on_all_pages: elementStyles.header.showLogoOnAllPages !== false,
-          logo_position: elementStyles.header.logoPosition || 'top-right'
+          logo_position: elementStyles.header.logoPosition || 'top-right',
+          form_id: formId,
         })
         .select()
         .single()
@@ -1022,6 +1027,16 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             placeholder="Template Google Sheets ID"
             value={templateGsheetsId}
             onChange={(e) => setTemplateGsheetsId(e.target.value)}
+            className="mt-2"
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium">Form ID</label>
+          <Input
+            placeholder="JotForm Form ID"
+            value={formId}
+            onChange={(e) => setFormId(e.target.value)}
             className="mt-2"
           />
         </div>
