@@ -354,12 +354,12 @@ export default function ResultsPage() {
 function getLogoAlignment(position: string): string {
   switch (position) {
     case 'top-left':
-      return 'justify-start';
-    case 'top-right':
       return 'justify-end';
+    case 'top-right':
+      return 'justify-start';
     case 'top-center':
       return 'justify-center';
     default:
-      return 'justify-start';
+      return 'justify-end';
   }
 } 
