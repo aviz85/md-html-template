@@ -69,18 +69,31 @@ export default function ResultsPage() {
 
     const fetchData = async () => {
       try {
-        const response = await fetch(`/api/submission?s=${submissionId}`);
-        const data = await response.json();
+        // Add retry logic for fetching submission
+        let attempts = 0;
+        let data;
+        
+        while (attempts < 3) {
+          const response = await fetch(`/api/submission?s=${submissionId}`);
+          data = await response.json();
+          
+          if (response.ok && data.submission) {
+            break;
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          attempts++;
+        }
 
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to fetch data');
+        if (!data || !data.submission) {
+          throw new Error('Failed to fetch submission after retries');
         }
 
         const { submission, template: templateData } = data;
 
         // בדיקה האם יש תוצאות מפורטות
         const hasDetailedResults = submission.status === 'completed' && 
-          submission.result?.completeChat?.length > 0;
+          submission.result?.finalResponse;
 
         setStatus(hasDetailedResults ? 'completed' : 'pending');
         if (hasDetailedResults) {
@@ -143,6 +156,8 @@ export default function ResultsPage() {
   }, [submissionId]);
 
   const renderChat = (result: any) => {
+    if (!result?.finalResponse) return null;
+    
     return (
       <div className="my-8 fade-in">
         <ReactMarkdown 
