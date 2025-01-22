@@ -941,7 +941,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                       }
                     }))}
                     className="w-4 h-4"
-                  >
+                  />
                   <label htmlFor="showLogoOnAllPages" className="text-sm">הצג לוגו בכל העמודים</label>
                 </div>
                 <div className="flex items-center gap-2">
