@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from './supabase-admin'
+import marked from 'marked'
 
 type Database = {
   public: {
@@ -53,17 +54,45 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 })
 
+const MAX_RETRIES = 3;
+const MAX_TOKENS = 8192;
+const RETRY_DELAY = 1000; // 1 second
+
+async function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function retryWithExponentialBackoff<T>(
+  operation: () => Promise<T>,
+  retries = MAX_RETRIES,
+  delayMs = RETRY_DELAY
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (retries === 0) throw error;
+    await delay(delayMs);
+    return retryWithExponentialBackoff(operation, retries - 1, delayMs * 2);
+  }
+}
+
+// Estimate tokens in a string (rough approximation)
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4); // Rough estimate: ~4 chars per token
+}
+
 async function getPrompts(formId: string) {
   try {
     console.log('🔍 Starting getPrompts for formId:', formId);
     
-    // קבלת ה-template על פי form_id
-    console.log('📊 Fetching template from Supabase...');
-    const { data: template, error } = await supabaseAdmin
-      .from('templates')
-      .select('template_gsheets_id, name')
-      .eq('form_id', formId)
-      .single();
+    // Fetch template with retry
+    const { data: template, error } = await retryWithExponentialBackoff(async () => {
+      return await supabaseAdmin
+        .from('templates')
+        .select('template_gsheets_id, name')
+        .eq('form_id', formId)
+        .single();
+    });
     
     console.log('📋 Template query result:', { 
       template: template ? { 
@@ -94,11 +123,12 @@ async function getPrompts(formId: string) {
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${template.template_gsheets_id}/values/A:A?key=${API_KEY}`;
     console.log('🌐 Fetching from Google Sheets:', url.replace(API_KEY, '***'));
     
-    const response = await fetch(url);
-    if (!response.ok) {
-      console.error('❌ Google Sheets API error:', response.status, await response.text());
-      return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
-    }
+    // Add retry for Google Sheets API call
+    const response = await retryWithExponentialBackoff(async () => {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Google Sheets API error: ${res.status}`);
+      return res;
+    });
     
     const data = await response.json();
     console.log('📥 Google Sheets response:', {
@@ -116,23 +146,26 @@ async function getPrompts(formId: string) {
     return prompts;
   } catch (error) {
     console.error('❌ Error in getPrompts:', error);
-    return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
+    throw new Error(`Failed to fetch prompts: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
 export async function processSubmission(submissionId: string) {
   let submissionUUID: string | null = null;
+  let messages: Message[] = [];
+  let totalTokens = 0;
   
   try {
     console.log('🔍 Starting processSubmission with submissionId:', submissionId);
     
-    // קבלת הנתונים מ-Supabase
-    console.log('📊 Fetching submission from Supabase...');
-    const { data: submission, error } = await supabaseAdmin
-      .from('form_submissions')
-      .select('*')
-      .eq('submission_id', submissionId)
-      .single();
+    // Fetch submission with retry
+    const { data: submission, error } = await retryWithExponentialBackoff(async () => {
+      return await supabaseAdmin
+        .from('form_submissions')
+        .select('*')
+        .eq('submission_id', submissionId)
+        .single();
+    });
 
     if (error) {
       console.error('❌ Error fetching submission:', error);
@@ -168,93 +201,123 @@ export async function processSubmission(submissionId: string) {
 
     console.log('Formatted answers:', answers);
 
-    // קבלת הפרומפטים מגוגל שיטס
-    console.log('📑 Getting prompts for form_id:', submission.form_id);
+    // Get prompts
     const prompts = await getPrompts(submission.form_id);
-    console.log('✅ Got prompts:', prompts.length, 'prompts found');
     
-    // שיחה עם קלוד - הודעה ראשונה
-    console.log('🤖 Starting Claude conversation...');
-    let messages: Message[] = [{ role: "user", content: answers + '\n' + prompts[0] }]
-    let claudeResponses = []
+    // Initial message
+    const initialMessage = answers + '\n' + prompts[0];
+    totalTokens = estimateTokens(initialMessage);
     
-    console.log('🔑 Checking Anthropic API Key:', process.env.ANTHROPIC_API_KEY ? 'Set' : 'Missing');
-    if (!process.env.ANTHROPIC_API_KEY) {
-      throw new Error('Missing ANTHROPIC_API_KEY');
+    if (totalTokens > MAX_TOKENS) {
+      throw new Error('Initial message exceeds token limit');
     }
-    
-    console.log('📤 Sending first message to Claude');
-    try {
-      let msg = await anthropic.messages.create({
-        model: "claude-3-5-sonnet-20240620",
-        max_tokens: 8192,
-        messages: messages
-      })
-      claudeResponses.push(msg)
-      console.log('📥 Got first response from Claude:', { 
-        responseLength: msg.content.find(block => 'text' in block)?.text.length || 0 
-      });
 
-      // המשך השיחה עם שאר הפרומפטים
-      for (let i = 1; i < prompts.length; i++) {
-        console.log(`🔄 Processing prompt ${i + 1}/${prompts.length}`);
-        const lastResponse = msg.content.find(block => 'text' in block)?.text || ''
-        
+    messages = [{ role: "user", content: initialMessage }];
+    let claudeResponses = [];
+
+    // First Claude call with retry
+    let msg = await retryWithExponentialBackoff(async () => {
+      return await anthropic.messages.create({
+        model: "claude-3-5-sonnet-20240620",
+        max_tokens: MAX_TOKENS,
+        messages: messages
+      });
+    });
+
+    claudeResponses.push(msg);
+    const firstResponse = msg.content.find(block => 'text' in block)?.text || '';
+    totalTokens += estimateTokens(firstResponse);
+
+    // Process remaining prompts
+    for (let i = 1; i < prompts.length; i++) {
+      const lastResponse = msg.content.find(block => 'text' in block)?.text || '';
+      
+      // Calculate new message tokens
+      const newMessageTokens = estimateTokens(prompts[i]);
+      
+      // If adding new message would exceed limit, summarize history
+      if (totalTokens + newMessageTokens > MAX_TOKENS * 0.8) { // 80% threshold
+        // Keep only the last exchange and add new prompt
         messages = [
-          ...messages,
-          { role: 'assistant' as const, content: lastResponse },
-          { role: 'user' as const, content: prompts[i] }
-        ]
-        
-        console.log(`📤 Sending message ${i + 1} to Claude`);
-        msg = await anthropic.messages.create({
-          model: "claude-3-5-sonnet-20240620",
-          max_tokens: 8192,
-          messages: messages
-        })
-        claudeResponses.push(msg)
-        console.log(`📥 Got response ${i + 1} from Claude`);
+          { role: 'assistant', content: lastResponse },
+          { role: 'user', content: prompts[i] }
+        ];
+        totalTokens = estimateTokens(lastResponse) + newMessageTokens;
+      } else {
+        messages.push(
+          { role: 'assistant', content: lastResponse },
+          { role: 'user', content: prompts[i] }
+        );
+        totalTokens += newMessageTokens;
       }
 
-      // שמירת התוצאות ב-Supabase
-      console.log('💾 Saving final results to Supabase...');
-      const lastResponse = msg.content.find(block => 'text' in block)?.text || ''
-      
-      const { error: updateError } = await supabaseAdmin
+      // Claude call with retry
+      msg = await retryWithExponentialBackoff(async () => {
+        return await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20240620",
+          max_tokens: MAX_TOKENS,
+          messages: messages
+        });
+      });
+
+      claudeResponses.push(msg);
+      totalTokens += estimateTokens(msg.content.find(block => 'text' in block)?.text || '');
+    }
+
+    // Validate markdown in responses
+    const lastResponse = msg.content.find(block => 'text' in block)?.text || '';
+    const isValidMarkdown = (text: string) => {
+      try {
+        marked.parse(text);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    if (!isValidMarkdown(lastResponse)) {
+      console.warn('⚠️ Invalid markdown detected in Claude response');
+    }
+
+    // Update Supabase with retry
+    const { error: updateError } = await retryWithExponentialBackoff(async () => {
+      return await supabaseAdmin
         .from('form_submissions')
         .update({
           status: 'completed',
           result: {
-            claudeResponses,
-            completeChat: [...messages, { role: 'assistant' as const, content: lastResponse }]
+            finalResponse: lastResponse,
+            tokenCount: totalTokens
           }
         })
-        .eq('id', submissionUUID)
+        .eq('id', submissionUUID);
+    });
 
-      if (updateError) {
-        console.error('❌ Error updating submission:', updateError);
-        throw updateError;
-      }
-
-      console.log('✨ Successfully completed processing for submission:', submissionId);
-      return msg;
-    } catch (error) {
-      console.error('❌ Error in Claude conversation:', error);
-      throw error;
+    if (updateError) {
+      console.error('❌ Error updating submission:', updateError);
+      throw updateError;
     }
+
+    console.log('✨ Successfully completed processing for submission:', submissionId);
+    return msg;
   } catch (error) {
-    console.error('❌ Error in processSubmission:', error)
+    console.error('❌ Error in processSubmission:', error);
     
     if (submissionUUID) {
-      console.log('📝 Updating submission status to error');
-      await supabaseAdmin
-        .from('form_submissions')
-        .update({
-          status: 'error',
-          result: { error: error instanceof Error ? error.message : 'Unknown error' }
-        })
-        .eq('id', submissionUUID)
+      // Update error status with retry
+      await retryWithExponentialBackoff(async () => {
+        return await supabaseAdmin
+          .from('form_submissions')
+          .update({
+            status: 'error',
+            result: { 
+              error: error instanceof Error ? error.message : 'Unknown error',
+              tokenCount: totalTokens
+            }
+          })
+          .eq('id', submissionUUID);
+      });
     }
-    throw error
+    throw error;
   }
 } 

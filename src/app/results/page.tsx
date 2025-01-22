@@ -142,26 +142,24 @@ export default function ResultsPage() {
     return () => clearInterval(interval);
   }, [submissionId]);
 
-  const renderChat = (chat: any[]) => {
-    return chat
-      .filter(msg => msg.role === 'assistant')
-      .map((msg, index) => (
-        <div key={index} className="my-8 fade-in">
-          <ReactMarkdown 
-            className="prose prose-lg max-w-none"
-            components={{
-              h1: ({ children }) => <h1 style={{ ...template?.element_styles?.h1, marginTop: '2rem', marginBottom: '1rem' }}>{children}</h1>,
-              h2: ({ children }) => <h2 style={{ ...template?.element_styles?.h2, marginTop: '1.5rem', marginBottom: '0.75rem' }}>{children}</h2>,
-              h3: ({ children }) => <h3 style={{ ...template?.element_styles?.h3, marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h3>,
-              p: ({ children }) => <p style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}>{children}</p>,
-              ul: ({ children }) => <ul style={{ ...template?.element_styles?.list, marginLeft: '1.5rem', marginBottom: '1rem' }}>{children}</ul>,
-              li: ({ children }) => <li style={{ marginBottom: '0.5rem' }}>{children}</li>,
-            }}
-          >
-            {msg.content}
-          </ReactMarkdown>
-        </div>
-      ));
+  const renderChat = (result: any) => {
+    return (
+      <div className="my-8 fade-in">
+        <ReactMarkdown 
+          className="prose prose-lg max-w-none"
+          components={{
+            h1: ({ children }) => <h1 style={{ ...template?.element_styles?.h1, marginTop: '2rem', marginBottom: '1rem' }}>{children}</h1>,
+            h2: ({ children }) => <h2 style={{ ...template?.element_styles?.h2, marginTop: '1.5rem', marginBottom: '0.75rem' }}>{children}</h2>,
+            h3: ({ children }) => <h3 style={{ ...template?.element_styles?.h3, marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h3>,
+            p: ({ children }) => <p style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}>{children}</p>,
+            ul: ({ children }) => <ul style={{ ...template?.element_styles?.list, marginLeft: '1.5rem', marginBottom: '1rem' }}>{children}</ul>,
+            li: ({ children }) => <li style={{ marginBottom: '0.5rem' }}>{children}</li>,
+          }}
+        >
+          {result.finalResponse}
+        </ReactMarkdown>
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -289,7 +287,7 @@ export default function ResultsPage() {
         {status === 'completed' && result && (
           <div className="space-y-8 animate-fade-in">
             <div className="prose prose-lg max-w-none prose-headings:text-gray-800 prose-p:text-gray-600 prose-strong:text-gray-800 prose-ul:text-gray-600">
-              {result.completeChat && renderChat(result.completeChat)}
+              {renderChat(result)}
             </div>
           </div>
         )}
