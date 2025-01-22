@@ -30,6 +30,7 @@ type Template = {
   custom_fonts?: Array<{
     font_family: string;
     file_path: string;
+    format?: string;
   }>;
   header_content?: string;
   footer_content?: string;
@@ -96,13 +97,25 @@ export default function ResultsPage() {
           document.head.appendChild(styleSheet);
         }
 
-        if (templateData?.custom_fonts) {
-          templateData.custom_fonts.forEach((font: { font_family: string; file_path: string }) => {
-            const fontFace = new FontFace(font.font_family, `url(${font.file_path})`);
-            fontFace.load().then(loadedFont => {
-              document.fonts.add(loadedFont);
-            });
-          });
+        // Add custom fonts if they exist
+        if (templateData?.custom_fonts?.length > 0) {
+          const fontFaces = templateData.custom_fonts.map(font => {
+            const format = font.format === 'ttf' ? 'truetype' : font.format;
+            const fullUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${font.file_path}`;
+            return `
+              @font-face {
+                font-family: '${font.font_family}';
+                src: url('${fullUrl}') format('${format}');
+                font-weight: 400;
+                font-style: normal;
+                font-display: swap;
+              }
+            `;
+          }).join('\n');
+
+          const fontStyleSheet = document.createElement('style');
+          fontStyleSheet.textContent = fontFaces;
+          document.head.appendChild(fontStyleSheet);
         }
 
       } catch (e) {
