@@ -13,7 +13,7 @@ const supabase = createClient(
   }
 );
 
-export const runtime = 'edge'  // Changed from nodejs to edge for better performance
+export const runtime = 'nodejs'  // Changed from edge to nodejs
 export const maxDuration = 300 // 5 minutes timeout
 
 export async function GET(request: Request) {
@@ -34,49 +34,28 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
-  console.log('🚀 Process API called');
+export async function POST(req: Request) {
   try {
-    const { submissionId } = await request.json()
-    console.log('📝 Processing submission:', submissionId);
+    const { submissionId } = await req.json();
     
     if (!submissionId) {
-      console.error('❌ Missing submissionId in request');
-      return NextResponse.json({ error: 'Missing submissionId' }, { status: 400 })
+      return NextResponse.json({ error: 'Missing submissionId' }, { status: 400 });
     }
 
-    // Return immediately
-    const response = NextResponse.json({ 
-      success: true, 
-      message: 'Processing started' 
+    // התחל את העיבוד ברקע
+    processSubmission(submissionId).catch(error => {
+      console.error('Background processing error:', error);
     });
 
-    // Process in background
-    (async () => {
-      try {
-        console.log('🤖 Starting Claude processing for submission:', submissionId);
-        const result = await processSubmission(submissionId);
-        console.log('✅ Successfully processed submission:', submissionId);
-      } catch (error) {
-        console.error('❌ Error in background processing:', error);
-        // Update submission status to error
-        await supabase
-          .from('form_submissions')
-          .update({
-            status: 'error',
-            result: {
-              error: error instanceof Error ? error.message : 'Unknown error',
-              details: error
-            }
-          })
-          .eq('submission_id', submissionId);
-      }
-    })();
-
-    return response;
+    // החזר תשובה מיד
+    return NextResponse.json({ 
+      status: 'processing',
+      message: 'Processing started in background',
+      submissionId 
+    });
+    
   } catch (error) {
-    console.error('❌ Error in process endpoint:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 })
+    console.error('API error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 
