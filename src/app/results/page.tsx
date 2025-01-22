@@ -325,20 +325,20 @@ export default function ResultsPage() {
                   className="text-lg text-gray-600 font-medium"
                   style={template?.element_styles?.p}
                 >
-                  {data?.submission?.progress?.message || 'מעבד את התוצאות...'}
+                  {result?.progress?.message || 'מעבד את התוצאות...'}
                 </p>
-                {data?.submission?.progress?.current && data?.submission?.progress?.total && (
+                {result?.progress?.current && result?.progress?.total && (
                   <div className="w-64 mx-auto">
                     <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-blue-500 transition-all duration-500"
                         style={{ 
-                          width: `${(data.submission.progress.current / data.submission.progress.total) * 100}%` 
+                          width: `${(result.progress.current / result.progress.total) * 100}%` 
                         }}
                       />
                     </div>
                     <p className="text-sm text-gray-500 mt-2">
-                      {data.submission.progress.current} מתוך {data.submission.progress.total}
+                      {result.progress.current} מתוך {result.progress.total}
                     </p>
                   </div>
                 )}
