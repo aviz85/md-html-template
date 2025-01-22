@@ -54,9 +54,9 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 })
 
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 5;
 const MAX_TOKENS = 8192;
-const RETRY_DELAY = 1000; // 1 second
+const RETRY_DELAY = 3000; // 1 second
 
 async function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
