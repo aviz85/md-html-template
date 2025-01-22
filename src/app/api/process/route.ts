@@ -15,7 +15,7 @@ const supabase = createClient(
 );
 
 export const runtime = 'nodejs'  // Changed from edge to nodejs
-export const maxDuration = 900; // 15 minutes timeout for Vercel Pro plan
+export const maxDuration = 300; // 15 minutes timeout for Vercel Pro plan
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
