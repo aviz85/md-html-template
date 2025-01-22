@@ -232,24 +232,12 @@ export async function processSubmission(submissionId: string) {
     for (let i = 1; i < prompts.length; i++) {
       const lastResponse = msg.content.find(block => 'text' in block)?.text || '';
       
-      // Calculate new message tokens
-      const newMessageTokens = estimateTokens(prompts[i]);
-      
-      // If adding new message would exceed limit, summarize history
-      if (totalTokens + newMessageTokens > MAX_TOKENS * 0.8) { // 80% threshold
-        // Keep only the last exchange and add new prompt
-        messages = [
-          { role: 'assistant', content: lastResponse },
-          { role: 'user', content: prompts[i] }
-        ];
-        totalTokens = estimateTokens(lastResponse) + newMessageTokens;
-      } else {
-        messages.push(
-          { role: 'assistant', content: lastResponse },
-          { role: 'user', content: prompts[i] }
-        );
-        totalTokens += newMessageTokens;
-      }
+      // Always keep full conversation history
+      messages.push(
+        { role: 'assistant', content: lastResponse },
+        { role: 'user', content: prompts[i] }
+      );
+      totalTokens += estimateTokens(prompts[i]);
 
       // Claude call with retry
       msg = await retryWithExponentialBackoff(async () => {
