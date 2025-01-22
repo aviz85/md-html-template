@@ -120,6 +120,9 @@ function ResizableSplitter({ onResize }: { onResize: (width: number) => void }) 
 
 export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const { toast } = useToast()
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [password, setPassword] = useState("")
+  const [showPasswordDialog, setShowPasswordDialog] = useState(true)
   const [mdContent, setMdContent] = useState("")
   const [headerContent, setHeaderContent] = useState("")
   const [footerContent, setFooterContent] = useState("")
@@ -447,9 +450,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
       setFormId(template.form_id || '')
       setStyles({
-        bodyBackground: template.styles?.bodyBackground || '#ffffff',
-        mainBackground: template.styles?.mainBackground || '#ffffff',
-        contentBackground: template.styles?.contentBackground || '#ffffff'
+        bodyBackground: template.element_styles?.body?.backgroundColor || '#ffffff',
+        mainBackground: template.element_styles?.main?.backgroundColor || '#ffffff',
+        contentBackground: template.element_styles?.prose?.backgroundColor || '#ffffff'
       })
     }
   }
@@ -549,16 +552,25 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           color2: colors.color2,
           color3: colors.color3,
           color4: colors.color4,
-          element_styles: elementStyles,
+          element_styles: {
+            ...elementStyles,
+            body: { 
+              ...elementStyles.body,
+              backgroundColor: styles?.bodyBackground || '#ffffff'
+            },
+            main: {
+              ...elementStyles.main,
+              backgroundColor: styles?.mainBackground || '#ffffff'
+            },
+            prose: {
+              ...elementStyles.prose,
+              backgroundColor: styles?.contentBackground || '#ffffff'
+            }
+          },
           show_logo: elementStyles.header.showLogo !== false,
           show_logo_on_all_pages: elementStyles.header.showLogoOnAllPages !== false,
           logo_position: elementStyles.header.logoPosition || 'top-right',
-          form_id: formId,
-          styles: {
-            bodyBackground: styles?.bodyBackground || '#ffffff',
-            mainBackground: styles?.mainBackground || '#ffffff',
-            contentBackground: styles?.contentBackground || '#ffffff'
-          }
+          form_id: formId
         })
         .select()
         .single()
@@ -869,6 +881,49 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       .from('storage')
       .getPublicUrl(logoPath)
       .data.publicUrl
+  }
+
+  // Add password check function
+  const handlePasswordSubmit = () => {
+    if (password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
+      setIsAuthenticated(true)
+      setShowPasswordDialog(false)
+    } else {
+      toast({
+        variant: "destructive",
+        title: "שגיאה",
+        description: "סיסמה שגויה"
+      })
+    }
+  }
+
+  // Add password dialog
+  if (showPasswordDialog) {
+    return (
+      <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50">
+        <div className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg">
+          <h2 className="text-lg font-semibold">גישה למנהל התבניות</h2>
+          <div className="space-y-4">
+            <div>
+              <Label>סיסמה</Label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+              />
+            </div>
+            <Button onClick={handlePasswordSubmit} className="w-full">
+              כניסה
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return null
   }
 
   return (
