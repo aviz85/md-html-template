@@ -50,6 +50,9 @@ type Message = {
   content: string
 }
 
+// Add at the top with other types
+type ClaudeMessage = Anthropic.Messages.Message;
+
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 })
@@ -179,8 +182,8 @@ async function getPrompts(formId: string, submissionId?: string) {
   }
 }
 
-async function callClaude(messages: Message[], submissionId: string) {
-  const timeoutPromise = new Promise((_, reject) => {
+async function callClaude(messages: Message[], submissionId: string): Promise<ClaudeMessage> {
+  const timeoutPromise = new Promise<ClaudeMessage>((_, reject) => {
     setTimeout(() => reject(new Error('Timeout: Claude response took longer than 10 minutes')), CLAUDE_TIMEOUT);
   });
 
@@ -229,36 +232,45 @@ async function addLog(submissionId: string, message: string, data?: any) {
   });
 }
 
+async function updateProgress(submissionId: string, stage: string, message: string, details?: any, current?: number, total?: number) {
+  const timestamp = new Date().toISOString();
+  
+  // עדכון progress
+  await supabaseAdmin
+    .from('form_submissions')
+    .update({
+      progress: {
+        stage,
+        message,
+        details,
+        current,
+        total,
+        timestamp
+      }
+    })
+    .eq('submission_id', submissionId);
+    
+  // הוספת לוג
+  await supabaseAdmin.rpc('append_log', { 
+    p_submission_id: submissionId,
+    p_log: {
+      stage,
+      message,
+      details,
+      timestamp
+    }
+  });
+}
+
 export async function processSubmission(submissionId: string) {
   let submissionUUID: string | null = null;
   let messages: Message[] = [];
   let totalTokens = 0;
+  let msg: ClaudeMessage;
   
   try {
-    await addLog(submissionId, '🚀 התחלת עיבוד', { submissionId });
+    await updateProgress(submissionId, 'init', 'מתחיל עיבוד', null, 0, 4);
     
-    // Update status to processing with initial progress
-    const { error: updateError } = await supabaseAdmin
-      .from('form_submissions')
-      .update({
-        status: 'processing',
-        progress: {
-          stage: 'init',
-          message: 'מתחיל עיבוד',
-          current: 0,
-          total: 4,
-          timestamp: new Date().toISOString()
-        }
-      })
-      .eq('submission_id', submissionId);
-
-    if (updateError) {
-      await addLog(submissionId, '❌ נכשל עדכון סטטוס התחלתי', updateError);
-      throw new Error(`Failed to update initial status: ${updateError.message}`);
-    }
-
-    await addLog(submissionId, '✅ סטטוס עודכן ל-processing');
-
     // Verify the update
     const { data: verifyData, error: verifyError } = await supabaseAdmin
       .from('form_submissions')
@@ -289,18 +301,7 @@ export async function processSubmission(submissionId: string) {
     submissionUUID = submission.id;
     
     // Update progress - fetching template
-    await supabaseAdmin
-      .from('form_submissions')
-      .update({
-        progress: {
-          stage: 'template',
-          message: 'מאתר תבנית',
-          current: 1,
-          total: 4,
-          timestamp: new Date().toISOString()
-        }
-      })
-      .eq('submission_id', submissionId);
+    await updateProgress(submissionId, 'template', 'מאתר תבנית', null, 1, 4);
 
     // Get template
     const { data: template } = await supabaseAdmin
@@ -310,18 +311,7 @@ export async function processSubmission(submissionId: string) {
       .single();
 
     // Update progress - fetching prompts
-    await supabaseAdmin
-      .from('form_submissions')
-      .update({
-        progress: {
-          stage: 'prompts',
-          message: 'מכין שאלות',
-          current: 2,
-          total: 4,
-          timestamp: new Date().toISOString()
-        }
-      })
-      .eq('submission_id', submissionId);
+    await updateProgress(submissionId, 'prompts', 'מכין שאלות', null, 2, 4);
 
     console.log('🔄 About to fetch prompts for form_id:', submission.form_id);
     
@@ -335,16 +325,7 @@ export async function processSubmission(submissionId: string) {
     });
 
     // Update progress - starting Claude
-    await supabaseAdmin
-      .from('form_submissions')
-      .update({
-        progress: {
-          stage: 'claude',
-          message: 'מתחיל שיחה עם קלוד',
-          timestamp: new Date().toISOString()
-        }
-      })
-      .eq('submission_id', submissionId);
+    await updateProgress(submissionId, 'claude', 'שולח הודעה ראשונה לקלוד', null);
 
     // המרת התשובות לפורמט הנכון
     const technicalFields = [
@@ -380,32 +361,41 @@ export async function processSubmission(submissionId: string) {
 
     // First Claude call with retry
     let msg = await retryWithExponentialBackoff(async () => {
+      await updateProgress(
+        submissionId, 
+        'claude', 
+        'שולח הודעה ראשונה לקלוד',
+        { initialMessage }
+      );
+      
       return await callClaude(messages, submissionId);
     });
 
     const firstResponse = msg.content.find(block => 'text' in block)?.text || '';
-    console.log('📥 Claude response:', {
-      role: 'assistant',
-      content: firstResponse
-    });
+    
+    await updateProgress(
+      submissionId, 
+      'claude', 
+      'התקבלה תשובה ראשונה מקלוד',
+      { firstResponse }
+    );
     
     claudeResponses.push(msg);
     totalTokens += estimateTokens(firstResponse);
 
     // Process remaining prompts
     for (let i = 1; i < prompts.length; i++) {
-      await supabaseAdmin
-        .from('form_submissions')
-        .update({
-          progress: {
-            stage: 'claude',
-            message: `מעבד שאלה ${i + 1} מתוך ${prompts.length}`,
-            current: i + 1,
-            total: prompts.length,
-            timestamp: new Date().toISOString()
-          }
-        })
-        .eq('submission_id', submissionId);
+      await updateProgress(
+        submissionId, 
+        'claude', 
+        `מעבד שאלה ${i + 1} מתוך ${prompts.length}`,
+        {
+          currentPrompt: prompts[i],
+          lastResponse: msg.content.find(block => 'text' in block)?.text || ''
+        },
+        i + 1,
+        prompts.length
+      );
 
       console.log(`\n🔄 Processing prompt ${i + 1}/${prompts.length}`);
       
@@ -464,38 +454,26 @@ export async function processSubmission(submissionId: string) {
       tokenCount: totalTokens
     };
 
-    await supabaseAdmin
-      .from('form_submissions')
-      .update({
-        status: 'completed',
-        result,
-        progress: {
-          stage: 'completed',
-          message: 'העיבוד הושלם',
-          timestamp: new Date().toISOString()
-        }
-      })
-      .eq('submission_id', submissionId);
+    await updateProgress(
+      submissionId, 
+      'completed', 
+      'העיבוד הושלם',
+      result
+    );
 
     return result;
   } catch (error) {
     console.error('Error in processSubmission:', error);
     
-    await supabaseAdmin
-      .from('form_submissions')
-      .update({
-        status: 'error',
-        progress: {
-          stage: 'error',
-          message: error instanceof Error ? error.message : 'שגיאה לא ידועה',
-          timestamp: new Date().toISOString()
-        },
-        result: { 
-          error: error instanceof Error ? error.message : 'Unknown error',
-          details: error
-        }
-      })
-      .eq('submission_id', submissionId);
+    await updateProgress(
+      submissionId, 
+      'error', 
+      error instanceof Error ? error.message : 'שגיאה לא ידועה',
+      { 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        details: error
+      }
+    );
 
     throw error;
   }
