@@ -62,6 +62,12 @@ export async function POST(request: Request) {
     }
     
     // Save raw data
+    console.log('💾 Saving to raw_submissions:', {
+      headers: Object.fromEntries(request.headers.entries()),
+      content_type: contentType,
+      formData: formData
+    });
+    
     const { error: rawError } = await supabase
       .from('raw_submissions')
       .insert({
@@ -72,13 +78,17 @@ export async function POST(request: Request) {
       });
       
     if (rawError) {
-      console.error('Error saving raw data:', rawError);
+      console.error('❌ Error saving raw data:', rawError);
+    } else {
+      console.log('✅ Successfully saved to raw_submissions');
     }
 
     // Extract form_id from raw data
     const formId = formData.formID;
+    console.log('🔍 Extracted formId:', formId);
+    
     if (!formId) {
-      console.error('Missing form_id in request. Request body:', formData);
+      console.error('❌ Missing form_id in request. Full request body:', JSON.stringify(formData, null, 2));
       return new Response(JSON.stringify({ error: 'Missing form_id in request' }), { 
         status: 400,
         headers: { 'Content-Type': 'application/json' }
@@ -87,21 +97,27 @@ export async function POST(request: Request) {
 
     // Extract submission_id from raw data
     const submissionId = formData.submissionID;
+    console.log('🔍 Extracted submissionId:', submissionId);
     
     // Prepare the content object with all form fields
     let content;
     try {
       let parsedFields;
+      console.log('🔄 Starting to parse fields');
+      
       if (formData.parsedRequest) {
+        console.log('📄 Using parsedRequest');
         parsedFields = formData.parsedRequest;
       } else if (formData.rawRequest) {
+        console.log('📄 Parsing rawRequest');
         try {
           parsedFields = JSON.parse(formData.rawRequest);
         } catch (e) {
-          console.error('Failed to parse rawRequest:', e);
+          console.error('❌ Failed to parse rawRequest:', e);
           parsedFields = formData.rawRequest;
         }
       } else {
+        console.log('📄 Using formData as is');
         parsedFields = formData;
       }
 
@@ -114,18 +130,43 @@ export async function POST(request: Request) {
         raw: formData
       };
       
-      console.log('Content before save:', content);
+      console.log('📦 Prepared content:', JSON.stringify(content, null, 2));
     } catch (e) {
-      console.error('Failed to parse content:', e);
+      console.error('❌ Failed to parse content:', e);
       content = formData;
     }
 
-    console.log('Form ID:', formId);
-    console.log('Submission ID:', submissionId);
-    console.log('Content:', content);
+    console.log('📝 Final data before save:', {
+      submission_id: submissionId,
+      form_id: formId,
+      content_size: JSON.stringify(content).length
+    });
+
+    // Validation checks
+    const validationErrors = [];
+    if (!submissionId) validationErrors.push('Missing submission_id');
+    if (!formId) validationErrors.push('Missing form_id');
+    if (!content) validationErrors.push('Missing content');
+    if (!content?.form_data) validationErrors.push('Missing form_data in content');
+    if (!content?.metadata) validationErrors.push('Missing metadata in content');
+
+    if (validationErrors.length > 0) {
+      console.error('❌ Validation failed:', validationErrors);
+      console.error('Full data:', {
+        submissionId,
+        formId,
+        content: JSON.stringify(content, null, 2)
+      });
+      throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
+    }
 
     // Save to database
-    console.log('Saving to database...');
+    console.log('💾 Attempting to save to form_submissions with data:', {
+      submission_id: submissionId,
+      form_id: formId,
+      content_keys: Object.keys(content || {}),
+      status: 'pending'
+    });
     const { data: submission, error } = await supabase
       .from('form_submissions')
       .insert({
@@ -137,12 +178,12 @@ export async function POST(request: Request) {
       .select('*')
       .single();
 
-    console.log('Saved submission:', submission);
-
     if (error) {
-      console.error('Database error:', error);
+      console.error('❌ Database error:', error);
       throw error;
     }
+
+    console.log('✅ Successfully saved to form_submissions:', submission);
 
     // התחל עיבוד מול קלוד באופן אסינכרוני
     console.log('🚀 Starting async processing for submission:', { id: submission.id, submission_id: submission.submission_id });
