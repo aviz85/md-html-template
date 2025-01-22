@@ -294,6 +294,30 @@ export async function POST(req: Request) {
     const styles = getStyles(templateData);
     console.log('Generated styles:', styles);
 
+    // Add global styles
+    const globalStyles = `
+      body {
+        background-color: ${templateData.element_styles?.body?.backgroundColor || '#ffffff'};
+        margin: 0;
+        padding: 0;
+      }
+      
+      main {
+        background-color: ${templateData.element_styles?.main?.backgroundColor || '#ffffff'};
+        padding: 2rem;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .prose {
+        background-color: ${templateData.element_styles?.prose?.backgroundColor || '#ffffff'};
+        padding: 2rem;
+        border-radius: 0.5rem;
+      }
+      
+      ${template.css || ''}
+    `;
+
     // Prepare final content array
     const finalContent: string[] = [];
     

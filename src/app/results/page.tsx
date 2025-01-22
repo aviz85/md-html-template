@@ -47,6 +47,11 @@ type Template = {
   logo_position?: string;
   show_logo_on_all_pages?: boolean;
   logo?: Logo;
+  styles?: {
+    bodyBackground?: string;
+    mainBackground?: string;
+    contentBackground?: string;
+  };
 };
 
 export default function ResultsPage() {
@@ -434,6 +439,33 @@ export default function ResultsPage() {
           text-decoration: none;
           transition: all 0.2s ease;
         }
+        .prose a:hover {
+          color: #1d4ed8;
+          text-decoration: underline;
+        }
+        body {
+          background-color: ${result?.template?.styles?.bodyBackground || '#ffffff'};
+        }
+        
+        main {
+          background-color: ${result?.template?.styles?.mainBackground || '#ffffff'};
+          padding: 2rem;
+          max-width: 800px;
+          margin: 0 auto;
+        }
+
+        .prose {
+          background-color: ${result?.template?.styles?.contentBackground || '#ffffff'};
+          padding: 2rem;
+          border-radius: 0.5rem;
+        }
+
+        .prose a {
+          color: #2563eb;
+          text-decoration: none;
+          transition: all 0.2s;
+        }
+
         .prose a:hover {
           color: #1d4ed8;
           text-decoration: underline;

@@ -33,7 +33,7 @@ import { Trash2 } from "lucide-react"
 import { ImageIcon } from "lucide-react"
 import { ElementStyle } from "@/types"
 
-type ElementType = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "list" | "p" | "specialParagraph" | "header" | "footer"
+type ElementType = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "list" | "p" | "specialParagraph" | "header" | "footer" | "main" | "prose"
 
 interface Template {
   id: string
@@ -61,6 +61,11 @@ interface Template {
     format: string
   }>
   form_id?: string
+  styles?: {
+    bodyBackground?: string
+    mainBackground?: string
+    contentBackground?: string
+  }
 }
 
 interface TemplateEditorProps {
@@ -135,7 +140,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     color4: "#666666"
   })
   const [elementStyles, setElementStyles] = useState<Template["elementStyles"]>({
-    body: {},
+    body: { backgroundColor: '#ffffff' },
     h1: {},
     h2: {},
     h3: {},
@@ -151,7 +156,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       logoPosition: 'top-right',
       logoMargin: '1rem'
     },
-    footer: {}
+    footer: {},
+    main: { backgroundColor: '#ffffff' },
+    prose: { backgroundColor: '#ffffff' }
   })
   const [sidebarWidth, setSidebarWidth] = useState(200)
   const [openingPageContent, setOpeningPageContent] = useState("")
@@ -160,6 +167,11 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const [logoPath, setLogoPath] = useState<string | null>(null)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false)
+  const [styles, setStyles] = useState<Template['styles']>({
+    bodyBackground: '#ffffff',
+    mainBackground: '#ffffff',
+    contentBackground: '#ffffff'
+  })
 
   useEffect(() => {
     if (templateId) {
@@ -180,7 +192,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       p: {},
       specialParagraph: {},
       header: {},
-      footer: {}
+      footer: {},
+      main: {},
+      prose: {}
     }
 
     // Split CSS into rules
@@ -432,6 +446,11 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       }
 
       setFormId(template.form_id || '')
+      setStyles({
+        bodyBackground: template.styles?.bodyBackground || '#ffffff',
+        mainBackground: template.styles?.mainBackground || '#ffffff',
+        contentBackground: template.styles?.contentBackground || '#ffffff'
+      })
     }
   }
 
@@ -535,6 +554,11 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           show_logo_on_all_pages: elementStyles.header.showLogoOnAllPages !== false,
           logo_position: elementStyles.header.logoPosition || 'top-right',
           form_id: formId,
+          styles: {
+            bodyBackground: styles.bodyBackground,
+            mainBackground: styles.mainBackground,
+            contentBackground: styles.contentBackground
+          }
         })
         .select()
         .single()
@@ -1053,6 +1077,36 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
               />
             </div>
           ))}
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="text-sm font-medium">צבע רקע כללי</label>
+            <Input
+              type="color"
+              value={styles.bodyBackground}
+              onChange={(e) => setStyles(prev => ({ ...prev, bodyBackground: e.target.value }))}
+              dir="ltr"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">צבע רקע אזור ראשי</label>
+            <Input
+              type="color"
+              value={styles.mainBackground}
+              onChange={(e) => setStyles(prev => ({ ...prev, mainBackground: e.target.value }))}
+              dir="ltr"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">צבע רקע אזור תוכן</label>
+            <Input
+              type="color"
+              value={styles.contentBackground}
+              onChange={(e) => setStyles(prev => ({ ...prev, contentBackground: e.target.value }))}
+              dir="ltr"
+            />
+          </div>
         </div>
       </div>
 

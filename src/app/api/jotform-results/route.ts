@@ -83,21 +83,36 @@ export async function POST(request: Request) {
       console.log('✅ Successfully saved to raw_submissions');
     }
 
-    // Extract form_id from raw data
-    const formId = formData.formID;
-    console.log('🔍 Extracted formId:', formId);
+    // Extract form_id from raw data with better logging
+    console.log('🔍 Raw formData:', JSON.stringify(formData, null, 2));
+    
+    const formId = formData.formID || formData.raw?.formID || formData.metadata?.form_id;
+    console.log('🔍 Extracted formId:', formId, {
+      fromFormID: formData.formID,
+      fromRawFormID: formData.raw?.formID,
+      fromMetadataFormId: formData.metadata?.form_id
+    });
     
     if (!formId) {
-      console.error('❌ Missing form_id in request. Full request body:', JSON.stringify(formData, null, 2));
+      console.error('❌ Missing form_id in request. Data locations checked:', {
+        'formData.formID': formData.formID,
+        'formData.raw.formID': formData.raw?.formID,
+        'formData.metadata.form_id': formData.metadata?.form_id,
+        'Full formData': formData
+      });
       return new Response(JSON.stringify({ error: 'Missing form_id in request' }), { 
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    // Extract submission_id from raw data
-    const submissionId = formData.submissionID;
-    console.log('🔍 Extracted submissionId:', submissionId);
+    // Extract submission_id from raw data with better logging
+    const submissionId = formData.submissionID || formData.raw?.submissionID || formData.metadata?.submission_id;
+    console.log('🔍 Extracted submissionId:', submissionId, {
+      fromSubmissionID: formData.submissionID,
+      fromRawSubmissionID: formData.raw?.submissionID,
+      fromMetadataSubmissionId: formData.metadata?.submission_id
+    });
     
     // Prepare the content object with all form fields
     let content;
