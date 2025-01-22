@@ -51,7 +51,10 @@ export async function GET(request: Request) {
       .from('templates')
       .select(`
         *,
-        logo:logos(*)
+        logo:logos!inner(
+          id,
+          file_path
+        )
       `)
       .eq('form_id', submission.form_id)
       .maybeSingle();
