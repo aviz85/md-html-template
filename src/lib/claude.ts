@@ -158,6 +158,19 @@ export async function processSubmission(submissionId: string) {
   try {
     console.log('🔍 Starting processSubmission with submissionId:', submissionId);
     
+    // Update status to processing with initial progress
+    await supabaseAdmin
+      .from('form_submissions')
+      .update({
+        status: 'processing',
+        progress: {
+          stage: 'init',
+          message: 'מתחיל עיבוד',
+          timestamp: new Date().toISOString()
+        }
+      })
+      .eq('submission_id', submissionId);
+
     // Fetch submission with retry
     const { data: submission, error } = await retryWithExponentialBackoff(async () => {
       return await supabaseAdmin
@@ -168,17 +181,56 @@ export async function processSubmission(submissionId: string) {
     });
 
     if (error) {
-      console.error('❌ Error fetching submission:', error);
       throw error;
     }
 
-    if (!submission) {
-      console.error('❌ No submission found for ID:', submissionId);
-      throw new Error('Submission not found');
-    }
-
     submissionUUID = submission.id;
-    console.log('✅ Found submission:', { id: submission.id, form_id: submission.form_id });
+    
+    // Update progress - fetching template
+    await supabaseAdmin
+      .from('form_submissions')
+      .update({
+        progress: {
+          stage: 'template',
+          message: 'מאתר תבנית',
+          timestamp: new Date().toISOString()
+        }
+      })
+      .eq('submission_id', submissionId);
+
+    // Get template
+    const { data: template } = await supabaseAdmin
+      .from('templates')
+      .select('*')
+      .eq('form_id', submission.form_id)
+      .single();
+
+    // Update progress - fetching prompts
+    await supabaseAdmin
+      .from('form_submissions')
+      .update({
+        progress: {
+          stage: 'prompts',
+          message: 'מכין שאלות',
+          timestamp: new Date().toISOString()
+        }
+      })
+      .eq('submission_id', submissionId);
+
+    // Get prompts
+    const prompts = await getPrompts(submission.form_id);
+
+    // Update progress - starting Claude
+    await supabaseAdmin
+      .from('form_submissions')
+      .update({
+        progress: {
+          stage: 'claude',
+          message: 'מתחיל שיחה עם קלוד',
+          timestamp: new Date().toISOString()
+        }
+      })
+      .eq('submission_id', submissionId);
 
     // המרת התשובות לפורמט הנכון
     const technicalFields = [
@@ -201,9 +253,6 @@ export async function processSubmission(submissionId: string) {
 
     console.log('Formatted answers:', answers);
 
-    // Get prompts
-    const prompts = await getPrompts(submission.form_id);
-    
     // Initial message setup
     const initialMessage = answers + '\n' + prompts[0];
     console.log('\n🤖 Starting Claude conversation');
@@ -235,6 +284,19 @@ export async function processSubmission(submissionId: string) {
 
     // Process remaining prompts
     for (let i = 1; i < prompts.length; i++) {
+      await supabaseAdmin
+        .from('form_submissions')
+        .update({
+          progress: {
+            stage: 'claude',
+            message: `מעבד שאלה ${i + 1} מתוך ${prompts.length}`,
+            current: i + 1,
+            total: prompts.length,
+            timestamp: new Date().toISOString()
+          }
+        })
+        .eq('submission_id', submissionId);
+
       console.log(`\n🔄 Processing prompt ${i + 1}/${prompts.length}`);
       
       const lastResponse = msg.content.find(block => 'text' in block)?.text || '';
@@ -290,45 +352,45 @@ export async function processSubmission(submissionId: string) {
       console.warn('⚠️ Invalid markdown detected in Claude response');
     }
 
-    // Update Supabase with retry
-    const { error: updateError } = await retryWithExponentialBackoff(async () => {
-      return await supabaseAdmin
-        .from('form_submissions')
-        .update({
-          status: 'completed',
-          result: {
-            finalResponse: lastResponse,
-            tokenCount: totalTokens
-          }
-        })
-        .eq('id', submissionUUID);
-    });
+    // Update final status
+    const result = {
+      finalResponse: lastResponse,
+      tokenCount: totalTokens
+    };
 
-    if (updateError) {
-      console.error('❌ Error updating submission:', updateError);
-      throw updateError;
-    }
+    await supabaseAdmin
+      .from('form_submissions')
+      .update({
+        status: 'completed',
+        result,
+        progress: {
+          stage: 'completed',
+          message: 'העיבוד הושלם',
+          timestamp: new Date().toISOString()
+        }
+      })
+      .eq('submission_id', submissionId);
 
-    console.log('✨ Successfully completed processing for submission:', submissionId);
-    return msg;
+    return result;
   } catch (error) {
-    console.error('❌ Error in processSubmission:', error);
+    console.error('Error in processSubmission:', error);
     
-    if (submissionUUID) {
-      // Update error status with retry
-      await retryWithExponentialBackoff(async () => {
-        return await supabaseAdmin
-          .from('form_submissions')
-          .update({
-            status: 'error',
-            result: { 
-              error: error instanceof Error ? error.message : 'Unknown error',
-              tokenCount: totalTokens
-            }
-          })
-          .eq('id', submissionUUID);
-      });
-    }
+    await supabaseAdmin
+      .from('form_submissions')
+      .update({
+        status: 'error',
+        progress: {
+          stage: 'error',
+          message: error instanceof Error ? error.message : 'שגיאה לא ידועה',
+          timestamp: new Date().toISOString()
+        },
+        result: { 
+          error: error instanceof Error ? error.message : 'Unknown error',
+          details: error
+        }
+      })
+      .eq('submission_id', submissionId);
+
     throw error;
   }
 } 

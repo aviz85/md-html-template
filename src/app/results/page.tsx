@@ -325,8 +325,23 @@ export default function ResultsPage() {
                   className="text-lg text-gray-600 font-medium"
                   style={template?.element_styles?.p}
                 >
-                  מעבד את התוצאות...
+                  {data?.submission?.progress?.message || 'מעבד את התוצאות...'}
                 </p>
+                {data?.submission?.progress?.current && data?.submission?.progress?.total && (
+                  <div className="w-64 mx-auto">
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-blue-500 transition-all duration-500"
+                        style={{ 
+                          width: `${(data.submission.progress.current / data.submission.progress.total) * 100}%` 
+                        }}
+                      />
+                    </div>
+                    <p className="text-sm text-gray-500 mt-2">
+                      {data.submission.progress.current} מתוך {data.submission.progress.total}
+                    </p>
+                  </div>
+                )}
                 <p 
                   className="text-sm text-gray-500"
                   style={template?.element_styles?.p}
@@ -347,8 +362,24 @@ export default function ResultsPage() {
         )}
 
         {status === 'error' && (
-          <div className="bg-red-50/50 text-red-600 p-8 rounded-lg backdrop-blur-sm border border-red-100 shadow-sm">
-            <p className="text-lg">אירעה שגיאה בעיבוד התוצאות</p>
+          <div className="bg-red-50/50 p-8 rounded-lg backdrop-blur-sm border border-red-100 shadow-sm space-y-4">
+            <div className="flex items-center gap-3 text-red-600">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <h3 className="text-lg font-medium">שגיאה בעיבוד התוצאות</h3>
+            </div>
+            <div className="text-gray-600 space-y-2">
+              <p className="font-medium">{error}</p>
+              {result?.error && (
+                <p className="text-sm">{result.error}</p>
+              )}
+              {result?.details && (
+                <pre className="mt-4 p-4 bg-gray-50 rounded-md text-sm overflow-auto">
+                  {JSON.stringify(result.details, null, 2)}
+                </pre>
+              )}
+            </div>
           </div>
         )}
       </main>
