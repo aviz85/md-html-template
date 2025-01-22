@@ -56,7 +56,8 @@ const anthropic = new Anthropic({
 
 const MAX_RETRIES = 5;
 const MAX_TOKENS = 8192;
-const RETRY_DELAY = 3000; // 1 second
+const RETRY_DELAY = 3000;
+const CLAUDE_TIMEOUT = 600000; // 10 minutes
 
 async function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -81,72 +82,135 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4); // Rough estimate: ~4 chars per token
 }
 
-async function getPrompts(formId: string) {
+async function getPrompts(formId: string, submissionId?: string) {
   try {
     console.log('🔍 Starting getPrompts for formId:', formId);
     
-    // Fetch template with retry
-    const { data: template, error } = await retryWithExponentialBackoff(async () => {
-      return await supabaseAdmin
-        .from('templates')
-        .select('template_gsheets_id, name')
-        .eq('form_id', formId)
-        .single();
-    });
-    
-    console.log('📋 Template query result:', { 
-      template: template ? { 
-        name: template.name,
-        has_sheets_id: !!template.template_gsheets_id 
-      } : null, 
-      error 
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout: Failed to fetch prompts after 30 seconds')), 30000);
     });
 
-    if (error) {
-      console.error('❌ Error fetching template:', error);
-      return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
-    }
+    const fetchPromptsPromise = (async () => {
+      // Fetch template with retry
+      const { data: template, error } = await retryWithExponentialBackoff(async () => {
+        return await supabaseAdmin
+          .from('templates')
+          .select('template_gsheets_id, name')
+          .eq('form_id', formId)
+          .single();
+      });
+      
+      console.log('📋 Template query result:', { 
+        template: template ? { 
+          name: template.name,
+          has_sheets_id: !!template.template_gsheets_id 
+        } : null, 
+        error 
+      });
 
-    if (!template?.template_gsheets_id) {
-      console.error('❌ No Google Sheet ID found for form:', formId);
-      return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
-    }
+      if (error) {
+        console.error('❌ Error fetching template:', error);
+        return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
+      }
 
-    const API_KEY = process.env.GOOGLE_API_KEY;
-    console.log('🔑 Google API Key:', API_KEY ? 'Set' : 'Missing');
-    
-    if (!API_KEY) {
-      console.error('❌ Missing Google API key');
-      return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
-    }
-    
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${template.template_gsheets_id}/values/A:A?key=${API_KEY}`;
-    console.log('🌐 Fetching from Google Sheets:', url.replace(API_KEY, '***'));
-    
-    // Add retry for Google Sheets API call
-    const response = await retryWithExponentialBackoff(async () => {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`Google Sheets API error: ${res.status}`);
-      return res;
-    });
-    
-    const data = await response.json();
-    console.log('📥 Google Sheets response:', {
-      hasValues: !!data.values,
-      numRows: data.values?.length || 0
-    });
-    
-    if (!data.values) {
-      console.error('❌ No data returned from Google Sheets:', data);
-      return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
-    }
-    
-    const prompts = data.values.map((row: string[]) => row[0]);
-    console.log('✅ Extracted prompts:', prompts.length, 'prompts found');
-    return prompts;
+      if (!template?.template_gsheets_id) {
+        console.error('❌ No Google Sheet ID found for form:', formId);
+        return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
+      }
+
+      const API_KEY = process.env.GOOGLE_API_KEY;
+      console.log('🔑 Google API Key:', API_KEY ? 'Set' : 'Missing');
+      
+      if (!API_KEY) {
+        console.error('❌ Missing Google API key');
+        return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
+      }
+      
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${template.template_gsheets_id}/values/A:A?key=${API_KEY}`;
+      console.log('🌐 Fetching from Google Sheets:', url.replace(API_KEY, '***'));
+      
+      // Add retry for Google Sheets API call
+      const response = await retryWithExponentialBackoff(async () => {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Google Sheets API error: ${res.status}`);
+        return res;
+      });
+      
+      const data = await response.json();
+      console.log('📥 Google Sheets response:', {
+        hasValues: !!data.values,
+        numRows: data.values?.length || 0
+      });
+      
+      if (!data.values) {
+        console.error('❌ No data returned from Google Sheets:', data);
+        return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
+      }
+      
+      const prompts = data.values.map((row: string[]) => row[0]);
+      console.log('✅ Extracted prompts:', prompts.length, 'prompts found');
+      return prompts;
+    })();
+
+    return await Promise.race([fetchPromptsPromise, timeoutPromise]);
   } catch (error) {
     console.error('❌ Error in getPrompts:', error);
-    throw new Error(`Failed to fetch prompts: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    
+    // Update submission status to error if it's a timeout and we have submissionId
+    if (error instanceof Error && error.message.includes('Timeout') && submissionId) {
+      await supabaseAdmin
+        .from('form_submissions')
+        .update({
+          status: 'error',
+          progress: {
+            stage: 'error',
+            message: 'תקלה בקבלת השאלות - התהליך נמשך יותר מדי זמן',
+            timestamp: new Date().toISOString()
+          },
+          result: {
+            error: 'Timeout while fetching prompts',
+            details: error.message
+          }
+        })
+        .eq('submission_id', submissionId);
+    }
+    
+    throw error;
+  }
+}
+
+async function callClaude(messages: Message[], submissionId: string) {
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('Timeout: Claude response took longer than 10 minutes')), CLAUDE_TIMEOUT);
+  });
+
+  const claudePromise = anthropic.messages.create({
+    model: "claude-3-5-sonnet-20240620",
+    max_tokens: MAX_TOKENS,
+    messages: messages
+  });
+
+  try {
+    return await Promise.race([claudePromise, timeoutPromise]);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Timeout')) {
+      await supabaseAdmin
+        .from('form_submissions')
+        .update({
+          status: 'error',
+          progress: {
+            stage: 'error',
+            message: 'תקלה בתקשורת עם קלוד - התהליך נמשך יותר מ-10 דקות',
+            timestamp: new Date().toISOString()
+          },
+          result: {
+            error: 'Claude conversation timeout',
+            details: error.message
+          }
+        })
+        .eq('submission_id', submissionId);
+    }
+    throw error;
   }
 }
 
@@ -229,7 +293,7 @@ export async function processSubmission(submissionId: string) {
     console.log('🔄 About to fetch prompts for form_id:', submission.form_id);
     
     // Get prompts
-    const prompts = await getPrompts(submission.form_id);
+    const prompts = await getPrompts(submission.form_id, submissionId);
     
     console.log('📝 Received prompts:', {
       count: prompts.length,
@@ -283,11 +347,7 @@ export async function processSubmission(submissionId: string) {
 
     // First Claude call with retry
     let msg = await retryWithExponentialBackoff(async () => {
-      return await anthropic.messages.create({
-        model: "claude-3-5-sonnet-20240620",
-        max_tokens: MAX_TOKENS,
-        messages: messages
-      });
+      return await callClaude(messages, submissionId);
     });
 
     const firstResponse = msg.content.find(block => 'text' in block)?.text || '';
@@ -330,11 +390,7 @@ export async function processSubmission(submissionId: string) {
 
       // Claude call with retry
       msg = await retryWithExponentialBackoff(async () => {
-        return await anthropic.messages.create({
-          model: "claude-3-5-sonnet-20240620",
-          max_tokens: MAX_TOKENS,
-          messages: messages
-        });
+        return await callClaude(messages, submissionId);
       });
 
       const response = msg.content.find(block => 'text' in block)?.text || '';
