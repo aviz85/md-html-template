@@ -147,7 +147,7 @@ export default function ResultsPage() {
             <div className="absolute border-8 border-gray-200/50 rounded-full w-full h-full"></div>
             <div className="absolute border-8 border-blue-500/80 rounded-full w-full h-full animate-spin border-t-transparent"></div>
           </div>
-          <p className="text-lg text-gray-600 animate-pulse">טוען את התבנית...</p>
+          <p className="text-lg text-gray-600 animate-pulse">מכין את התוצאות עבורך...</p>
         </div>
       </div>
     );
