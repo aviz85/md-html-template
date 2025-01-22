@@ -4,6 +4,12 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 
+type CustomFont = {
+  font_family: string;
+  file_path: string;
+  format?: string;
+};
+
 type Template = {
   id: string;
   name: string;
@@ -27,11 +33,7 @@ type Template = {
     };
     specialParagraph?: React.CSSProperties;
   };
-  custom_fonts?: Array<{
-    font_family: string;
-    file_path: string;
-    format?: string;
-  }>;
+  custom_fonts?: CustomFont[];
   header_content?: string;
   footer_content?: string;
   form_id?: string;
@@ -99,7 +101,7 @@ export default function ResultsPage() {
 
         // Add custom fonts if they exist
         if (templateData?.custom_fonts?.length > 0) {
-          const fontFaces = templateData.custom_fonts.map(font => {
+          const fontFaces = templateData.custom_fonts.map((font: CustomFont) => {
             const format = font.format === 'ttf' ? 'truetype' : font.format;
             const fullUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${font.file_path}`;
             return `
