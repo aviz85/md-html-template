@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from './supabase-admin'
-import marked from 'marked'
+import { marked } from 'marked'
 
 type Database = {
   public: {
