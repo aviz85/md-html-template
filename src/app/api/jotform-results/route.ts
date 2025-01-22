@@ -123,23 +123,26 @@ export async function POST(request: Request) {
     }
 
     // התחל עיבוד מול קלוד באופן אסינכרוני
-    console.log('Starting async processing for submission:', { id: submission.id, submission_id: submission.submission_id });
+    console.log('🚀 Starting async processing for submission:', { id: submission.id, submission_id: submission.submission_id });
     
-    // Process directly without API call
-    processSubmission(submission.submission_id).catch(error => {
-      console.error('Error processing submission:', error);
-      supabase
+    try {
+      // Process directly without API call
+      await processSubmission(submission.submission_id);
+      console.log('✅ Successfully triggered Claude processing');
+    } catch (error) {
+      console.error('❌ Error triggering Claude processing:', error);
+      await supabase
         .from('form_submissions')
         .update({
           status: 'error',
           result: { 
-            error: error.message,
-            stack: error.stack,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined,
             details: error
           }
         })
         .eq('id', submission.id);
-    });
+    }
 
     // Return response page
     return new Response(`

@@ -178,58 +178,70 @@ export async function processSubmission(submissionId: string) {
     let messages: Message[] = [{ role: "user", content: answers + '\n' + prompts[0] }]
     let claudeResponses = []
     
+    console.log('🔑 Checking Anthropic API Key:', process.env.ANTHROPIC_API_KEY ? 'Set' : 'Missing');
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new Error('Missing ANTHROPIC_API_KEY');
+    }
+    
     console.log('📤 Sending first message to Claude');
-    let msg = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20240620",
-      max_tokens: 8192,
-      messages: messages
-    })
-    claudeResponses.push(msg)
-    console.log('📥 Got first response from Claude');
-
-    // המשך השיחה עם שאר הפרומפטים
-    for (let i = 1; i < prompts.length; i++) {
-      console.log(`🔄 Processing prompt ${i + 1}/${prompts.length}`);
-      const lastResponse = msg.content.find(block => 'text' in block)?.text || ''
-      
-      messages = [
-        ...messages,
-        { role: 'assistant' as const, content: lastResponse },
-        { role: 'user' as const, content: prompts[i] }
-      ]
-      
-      console.log(`📤 Sending message ${i + 1} to Claude`);
-      msg = await anthropic.messages.create({
+    try {
+      let msg = await anthropic.messages.create({
         model: "claude-3-5-sonnet-20240620",
         max_tokens: 8192,
         messages: messages
       })
       claudeResponses.push(msg)
-      console.log(`📥 Got response ${i + 1} from Claude`);
+      console.log('📥 Got first response from Claude:', { 
+        responseLength: msg.content.find(block => 'text' in block)?.text.length || 0 
+      });
+
+      // המשך השיחה עם שאר הפרומפטים
+      for (let i = 1; i < prompts.length; i++) {
+        console.log(`🔄 Processing prompt ${i + 1}/${prompts.length}`);
+        const lastResponse = msg.content.find(block => 'text' in block)?.text || ''
+        
+        messages = [
+          ...messages,
+          { role: 'assistant' as const, content: lastResponse },
+          { role: 'user' as const, content: prompts[i] }
+        ]
+        
+        console.log(`📤 Sending message ${i + 1} to Claude`);
+        msg = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20240620",
+          max_tokens: 8192,
+          messages: messages
+        })
+        claudeResponses.push(msg)
+        console.log(`📥 Got response ${i + 1} from Claude`);
+      }
+
+      // שמירת התוצאות ב-Supabase
+      console.log('💾 Saving final results to Supabase...');
+      const lastResponse = msg.content.find(block => 'text' in block)?.text || ''
+      
+      const { error: updateError } = await supabaseAdmin
+        .from('form_submissions')
+        .update({
+          status: 'completed',
+          result: {
+            claudeResponses,
+            completeChat: [...messages, { role: 'assistant' as const, content: lastResponse }]
+          }
+        })
+        .eq('id', submissionUUID)
+
+      if (updateError) {
+        console.error('❌ Error updating submission:', updateError);
+        throw updateError;
+      }
+
+      console.log('✨ Successfully completed processing for submission:', submissionId);
+      return msg;
+    } catch (error) {
+      console.error('❌ Error in Claude conversation:', error);
+      throw error;
     }
-
-    // שמירת התוצאות ב-Supabase
-    console.log('💾 Saving final results to Supabase...');
-    const lastResponse = msg.content.find(block => 'text' in block)?.text || ''
-    
-    const { error: updateError } = await supabaseAdmin
-      .from('form_submissions')
-      .update({
-        status: 'completed',
-        result: {
-          claudeResponses,
-          completeChat: [...messages, { role: 'assistant' as const, content: lastResponse }]
-        }
-      })
-      .eq('id', submissionUUID)
-
-    if (updateError) {
-      console.error('❌ Error updating submission:', updateError);
-      throw updateError;
-    }
-
-    console.log('✨ Successfully completed processing for submission:', submissionId);
-    return msg;
   } catch (error) {
     console.error('❌ Error in processSubmission:', error)
     
