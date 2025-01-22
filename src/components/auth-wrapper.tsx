@@ -17,10 +17,20 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
   const [showPasswordDialog, setShowPasswordDialog] = useState(true)
 
   const handlePasswordSubmit = () => {
+    const expectedPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD
     console.log('Current password:', password)
-    console.log('Expected password:', process.env.NEXT_PUBLIC_ADMIN_PASSWORD)
+    console.log('Expected password:', expectedPassword)
     
-    if (password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
+    if (!expectedPassword) {
+      toast({
+        variant: "destructive",
+        title: "שגיאה",
+        description: "הסיסמה לא הוגדרה במערכת"
+      })
+      return
+    }
+    
+    if (password === expectedPassword) {
       setIsAuthenticated(true)
       setShowPasswordDialog(false)
     } else {
