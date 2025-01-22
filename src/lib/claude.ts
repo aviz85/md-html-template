@@ -55,53 +55,67 @@ const anthropic = new Anthropic({
 
 async function getPrompts(formId: string) {
   try {
-    console.log('Starting getPrompts for formId:', formId);
+    console.log('🔍 Starting getPrompts for formId:', formId);
     
     // קבלת ה-template על פי form_id
-    console.log('Fetching template from Supabase...');
+    console.log('📊 Fetching template from Supabase...');
     const { data: template, error } = await supabaseAdmin
       .from('templates')
-      .select('template_gsheets_id')
+      .select('template_gsheets_id, name')
       .eq('form_id', formId)
       .single();
     
-    console.log('Template query result:', { template, error });
+    console.log('📋 Template query result:', { 
+      template: template ? { 
+        name: template.name,
+        has_sheets_id: !!template.template_gsheets_id 
+      } : null, 
+      error 
+    });
 
     if (error) {
-      console.error('Error fetching template:', error);
+      console.error('❌ Error fetching template:', error);
       return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
     }
 
     if (!template?.template_gsheets_id) {
-      console.error('No Google Sheet ID found for form:', formId);
+      console.error('❌ No Google Sheet ID found for form:', formId);
       return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
     }
 
     const API_KEY = process.env.GOOGLE_API_KEY;
-    console.log('Google API Key:', API_KEY ? 'Set' : 'Missing');
+    console.log('🔑 Google API Key:', API_KEY ? 'Set' : 'Missing');
     
     if (!API_KEY) {
-      console.error('Missing Google API key');
+      console.error('❌ Missing Google API key');
       return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
     }
     
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${template.template_gsheets_id}/values/A:A?key=${API_KEY}`;
-    console.log('Fetching from Google Sheets:', url);
+    console.log('🌐 Fetching from Google Sheets:', url.replace(API_KEY, '***'));
     
     const response = await fetch(url);
+    if (!response.ok) {
+      console.error('❌ Google Sheets API error:', response.status, await response.text());
+      return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
+    }
+    
     const data = await response.json();
-    console.log('Google Sheets response:', data);
+    console.log('📥 Google Sheets response:', {
+      hasValues: !!data.values,
+      numRows: data.values?.length || 0
+    });
     
     if (!data.values) {
-      console.error('No data returned from Google Sheets:', data);
+      console.error('❌ No data returned from Google Sheets:', data);
       return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
     }
     
     const prompts = data.values.map((row: string[]) => row[0]);
-    console.log('Extracted prompts:', prompts);
+    console.log('✅ Extracted prompts:', prompts.length, 'prompts found');
     return prompts;
   } catch (error) {
-    console.error('Error in getPrompts:', error);
+    console.error('❌ Error in getPrompts:', error);
     return ['נא לספק תשובה מפורטת על בסיס המידע שקיבלת'];
   }
 }
