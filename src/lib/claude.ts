@@ -204,14 +204,14 @@ export async function processSubmission(submissionId: string) {
     // Get prompts
     const prompts = await getPrompts(submission.form_id);
     
-    // Initial message
+    // Initial message setup
     const initialMessage = answers + '\n' + prompts[0];
-    totalTokens = estimateTokens(initialMessage);
+    console.log('\n🤖 Starting Claude conversation');
+    console.log('📤 Initial message to Claude:', {
+      role: 'user',
+      content: initialMessage
+    });
     
-    if (totalTokens > MAX_TOKENS) {
-      throw new Error('Initial message exceeds token limit');
-    }
-
     messages = [{ role: "user", content: initialMessage }];
     let claudeResponses = [];
 
@@ -224,20 +224,30 @@ export async function processSubmission(submissionId: string) {
       });
     });
 
-    claudeResponses.push(msg);
     const firstResponse = msg.content.find(block => 'text' in block)?.text || '';
+    console.log('📥 Claude response:', {
+      role: 'assistant',
+      content: firstResponse
+    });
+    
+    claudeResponses.push(msg);
     totalTokens += estimateTokens(firstResponse);
 
     // Process remaining prompts
     for (let i = 1; i < prompts.length; i++) {
-      const lastResponse = msg.content.find(block => 'text' in block)?.text || '';
+      console.log(`\n🔄 Processing prompt ${i + 1}/${prompts.length}`);
       
-      // Always keep full conversation history
+      const lastResponse = msg.content.find(block => 'text' in block)?.text || '';
+      console.log('📊 Current conversation state:', messages);
+      console.log('📤 Next prompt:', prompts[i]);
+      
       messages.push(
         { role: 'assistant', content: lastResponse },
         { role: 'user', content: prompts[i] }
       );
       totalTokens += estimateTokens(prompts[i]);
+
+      console.log('📨 Sending full conversation to Claude:', messages);
 
       // Claude call with retry
       msg = await retryWithExponentialBackoff(async () => {
@@ -248,12 +258,25 @@ export async function processSubmission(submissionId: string) {
         });
       });
 
+      const response = msg.content.find(block => 'text' in block)?.text || '';
+      console.log('📥 Claude response:', {
+        role: 'assistant',
+        content: response
+      });
+      
       claudeResponses.push(msg);
-      totalTokens += estimateTokens(msg.content.find(block => 'text' in block)?.text || '');
+      totalTokens += estimateTokens(response);
+      console.log('📈 Total tokens used:', totalTokens);
     }
 
-    // Validate markdown in responses
+    // Final response
     const lastResponse = msg.content.find(block => 'text' in block)?.text || '';
+    console.log('\n✨ Final conversation summary:');
+    console.log('Total messages:', messages.length);
+    console.log('Total tokens:', totalTokens);
+    console.log('Final response:', lastResponse);
+
+    // Validate markdown in responses
     const isValidMarkdown = (text: string) => {
       try {
         marked.parse(text);
