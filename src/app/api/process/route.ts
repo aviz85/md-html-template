@@ -26,12 +26,52 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await processSubmission(submissionId)
-    return NextResponse.json({ success: true, result })
+    // Try up to 5 times with increasing delays
+    let attempts = 0;
+    let lastError;
+    const delays = [2000, 3000, 5000, 8000, 13000]; // Fibonacci-like sequence for backoff
+    
+    while (attempts < delays.length) {
+      try {
+        const { data: submission } = await supabaseAdmin
+          .from('form_submissions')
+          .select('*')
+          .eq('submission_id', submissionId)
+          .single();
+
+        if (!submission) {
+          lastError = new Error('Submission not found');
+          console.log(`Attempt ${attempts + 1}: Submission not found, waiting ${delays[attempts]}ms`);
+          await new Promise(resolve => setTimeout(resolve, delays[attempts]));
+          attempts++;
+          continue;
+        }
+
+        // If we found the submission, process it
+        const result = await processSubmission(submissionId);
+        return NextResponse.json({ success: true, result });
+      } catch (error) {
+        lastError = error;
+        if (error instanceof Error && error.message.includes('not found')) {
+          console.log(`Attempt ${attempts + 1}: Error - ${error.message}, waiting ${delays[attempts]}ms`);
+          await new Promise(resolve => setTimeout(resolve, delays[attempts]));
+          attempts++;
+          continue;
+        }
+        // If it's not a "not found" error, throw immediately
+        throw error;
+      }
+    }
+    
+    // If we got here, all attempts failed
+    console.error('Error processing submission after all retries:', lastError);
+    const errorMessage = lastError instanceof Error ? lastError.message : 'An unknown error occurred';
+    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
+    
   } catch (error) {
-    console.error('Error processing submission:', error)
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 })
+    console.error('Error processing submission:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
   }
 }
 
