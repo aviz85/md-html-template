@@ -76,7 +76,7 @@ export async function POST(request: Request) {
     }
 
     // Extract form_id from raw data
-    const formId = formData.formID || formData.raw?.formID || formData.metadata?.form_id;
+    const formId = formData.formID;
     if (!formId) {
       console.error('Missing form_id in request. Request body:', formData);
       return new Response(JSON.stringify({ error: 'Missing form_id in request' }), { 
@@ -86,12 +86,25 @@ export async function POST(request: Request) {
     }
 
     // Extract submission_id from raw data
-    const submissionId = formData.submissionID || formData.raw?.submissionID || formData.metadata?.submission_id;
+    const submissionId = formData.submissionID;
     
     // Prepare the content object with all form fields
     let content;
     try {
-      const parsedFields = formData.form_data || JSON.parse(formData.rawRequest);
+      let parsedFields;
+      if (formData.parsedRequest) {
+        parsedFields = formData.parsedRequest;
+      } else if (formData.rawRequest) {
+        try {
+          parsedFields = JSON.parse(formData.rawRequest);
+        } catch (e) {
+          console.error('Failed to parse rawRequest:', e);
+          parsedFields = formData.rawRequest;
+        }
+      } else {
+        parsedFields = formData;
+      }
+
       content = {
         form_data: parsedFields,
         metadata: {
