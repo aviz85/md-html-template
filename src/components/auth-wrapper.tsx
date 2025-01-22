@@ -17,6 +17,9 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
   const [showPasswordDialog, setShowPasswordDialog] = useState(true)
 
   const handlePasswordSubmit = () => {
+    console.log('Current password:', password)
+    console.log('Expected password:', process.env.NEXT_PUBLIC_ADMIN_PASSWORD)
+    
     if (password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
       setIsAuthenticated(true)
       setShowPasswordDialog(false)
