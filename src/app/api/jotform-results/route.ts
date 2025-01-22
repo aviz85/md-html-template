@@ -127,7 +127,17 @@ export async function POST(request: Request) {
     
     try {
       // Call the process API
-      const response = await fetch(`${request.headers.get('origin')}/api/process`, {
+      const origin = request.headers.get('origin') || request.headers.get('host');
+      const protocol = origin?.includes('localhost') ? 'http' : 'https';
+      const baseUrl = origin ? `${protocol}://${origin}` : process.env.NEXT_PUBLIC_APP_URL;
+      
+      if (!baseUrl) {
+        throw new Error('Could not determine base URL for API call');
+      }
+
+      console.log('🌐 Making API call to:', `${baseUrl}/api/process`);
+      
+      const response = await fetch(`${baseUrl}/api/process`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
