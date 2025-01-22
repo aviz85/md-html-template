@@ -62,6 +62,18 @@ export async function POST(req: Request) {
     // Wait for the full process
     const result = await processSubmission(submissionId);
 
+    // Update final status and result
+    await supabaseAdmin
+      .from('form_submissions')
+      .update({
+        status: 'completed',
+        result: {
+          finalResponse: result.finalResponse,
+          tokenCount: result.tokenCount
+        }
+      })
+      .eq('submission_id', submissionId);
+
     return NextResponse.json({
       message: 'Processing completed',
       submissionId,
