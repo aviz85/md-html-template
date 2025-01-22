@@ -102,13 +102,19 @@ export async function POST(req: Request) {
     // Wait for the full process
     const result = await processSubmission(submissionId);
 
+    // Clean the response by removing backticks sections
+    const cleanResponse = result.finalResponse.split('`````')
+      .map(section => section.trim())
+      .filter(section => section.length > 0)
+      .join('\n\n');
+
     // Update final status and result
     await supabaseAdmin
       .from('form_submissions')
       .update({
         status: 'completed',
         result: {
-          finalResponse: result.finalResponse,
+          finalResponse: cleanResponse,
           tokenCount: result.tokenCount
         }
       })
@@ -117,7 +123,10 @@ export async function POST(req: Request) {
     return NextResponse.json({
       message: 'Processing completed',
       submissionId,
-      result
+      result: {
+        ...result,
+        finalResponse: cleanResponse
+      }
     });
     
   } catch (error) {
