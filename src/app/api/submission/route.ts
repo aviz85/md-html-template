@@ -49,7 +49,10 @@ export async function GET(request: Request) {
     // Get template if exists
     const { data: template, error: templateError } = await supabase
       .from('templates')
-      .select('*')
+      .select(`
+        *,
+        logo:logos(*)
+      `)
       .eq('form_id', submission.form_id)
       .maybeSingle();
 
