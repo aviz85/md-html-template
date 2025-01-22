@@ -110,10 +110,10 @@ export async function processSubmission(submissionId: string) {
   let submissionUUID: string | null = null;
   
   try {
-    console.log('Starting processSubmission with submissionId:', submissionId);
+    console.log('🔍 Starting processSubmission with submissionId:', submissionId);
     
     // קבלת הנתונים מ-Supabase
-    console.log('Fetching submission from Supabase...');
+    console.log('📊 Fetching submission from Supabase...');
     const { data: submission, error } = await supabaseAdmin
       .from('form_submissions')
       .select('*')
@@ -121,19 +121,17 @@ export async function processSubmission(submissionId: string) {
       .single();
 
     if (error) {
-      console.error('Error fetching submission:', error);
+      console.error('❌ Error fetching submission:', error);
       throw error;
     }
 
     if (!submission) {
-      console.error('No submission found for ID:', submissionId);
+      console.error('❌ No submission found for ID:', submissionId);
       throw new Error('Submission not found');
     }
 
     submissionUUID = submission.id;
-
-    console.log('Found submission:', submission);
-    console.log('Form data:', submission.content.form_data);
+    console.log('✅ Found submission:', { id: submission.id, form_id: submission.form_id });
 
     // המרת התשובות לפורמט הנכון
     const technicalFields = [
@@ -156,26 +154,28 @@ export async function processSubmission(submissionId: string) {
 
     console.log('Formatted answers:', answers);
 
-    // קבלת הפרומפטים מגוגל שיטס לפי form_id
-    console.log('Getting prompts for form_id:', submission.form_id);
+    // קבלת הפרומפטים מגוגל שיטס
+    console.log('📑 Getting prompts for form_id:', submission.form_id);
     const prompts = await getPrompts(submission.form_id);
-    console.log('Got prompts:', prompts);
+    console.log('✅ Got prompts:', prompts.length, 'prompts found');
     
     // שיחה עם קלוד - הודעה ראשונה
+    console.log('🤖 Starting Claude conversation...');
     let messages: Message[] = [{ role: "user", content: answers + '\n' + prompts[0] }]
     let claudeResponses = []
     
-    console.log('Sending first message to Claude:', messages[0]);
+    console.log('📤 Sending first message to Claude');
     let msg = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20240620",
       max_tokens: 8192,
       messages: messages
     })
     claudeResponses.push(msg)
-    console.log('Got first response from Claude:', msg);
+    console.log('📥 Got first response from Claude');
 
     // המשך השיחה עם שאר הפרומפטים
     for (let i = 1; i < prompts.length; i++) {
+      console.log(`🔄 Processing prompt ${i + 1}/${prompts.length}`);
       const lastResponse = msg.content.find(block => 'text' in block)?.text || ''
       
       messages = [
@@ -184,20 +184,20 @@ export async function processSubmission(submissionId: string) {
         { role: 'user' as const, content: prompts[i] }
       ]
       
-      console.log(`Sending message ${i + 1} to Claude:`, messages[messages.length - 1]);
+      console.log(`📤 Sending message ${i + 1} to Claude`);
       msg = await anthropic.messages.create({
         model: "claude-3-5-sonnet-20240620",
         max_tokens: 8192,
         messages: messages
       })
       claudeResponses.push(msg)
-      console.log(`Got response ${i + 1} from Claude:`, msg);
+      console.log(`📥 Got response ${i + 1} from Claude`);
     }
 
     // שמירת התוצאות ב-Supabase
+    console.log('💾 Saving final results to Supabase...');
     const lastResponse = msg.content.find(block => 'text' in block)?.text || ''
     
-    console.log('Updating submission with results...');
     const { error: updateError } = await supabaseAdmin
       .from('form_submissions')
       .update({
@@ -210,16 +210,17 @@ export async function processSubmission(submissionId: string) {
       .eq('id', submissionUUID)
 
     if (updateError) {
-      console.error('Error updating submission:', updateError);
+      console.error('❌ Error updating submission:', updateError);
       throw updateError;
     }
 
-    console.log('Successfully completed processing');
+    console.log('✨ Successfully completed processing for submission:', submissionId);
     return msg;
   } catch (error) {
-    console.error('Error in processSubmission:', error)
+    console.error('❌ Error in processSubmission:', error)
     
     if (submissionUUID) {
+      console.log('📝 Updating submission status to error');
       await supabaseAdmin
         .from('form_submissions')
         .update({
