@@ -67,6 +67,45 @@ export default function ResultsPage() {
       return;
     }
 
+    const pollSubmission = async () => {
+      try {
+        const response = await fetch(`/api/submission?s=${submissionId}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'שגיאה בטעינת הנתונים');
+        }
+
+        if (data.submission.status === 'completed') {
+          setResult(data.submission.result);
+          setStatus('completed');
+          setTemplate(data.template);
+          setIsLoading(false);
+        } else if (data.submission.status === 'error') {
+          setError('שגיאה בעיבוד הטופס: ' + (data.submission.result?.error || 'שגיאה לא ידועה'));
+          setStatus('error');
+          setIsLoading(false);
+        } else {
+          // Keep polling if still processing
+          setTimeout(pollSubmission, 2000);
+        }
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'שגיאה בטעינת הנתונים');
+        setStatus('error');
+        setIsLoading(false);
+      }
+    };
+
+    pollSubmission();
+  }, [submissionId]);
+
+  useEffect(() => {
+    if (!submissionId) {
+      setError('חסר מזהה טופס');
+      setIsLoading(false);
+      return;
+    }
+
     const fetchData = async () => {
       try {
         // Add retry logic for fetching submission
