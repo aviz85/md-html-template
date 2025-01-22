@@ -214,19 +214,31 @@ async function callClaude(messages: Message[], submissionId: string) {
   }
 }
 
+async function addLog(submissionId: string, message: string, data?: any) {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    message,
+    data
+  };
+  
+  console.log(`${message}:`, data || '');
+
+  await supabaseAdmin.rpc('append_log', { 
+    p_submission_id: submissionId,
+    p_log: logEntry
+  });
+}
+
 export async function processSubmission(submissionId: string) {
   let submissionUUID: string | null = null;
   let messages: Message[] = [];
   let totalTokens = 0;
   
   try {
-    console.log('🚀 processSubmission started', {
-      submissionId,
-      timestamp: new Date().toISOString()
-    });
+    await addLog(submissionId, '🚀 התחלת עיבוד', { submissionId });
     
     // Update status to processing with initial progress
-    await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin
       .from('form_submissions')
       .update({
         status: 'processing',
@@ -234,11 +246,32 @@ export async function processSubmission(submissionId: string) {
           stage: 'init',
           message: 'מתחיל עיבוד',
           current: 0,
-          total: 4, // init, template, prompts, claude
+          total: 4,
           timestamp: new Date().toISOString()
         }
       })
       .eq('submission_id', submissionId);
+
+    if (updateError) {
+      await addLog(submissionId, '❌ נכשל עדכון סטטוס התחלתי', updateError);
+      throw new Error(`Failed to update initial status: ${updateError.message}`);
+    }
+
+    await addLog(submissionId, '✅ סטטוס עודכן ל-processing');
+
+    // Verify the update
+    const { data: verifyData, error: verifyError } = await supabaseAdmin
+      .from('form_submissions')
+      .select('status, progress')
+      .eq('submission_id', submissionId)
+      .single();
+
+    if (verifyError || verifyData?.status !== 'processing') {
+      console.error('❌ Status update verification failed:', { verifyError, currentStatus: verifyData?.status });
+      throw new Error('Failed to verify status update');
+    }
+
+    console.log('✅ Verified status update:', verifyData);
 
     // Fetch submission with retry
     const { data: submission, error } = await retryWithExponentialBackoff(async () => {
