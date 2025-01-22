@@ -94,8 +94,12 @@ export async function GET(request: Request) {
     const response = { 
       submission, 
       template: template || {
+        id: null,
         name: 'תוצאות האבחון',
         css: '',
+        show_logo: false,
+        logo_position: 'top-left',
+        logo: null,
         element_styles: {
           body: {},
           h1: {},
