@@ -169,6 +169,8 @@ export async function processSubmission(submissionId: string) {
         progress: {
           stage: 'init',
           message: 'מתחיל עיבוד',
+          current: 0,
+          total: 4, // init, template, prompts, claude
           timestamp: new Date().toISOString()
         }
       })
@@ -196,6 +198,8 @@ export async function processSubmission(submissionId: string) {
         progress: {
           stage: 'template',
           message: 'מאתר תבנית',
+          current: 1,
+          total: 4,
           timestamp: new Date().toISOString()
         }
       })
@@ -215,13 +219,23 @@ export async function processSubmission(submissionId: string) {
         progress: {
           stage: 'prompts',
           message: 'מכין שאלות',
+          current: 2,
+          total: 4,
           timestamp: new Date().toISOString()
         }
       })
       .eq('submission_id', submissionId);
 
+    console.log('🔄 About to fetch prompts for form_id:', submission.form_id);
+    
     // Get prompts
     const prompts = await getPrompts(submission.form_id);
+    
+    console.log('📝 Received prompts:', {
+      count: prompts.length,
+      firstPrompt: prompts[0],
+      timestamp: new Date().toISOString()
+    });
 
     // Update progress - starting Claude
     await supabaseAdmin
