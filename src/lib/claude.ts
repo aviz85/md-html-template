@@ -156,7 +156,10 @@ export async function processSubmission(submissionId: string) {
   let totalTokens = 0;
   
   try {
-    console.log('🔍 Starting processSubmission with submissionId:', submissionId);
+    console.log('🚀 processSubmission started', {
+      submissionId,
+      timestamp: new Date().toISOString()
+    });
     
     // Update status to processing with initial progress
     await supabaseAdmin
