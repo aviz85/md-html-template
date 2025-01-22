@@ -197,25 +197,35 @@ export default function ResultsPage() {
   return (
     <div dir="rtl" className="min-h-screen" style={bodyStyles}>
       {/* Logo Section */}
-      {template?.show_logo && template?.logo && (
-        <div 
-          className={`flex ${getLogoAlignment(template.logo_position || 'top-left')}`}
-          style={{
-            margin: template.element_styles?.header?.logoMargin || '1rem',
-            padding: '1rem'
-          }}
-        >
-          <img
-            src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${template.logo.file_path}`}
-            alt="Logo"
+      {(() => {
+        console.log('Logo rendering:', {
+          show_logo: template?.show_logo,
+          has_logo: !!template?.logo,
+          logo_position: template?.logo_position,
+          logo_file_path: template?.logo?.file_path
+        });
+        
+        return template?.show_logo && template?.logo && (
+          <div 
+            className={`flex ${getLogoAlignment(template.logo_position || 'top-left')}`}
             style={{
-              width: template.element_styles?.header?.logoWidth || '100px',
-              height: template.element_styles?.header?.logoHeight || 'auto',
-              objectFit: 'contain'
+              margin: template.element_styles?.header?.logoMargin || '1rem',
+              padding: '1rem',
+              width: '100%'
             }}
-          />
-        </div>
-      )}
+          >
+            <img
+              src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${template.logo.file_path}`}
+              alt="Logo"
+              style={{
+                width: template.element_styles?.header?.logoWidth || '100px',
+                height: template.element_styles?.header?.logoHeight || 'auto',
+                objectFit: 'contain'
+              }}
+            />
+          </div>
+        );
+      })()}
 
       {template?.header_content && (
         <div className="mb-12" dangerouslySetInnerHTML={{ __html: template.header_content }} />
@@ -344,12 +354,12 @@ export default function ResultsPage() {
 function getLogoAlignment(position: string): string {
   switch (position) {
     case 'top-left':
-      return 'justify-end';
-    case 'top-right':
       return 'justify-start';
+    case 'top-right':
+      return 'justify-end';
     case 'top-center':
       return 'justify-center';
     default:
-      return 'justify-end';
+      return 'justify-start';
   }
 } 
