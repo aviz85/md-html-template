@@ -46,13 +46,12 @@ export function TemplateList({ templates, onSelect, onDelete }: TemplateListProp
   const { toast } = useToast()
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase
-      .from('templates')
-      .delete()
-      .eq('id', id)
+    const response = await fetch(`/api/templates/${id}`, {
+      method: 'DELETE'
+    });
 
-    if (error) {
-      console.error('Error deleting template:', error)
+    if (!response.ok) {
+      console.error('Error deleting template:', await response.text())
       toast({
         variant: "destructive",
         title: TRANSLATIONS.error,
@@ -68,47 +67,16 @@ export function TemplateList({ templates, onSelect, onDelete }: TemplateListProp
   }
 
   const handleDuplicate = async (template: Template) => {
-    // Find existing copies to determine the next copy number
-    const { data: existingTemplates, error: fetchError } = await supabase
-      .from('templates')
-      .select('name')
-      .like('name', `${template.name} - ${TRANSLATIONS.copy}%`)
+    const response = await fetch('/api/templates/duplicate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(template)
+    });
 
-    if (fetchError) {
-      console.error('Error fetching templates:', fetchError)
-      toast({
-        variant: "destructive",
-        title: TRANSLATIONS.error,
-        description: TRANSLATIONS.failedToLoadTemplate
-      })
-      return
-    }
-
-    // Determine the copy number
-    let copyNumber = ''
-    if (existingTemplates && existingTemplates.length > 0) {
-      const numbers = existingTemplates.map(t => {
-        const match = t.name.match(new RegExp(`${template.name} - ${TRANSLATIONS.copy}( (\\d+))?$`))
-        return match ? (match[2] ? parseInt(match[2]) : 1) : 0
-      })
-      const maxNumber = Math.max(...numbers)
-      copyNumber = maxNumber > 0 ? ` ${maxNumber + 1}` : ''
-    }
-
-    // Create the new template
-    const { id, ...templateWithoutId } = template // Remove id properly
-    const newTemplate = {
-      ...templateWithoutId,
-      name: `${template.name} - ${TRANSLATIONS.copy}${copyNumber}`,
-      template_gsheets_id: undefined // Clear the gsheets id for the copy
-    }
-
-    const { error: insertError } = await supabase
-      .from('templates')
-      .insert(newTemplate)
-
-    if (insertError) {
-      console.error('Error duplicating template:', insertError)
+    if (!response.ok) {
+      console.error('Error duplicating template:', await response.text())
       toast({
         variant: "destructive",
         title: TRANSLATIONS.error,
@@ -119,7 +87,7 @@ export function TemplateList({ templates, onSelect, onDelete }: TemplateListProp
         title: TRANSLATIONS.success,
         description: TRANSLATIONS.templateSavedSuccessfully
       })
-      onDelete?.() // Refresh the list
+      onDelete?.()
     }
   }
 

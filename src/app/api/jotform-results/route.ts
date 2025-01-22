@@ -125,15 +125,9 @@ export async function POST(request: Request) {
     // התחל עיבוד מול קלוד באופן אסינכרוני
     console.log('Starting async processing for submission:', { id: submission.id, submission_id: submission.submission_id });
     
-    // Call the process API
-    fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/process`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ submissionId: submission.submission_id })
-    }).catch(error => {
-      console.error('Error calling process API:', error);
+    // Process directly without API call
+    processSubmission(submission.submission_id).catch(error => {
+      console.error('Error processing submission:', error);
       supabase
         .from('form_submissions')
         .update({
