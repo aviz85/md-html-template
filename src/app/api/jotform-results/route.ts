@@ -75,9 +75,17 @@ export async function POST(request: Request) {
       console.error('Error saving raw data:', rawError);
     }
 
-    // Extract form and submission IDs from the webhook data
-    const formId = formData.form_id || formData.metadata?.form_id || formData.raw?.formID;
-    const submissionId = formData.submission_id || formData.metadata?.submission_id || formData.raw?.submissionID;
+    // Extract form_id from raw data
+    const formId = formData.raw?.formID || formData.metadata?.form_id;
+    if (!formId) {
+      return new Response(JSON.stringify({ error: 'Missing form_id in request' }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Extract submission_id from raw data
+    const submissionId = formData.raw?.submissionID || formData.metadata?.submission_id;
     
     // Prepare the content object with all form fields
     let content;
@@ -107,8 +115,8 @@ export async function POST(request: Request) {
     const { data: submission, error } = await supabase
       .from('form_submissions')
       .insert({
-        form_id: formId,
         submission_id: submissionId,
+        form_id: formId,
         content: content || {},
         status: 'pending'
       })
