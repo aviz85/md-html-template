@@ -126,11 +126,22 @@ export async function POST(request: Request) {
     console.log('🚀 Starting async processing for submission:', { id: submission.id, submission_id: submission.submission_id });
     
     try {
-      // Process directly without API call
-      await processSubmission(submission.submission_id);
-      console.log('✅ Successfully triggered Claude processing');
+      // Call the process API
+      const response = await fetch(`${request.headers.get('origin')}/api/process`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ submissionId: submission.submission_id })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Process API returned ${response.status}: ${await response.text()}`);
+      }
+
+      console.log('✅ Successfully triggered processing');
     } catch (error) {
-      console.error('❌ Error triggering Claude processing:', error);
+      console.error('❌ Error triggering processing:', error);
       await supabase
         .from('form_submissions')
         .update({
