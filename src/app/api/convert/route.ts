@@ -46,6 +46,7 @@ interface TemplateData {
     font_family: string;
     format: string;
   }>;
+  specialContents?: Record<string, string>;
 }
 
 // Convert ElementStyle object to CSS string
@@ -242,6 +243,8 @@ export async function POST(req: Request) {
 
     // Get template data if template_id is provided
     let templateData: TemplateData | undefined;
+    let specialContents: Record<string, string> = {};
+    
     // Try all possible template ID sources
     const effectiveTemplateId = template_id || templateId || template?.id || template?.template_gsheets_id;
     
@@ -259,6 +262,36 @@ export async function POST(req: Request) {
 
       const template = templates?.[0];
       if (template) {
+        // Fetch special contents
+        const { data: contents, error: contentsError } = await supabase
+          .from('template_contents')
+          .select('*')
+          .eq('template_id', template.id);
+          
+        if (contentsError) {
+          console.error('Error fetching contents:', contentsError);
+          throw new Error(`Failed to fetch contents: ${contentsError.message}`);
+        }
+
+        // Process special contents
+        contents?.forEach(content => {
+          if (content.content_name.startsWith('custom_')) {
+            // Remove 'custom_' prefix for matching [TAG]
+            const tag = content.content_name.replace('custom_', '');
+            specialContents[tag] = content.md_content;
+          } else if (content.content_name === 'opening_page') {
+            templateData = {
+              ...templateData,
+              opening_page_content: content.md_content
+            };
+          } else if (content.content_name === 'closing_page') {
+            templateData = {
+              ...templateData,
+              closing_page_content: content.md_content
+            };
+          }
+        });
+
         console.log('Found template:', template);
         // Get logo if exists
         const { data: logoData } = await supabase
@@ -268,6 +301,7 @@ export async function POST(req: Request) {
           .single();
 
         templateData = {
+          ...templateData,
           colors: {
             h1Color: template.color1 || '#333',
             h2Color: template.color3 || '#444',
@@ -279,9 +313,8 @@ export async function POST(req: Request) {
             url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${logoData.file_path}`,
             showOnAllPages: template.show_logo_on_all_pages || false
           } : undefined,
-          opening_page_content: template.opening_page_content,
-          closing_page_content: template.closing_page_content,
-          custom_fonts: template.custom_fonts
+          custom_fonts: template.custom_fonts,
+          specialContents
         };
         console.log('Processed template data:', templateData);
       }
@@ -294,29 +327,21 @@ export async function POST(req: Request) {
     const styles = getStyles(templateData);
     console.log('Generated styles:', styles);
 
-    // Add global styles
-    const globalStyles = `
-      body {
-        background-color: ${templateData.element_styles?.body?.backgroundColor || '#ffffff'};
-        margin: 0;
-        padding: 0;
-      }
+    // Process content and replace special tags
+    const processContent = (content: string) => {
+      // Replace all [TAG] patterns with their corresponding content
+      let processedContent = content;
+      Object.entries(templateData?.specialContents || {}).forEach(([tag, replacement]) => {
+        const pattern = new RegExp(`\\[${tag}\\]`, 'g');
+        processedContent = processedContent.replace(pattern, replacement);
+      });
       
-      main {
-        background-color: ${templateData.element_styles?.main?.backgroundColor || '#ffffff'};
-        padding: 2rem;
-        max-width: 800px;
-        margin: 0 auto;
-      }
-
-      .prose {
-        background-color: ${templateData.element_styles?.prose?.backgroundColor || '#ffffff'};
-        padding: 2rem;
-        border-radius: 0.5rem;
-      }
-      
-      ${template.css || ''}
-    `;
+      // Convert markdown to HTML while preserving existing HTML
+      return marked(processedContent, {
+        headerIds: false,
+        mangle: false
+      });
+    };
 
     // Prepare final content array
     const finalContent: string[] = [];
@@ -334,9 +359,9 @@ export async function POST(req: Request) {
       finalContent.push(templateData.closing_page_content);
     }
 
-    // Convert to HTML
+    // Convert to HTML with special content replacement
     const htmlContents = finalContent.map((content, index) => 
-      generateHtml(content, styles, templateData, index)
+      generateHtml(processContent(content), styles, templateData, index)
     );
 
     // Process HTML files and generate PDFs
