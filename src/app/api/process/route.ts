@@ -1,6 +1,7 @@
 import { processSubmission } from '@/lib/claude'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,7 +15,7 @@ const supabase = createClient(
 );
 
 export const runtime = 'nodejs'  // Changed from edge to nodejs
-export const maxDuration = 300 // 5 minutes timeout
+export const maxDuration = 900; // 15 minutes timeout for Vercel Pro plan
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -42,20 +43,46 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing submissionId' }, { status: 400 });
     }
 
-    // התחל את העיבוד ברקע
-    processSubmission(submissionId).catch(error => {
+    // Update status to processing
+    await supabaseAdmin
+      .from('form_submissions')
+      .update({
+        status: 'processing',
+        progress: {
+          stage: 'init',
+          message: 'התחלת עיבוד',
+          timestamp: new Date().toISOString()
+        }
+      })
+      .eq('submission_id', submissionId);
+
+    // Start processing in the background
+    processSubmission(submissionId).catch(async (error) => {
       console.error('Background processing error:', error);
+      await supabaseAdmin
+        .from('form_submissions')
+        .update({
+          status: 'error',
+          progress: {
+            stage: 'error',
+            message: error instanceof Error ? error.message : 'שגיאה לא ידועה',
+            timestamp: new Date().toISOString()
+          }
+        })
+        .eq('submission_id', submissionId);
     });
 
-    // החזר תשובה מיד
-    return NextResponse.json({ 
-      status: 'processing',
-      message: 'Processing started in background',
-      submissionId 
+    // Return immediately
+    return NextResponse.json({
+      message: 'Processing started',
+      submissionId
     });
     
   } catch (error) {
     console.error('API error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
   }
 } 
