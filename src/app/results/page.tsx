@@ -302,17 +302,6 @@ export default function ResultsPage() {
         {status === 'completed' && result && (
           <div className="space-y-8 animate-fade-in">
             <div className="prose prose-lg max-w-none prose-headings:text-gray-800 prose-p:text-gray-600 prose-strong:text-gray-800 prose-ul:text-gray-600">
-              <style jsx global>{`
-                .prose a {
-                  color: #2563eb;
-                  text-decoration: none;
-                  transition: all 0.2s ease;
-                }
-                .prose a:hover {
-                  color: #1d4ed8;
-                  text-decoration: underline;
-                }
-              `}</style>
               {renderChat(result)}
             </div>
           </div>
@@ -369,6 +358,15 @@ export default function ResultsPage() {
         }
         .prose strong {
           font-weight: 600;
+        }
+        .prose a {
+          color: #2563eb;
+          text-decoration: none;
+          transition: all 0.2s ease;
+        }
+        .prose a:hover {
+          color: #1d4ed8;
+          text-decoration: underline;
         }
       `}</style>
     </div>
