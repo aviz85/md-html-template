@@ -15,7 +15,7 @@ const supabase = createClient(
 );
 
 export const runtime = 'nodejs'  // Changed from edge to nodejs
-export const maxDuration = 300; // 15 minutes timeout for Vercel Pro plan
+export const maxDuration = 300; // 5 minutes timeout for Vercel Pro plan
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -36,8 +36,11 @@ export async function GET(request: Request) {
 }
 
 export async function POST(req: Request) {
+  let submissionId: string | undefined;
+  
   try {
-    const { submissionId } = await req.json();
+    const body = await req.json();
+    submissionId = body.submissionId;
     
     if (!submissionId) {
       return NextResponse.json({ error: 'Missing submissionId' }, { status: 400 });
@@ -56,30 +59,33 @@ export async function POST(req: Request) {
       })
       .eq('submission_id', submissionId);
 
-    // Start processing in the background
-    processSubmission(submissionId).catch(async (error) => {
-      console.error('Background processing error:', error);
+    // Wait for the full process
+    const result = await processSubmission(submissionId);
+
+    return NextResponse.json({
+      message: 'Processing completed',
+      submissionId,
+      result
+    });
+    
+  } catch (error) {
+    console.error('API error:', error);
+    
+    // Update status to error if we have a submissionId
+    if (error instanceof Error && submissionId) {
       await supabaseAdmin
         .from('form_submissions')
         .update({
           status: 'error',
           progress: {
             stage: 'error',
-            message: error instanceof Error ? error.message : 'שגיאה לא ידועה',
+            message: error.message,
             timestamp: new Date().toISOString()
           }
         })
         .eq('submission_id', submissionId);
-    });
-
-    // Return immediately
-    return NextResponse.json({
-      message: 'Processing started',
-      submissionId
-    });
+    }
     
-  } catch (error) {
-    console.error('API error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
