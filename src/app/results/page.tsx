@@ -38,7 +38,7 @@ type Template = {
 
 export default function ResultsPage() {
   const searchParams = useSearchParams();
-  const submissionId = searchParams.get('submissionId') || searchParams.get('s');
+  const submissionId = searchParams.get('s') || new URLSearchParams(window.location.search).get('submissionID');
   
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState('loading');
@@ -56,20 +56,21 @@ export default function ResultsPage() {
 
     const fetchData = async () => {
       try {
-        console.log('Fetching data for submissionId:', submissionId);
         const response = await fetch(`/api/submission?s=${submissionId}`);
         const data = await response.json();
-        console.log('API Response:', data);
 
         if (!response.ok) {
           throw new Error(data.error || 'Failed to fetch data');
         }
 
         const { submission, template: templateData } = data;
-        console.log('Parsed data:', { submission, templateData });
 
-        setStatus(submission.status);
-        if (submission.status === 'completed') {
+        // בדיקה האם יש תוצאות מפורטות
+        const hasDetailedResults = submission.status === 'completed' && 
+          submission.result?.completeChat?.length > 0;
+
+        setStatus(hasDetailedResults ? 'completed' : 'pending');
+        if (hasDetailedResults) {
           setResult(submission.result);
         }
 
@@ -85,14 +86,17 @@ export default function ResultsPage() {
 
         setTemplate(templateData);
         
+        // רק אם יש תוצאות מפורטות נפסיק את הטעינה
+        setIsLoading(false);
+
         // Add CSS and fonts
-        if (templateData.css) {
+        if (templateData?.css) {
           const styleSheet = document.createElement('style');
           styleSheet.textContent = templateData.css;
           document.head.appendChild(styleSheet);
         }
 
-        if (templateData.custom_fonts) {
+        if (templateData?.custom_fonts) {
           templateData.custom_fonts.forEach((font: { font_family: string; file_path: string }) => {
             const fontFace = new FontFace(font.font_family, `url(${font.file_path})`);
             fontFace.load().then(loadedFont => {
@@ -101,7 +105,6 @@ export default function ResultsPage() {
           });
         }
 
-        setIsLoading(false);
       } catch (e) {
         console.error('Error fetching data:', e);
         setError(e instanceof Error ? e.message : 'An unknown error occurred');
@@ -203,24 +206,24 @@ export default function ResultsPage() {
         </header>
         
         {status === 'pending' && (
-          <div className="space-y-8 animate-fade-in">
-            <div className="flex flex-col items-center gap-6 py-16 px-8 rounded-2xl bg-gray-50/50 backdrop-blur-sm border border-gray-100">
+          <div className="space-y-8 animate-pulse">
+            <div className="flex flex-col items-center gap-6 py-16 px-8 rounded-2xl bg-gradient-to-b from-white to-gray-50/50 backdrop-blur-sm border border-gray-100 shadow-sm">
               <div className="relative w-16 h-16">
                 <div className="absolute border-4 border-gray-200/30 rounded-full w-full h-full"></div>
                 <div className="absolute border-4 border-blue-500/80 rounded-full w-full h-full animate-spin border-t-transparent"></div>
               </div>
-              <div className="text-center">
+              <div className="text-center space-y-2">
                 <p 
-                  className="text-lg text-gray-600 mb-2"
+                  className="text-lg text-gray-600 font-medium"
                   style={template?.element_styles?.p}
                 >
-                  התוצאות בתהליך עיבוד
+                  מעבד את התוצאות...
                 </p>
                 <p 
                   className="text-sm text-gray-500"
                   style={template?.element_styles?.p}
                 >
-                  אנא המתן מספר רגעים...
+                  אנא המתן מספר רגעים בזמן שאנחנו מכינים את התוצאות המפורטות עבורך
                 </p>
               </div>
             </div>
