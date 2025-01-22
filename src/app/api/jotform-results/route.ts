@@ -76,18 +76,18 @@ export async function POST(request: Request) {
     }
 
     // Extract form and submission IDs from the webhook data
-    const formId = formData.formID;
-    const submissionId = formData.submissionID;
+    const formId = formData.form_id || formData.metadata?.form_id || formData.raw?.formID;
+    const submissionId = formData.submission_id || formData.metadata?.submission_id || formData.raw?.submissionID;
     
     // Prepare the content object with all form fields
     let content;
     try {
-      const parsedFields = JSON.parse(formData.rawRequest);
+      const parsedFields = formData.form_data || JSON.parse(formData.rawRequest);
       content = {
         form_data: parsedFields,
         metadata: {
-          submission_id: formData.submissionID,
-          form_id: formData.formID
+          submission_id: submissionId,
+          form_id: formId
         },
         raw: formData
       };
@@ -107,8 +107,8 @@ export async function POST(request: Request) {
     const { data: submission, error } = await supabase
       .from('form_submissions')
       .insert({
-        form_id: formData.formID,
-        submission_id: formData.submissionID,
+        form_id: formId,
+        submission_id: submissionId,
         content: content || {},
         status: 'pending'
       })
