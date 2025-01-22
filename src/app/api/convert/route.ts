@@ -276,17 +276,21 @@ export async function POST(req: Request) {
         // Process special contents
         contents?.forEach(content => {
           if (content.content_name.startsWith('custom_')) {
-            // Remove 'custom_' prefix for matching [TAG]
             const tag = content.content_name.replace('custom_', '');
             specialContents[tag] = content.md_content;
           } else if (content.content_name === 'opening_page') {
             templateData = {
-              ...templateData,
+              colors: {
+                h1Color: '#333',
+                h2Color: '#444',
+                h3Color: '#555',
+                bodyFontSize: '16px'
+              },
               opening_page_content: content.md_content
             };
           } else if (content.content_name === 'closing_page') {
             templateData = {
-              ...templateData,
+              ...templateData!,
               closing_page_content: content.md_content
             };
           }
@@ -308,7 +312,11 @@ export async function POST(req: Request) {
             h3Color: template.color2 || '#555',
             bodyFontSize: template.element_styles?.body?.fontSize || '16px'
           },
-          element_styles: template.element_styles,
+          element_styles: template.element_styles || {
+            body: { backgroundColor: '#ffffff' },
+            main: { backgroundColor: '#ffffff' },
+            prose: { backgroundColor: '#ffffff' }
+          },
           logo: logoData ? {
             url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${logoData.file_path}`,
             showOnAllPages: template.show_logo_on_all_pages || false
@@ -338,8 +346,8 @@ export async function POST(req: Request) {
       
       // Convert markdown to HTML while preserving existing HTML
       return marked(processedContent, {
-        headerIds: false,
-        mangle: false
+        gfm: true,
+        breaks: true
       });
     };
 
@@ -360,9 +368,9 @@ export async function POST(req: Request) {
     }
 
     // Convert to HTML with special content replacement
-    const htmlContents = finalContent.map((content, index) => 
-      generateHtml(processContent(content), styles, templateData, index)
-    );
+    const htmlContents = await Promise.all(finalContent.map(async (content, index) => 
+      generateHtml(await processContent(content), styles, templateData, index)
+    ));
 
     // Process HTML files and generate PDFs
     const results = await Promise.all(

@@ -555,9 +555,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           logo_position: elementStyles.header.logoPosition || 'top-right',
           form_id: formId,
           styles: {
-            bodyBackground: styles.bodyBackground,
-            mainBackground: styles.mainBackground,
-            contentBackground: styles.contentBackground
+            bodyBackground: styles?.bodyBackground || '#ffffff',
+            mainBackground: styles?.mainBackground || '#ffffff',
+            contentBackground: styles?.contentBackground || '#ffffff'
           }
         })
         .select()
@@ -1084,7 +1084,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             <label className="text-sm font-medium">צבע רקע כללי</label>
             <Input
               type="color"
-              value={styles.bodyBackground}
+              value={styles?.bodyBackground || '#ffffff'}
               onChange={(e) => setStyles(prev => ({ ...prev, bodyBackground: e.target.value }))}
               dir="ltr"
             />
@@ -1093,7 +1093,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             <label className="text-sm font-medium">צבע רקע אזור ראשי</label>
             <Input
               type="color"
-              value={styles.mainBackground}
+              value={styles?.mainBackground || '#ffffff'}
               onChange={(e) => setStyles(prev => ({ ...prev, mainBackground: e.target.value }))}
               dir="ltr"
             />
@@ -1102,7 +1102,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             <label className="text-sm font-medium">צבע רקע אזור תוכן</label>
             <Input
               type="color"
-              value={styles.contentBackground}
+              value={styles?.contentBackground || '#ffffff'}
               onChange={(e) => setStyles(prev => ({ ...prev, contentBackground: e.target.value }))}
               dir="ltr"
             />
