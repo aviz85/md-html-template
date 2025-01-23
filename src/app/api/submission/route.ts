@@ -16,6 +16,24 @@ const supabase = createClient(
   }
 );
 
+interface Template {
+  id: any;
+  name: any;
+  form_id: any;
+  show_logo: any;
+  logo_position: any;
+  css: any;
+  element_styles: any;
+  header_content: any;
+  footer_content: any;
+  custom_fonts: any;
+  logo: { id: any; file_path: any; }[];
+  template_contents: { content_name: string; md_content: string; }[];
+  custom_contents?: Record<string, string>;
+  opening_page_content?: string;
+  closing_page_content?: string;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const submissionId = searchParams.get('submissionId') || searchParams.get('s');
@@ -67,6 +85,10 @@ export async function GET(request: Request) {
         logo:logos!inner(
           id,
           file_path
+        ),
+        template_contents(
+          content_name,
+          md_content
         )
       `)
       .eq('form_id', submission.form_id)
@@ -86,13 +108,69 @@ export async function GET(request: Request) {
       console.log('Logo data is not in expected format:', template?.logo);
     }
 
+    // Process custom contents
+    if (template?.template_contents) {
+      console.log('Processing template contents:', template.template_contents);
+      const custom_contents: Record<string, string> = {};
+      let opening_page_content = '';
+      let closing_page_content = '';
+
+      template.template_contents.forEach((content: any) => {
+        if (content.content_name.startsWith('custom_')) {
+          const tag = content.content_name.replace('custom_', '');
+          custom_contents[tag] = content.md_content;
+          console.log(`Added custom content - Tag: ${tag}, Content:`, content.md_content);
+        } else if (content.content_name === 'opening_page') {
+          opening_page_content = content.md_content;
+          console.log('Found opening page content');
+        } else if (content.content_name === 'closing_page') {
+          closing_page_content = content.md_content;
+          console.log('Found closing page content');
+        }
+      });
+
+      console.log('Final custom contents:', custom_contents);
+      Object.assign(template, {
+        custom_contents,
+        opening_page_content,
+        closing_page_content
+      });
+    } else {
+      console.log('No template contents found');
+    }
+
     if (templateError) {
       console.error('Template error:', templateError);
     }
 
     // Return data even if template is not found
     const response = { 
-      submission, 
+      submission: {
+        ...submission,
+        result: submission.result ? {
+          ...submission.result,
+          finalResponse: (() => {
+            const content = submission.result.finalResponse;
+            console.log('Original content:', content);
+            
+            const matches = content?.match(/`````[\s\S]*?`````|[^`]+/g);
+            console.log('Matches found:', matches);
+            
+            const processed = matches?.map((block: string) => {
+              const isWrapped = block.startsWith('`````');
+              console.log('Processing block:', {
+                isWrapped,
+                length: block.length,
+                preview: block.slice(0, 100)
+              });
+              return isWrapped ? block.slice(5, -5).trim() : block.trim();
+            }).filter(Boolean);
+            
+            console.log('Final processed blocks:', processed?.length);
+            return processed;
+          })()
+        } : null
+      }, 
       template: template || {
         id: null,
         name: 'תוצאות האבחון',

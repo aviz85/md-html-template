@@ -102,11 +102,8 @@ export async function POST(req: Request) {
     // Wait for the full process
     const result = await processSubmission(submissionId);
 
-    // Clean the response by removing backticks sections
-    const cleanResponse = result.finalResponse.split('`````')
-      .map(section => section.trim())
-      .filter(section => section.length > 0)
-      .join('\n\n');
+    // Don't split by backticks, keep the original response
+    const cleanResponse = result.finalResponse;
 
     // Update final status and result
     await supabaseAdmin

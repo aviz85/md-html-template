@@ -709,7 +709,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           custom_fonts: customFonts
         },
         header_content: headerWithLogo,
-        footer_content: footerContent
+        footer_content: footerContent,
+        custom_contents: customContents
       })
 
       const response = await fetch('/api/convert', {
@@ -725,7 +726,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             custom_fonts: customFonts
           },
           header_content: headerWithLogo,
-          footer_content: footerContent
+          footer_content: footerContent,
+          custom_contents: customContents
         }),
       })
 

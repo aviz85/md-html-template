@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -16,16 +16,24 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
   const [password, setPassword] = useState("")
   const [showPasswordDialog, setShowPasswordDialog] = useState(true)
 
+  // Check on component mount
+  useEffect(() => {
+    const expectedPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD
+    console.log('Environment check on load:', { 
+      hasPassword: !!expectedPassword,
+      actualValue: expectedPassword 
+    })
+  }, [])
+
   const handlePasswordSubmit = () => {
     const expectedPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD
-    console.log('Current password:', password)
-    console.log('Expected password:', expectedPassword)
     
     if (!expectedPassword) {
+      console.error('NEXT_PUBLIC_ADMIN_PASSWORD is not defined')
       toast({
         variant: "destructive",
         title: "שגיאה",
-        description: "הסיסמה לא הוגדרה במערכת"
+        description: "הסיסמה לא הוגדרה במערכת. אנא הגדר את משתנה הסביבה NEXT_PUBLIC_ADMIN_PASSWORD"
       })
       return
     }

@@ -53,16 +53,12 @@ export async function convertToPdf(htmlFilename: string): Promise<string> {
 
 /**
  * Processes HTML content - saves it and converts to PDF
- * @param content HTML content to process
+ * @param html HTML content to process
  * @returns Object with HTML and PDF filenames
  */
-export async function processHtmlContent(content: string): Promise<{
-  htmlFilename: string;
-  pdfFilename: string;
-}> {
-  console.log('Processing HTML content...');
-  const htmlFilename = await saveHtml(content);
-  const pdfFilename = await convertToPdf(htmlFilename);
-  console.log('Processing complete:', { htmlFilename, pdfFilename });
+export async function processHtmlContent(html: string) {
+  const htmlFilename = `output-${Date.now()}.html`;
+  const pdfFilename = htmlFilename.replace('.html', '.pdf');
+  
   return { htmlFilename, pdfFilename };
 } 
