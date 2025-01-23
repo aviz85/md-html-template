@@ -412,6 +412,19 @@ export default function ResultsPage() {
                     {children}
                   </motion.li>
                 ),
+                a: ({ children, href }) => (
+                  <motion.a 
+                    href={href}
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {children}
+                  </motion.a>
+                ),
               }}
             >
               {processContent(template.opening_page_content)}
@@ -515,6 +528,19 @@ export default function ResultsPage() {
                       {children}
                     </motion.li>
                   ),
+                  a: ({ children, href }) => (
+                    <motion.a 
+                      href={href}
+                      className="text-blue-600 hover:text-blue-800 hover:underline"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      {children}
+                    </motion.a>
+                  ),
                 }}
               >
                 {processContent(content)}
@@ -615,6 +641,19 @@ export default function ResultsPage() {
                     {children}
                   </motion.li>
                 ),
+                a: ({ children, href }) => (
+                  <motion.a 
+                    href={href}
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {children}
+                  </motion.a>
+                ),
               }}
             >
               {processContent(result.finalResponse)}
@@ -692,6 +731,19 @@ export default function ResultsPage() {
                   >
                     {children}
                   </motion.li>
+                ),
+                a: ({ children, href }) => (
+                  <motion.a 
+                    href={href}
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {children}
+                  </motion.a>
                 ),
               }}
             >
