@@ -76,6 +76,31 @@ export default function ResultsPage() {
   const [progress, setProgress] = useState({ stage: 'init', message: 'מתחיל טעינה...' });
   const [shouldContinuePolling, setShouldContinuePolling] = useState(true);
 
+  const getMagicalMessage = (stage: string, technicalMessage: string) => {
+    const messages = {
+      init: [
+        "מכינים את המסמך המותאם אישית עבורך",
+        "מתחילים בתהליך היצירה",
+        "מעבדים את הנתונים שהזנת"
+      ],
+      loading: [
+        "מנתחים את המידע ומתאימים את התוכן",
+        "יוצרים עבורך תוכן מותאם אישית",
+        "מעצבים את המסמך בקפידה",
+        "משלימים את הפרטים האחרונים",
+        "מתאימים את התוכן לצרכים שלך"
+      ],
+      success: [
+        "המסמך שלך מוכן לצפייה",
+        "סיימנו להכין את התוכן המותאם עבורך",
+        "התוצאות שלך מוכנות"
+      ]
+    };
+
+    const stageMessages = messages[stage as keyof typeof messages] || messages.loading;
+    return stageMessages[Math.floor(Math.random() * stageMessages.length)];
+  };
+
   useEffect(() => {
     console.log('Component mounted');
     isMounted.current = true;
@@ -159,7 +184,7 @@ export default function ResultsPage() {
         if (submission?.status === 'completed') {
           console.log('Received completed status');
           setShouldContinuePolling(false);
-          setProgress({ stage: 'success', message: 'העיבוד הושלם בהצלחה' });
+          setProgress({ stage: 'success', message: submission.progress?.message || 'העיבוד הושלם בהצלחה' });
           setResult(submission.result);
           setStatus('completed');
           setTemplate(templateData);
@@ -702,7 +727,7 @@ export default function ResultsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              {progress.message}
+              {getMagicalMessage(progress.stage, progress.message)}
             </motion.p>
             <motion.div 
               className="flex items-center gap-2"
