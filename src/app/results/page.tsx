@@ -116,6 +116,7 @@ export default function ResultsPage() {
     const getBackoffTime = (retry: number) => {
       return [1000, 2000, 5000, 10000, 20000][retry] || 20000;
     };
+    let foundSubmission = false;
 
     const pollSubmission = async () => {
       if (!isMounted.current) return;
@@ -123,7 +124,8 @@ export default function ResultsPage() {
       console.log('Polling attempt:', {
         retryCount,
         shouldContinuePolling,
-        hasTimeout: !!timeoutId
+        hasTimeout: !!timeoutId,
+        foundSubmission
       });
 
       if (!shouldContinuePolling) {
@@ -148,6 +150,11 @@ export default function ResultsPage() {
           hasResult: !!submission?.result,
           hasTemplate: !!templateData
         });
+
+        // Found the submission - switch to regular polling mode
+        if (submission) {
+          foundSubmission = true;
+        }
 
         if (submission?.status === 'completed') {
           console.log('Received completed status');
@@ -178,35 +185,53 @@ export default function ResultsPage() {
           setProgress(submission.progress);
         }
 
-        if (retryCount < maxRetries && shouldContinuePolling && isMounted.current) {
-          retryCount++;
-          setRetryAttempt(retryCount);
-          const nextDelay = getBackoffTime(retryCount);
-          console.log(`Scheduling next poll in ${nextDelay}ms`);
-          timeoutId = setTimeout(pollSubmission, nextDelay);
-        } else if (retryCount >= maxRetries) {
-          console.log('Max retries reached');
-          setShouldContinuePolling(false);
-          setError('לא נמצא טופס מתאים');
-          setStatus('error');
-          setIsLoading(false);
+        // If we haven't found the submission yet, use retry logic
+        if (!foundSubmission) {
+          if (retryCount < maxRetries && shouldContinuePolling && isMounted.current) {
+            retryCount++;
+            setRetryAttempt(retryCount);
+            const nextDelay = getBackoffTime(retryCount);
+            console.log(`Scheduling next poll in ${nextDelay}ms (retry ${retryCount})`);
+            timeoutId = setTimeout(pollSubmission, nextDelay);
+          } else if (retryCount >= maxRetries) {
+            console.log('Max retries reached without finding submission');
+            setShouldContinuePolling(false);
+            setError('לא נמצא טופס מתאים');
+            setStatus('error');
+            setIsLoading(false);
+          }
+        } else {
+          // Regular polling every 3 seconds once we've found the submission
+          if (shouldContinuePolling && isMounted.current) {
+            console.log('Scheduling next poll in 3000ms (regular polling)');
+            timeoutId = setTimeout(pollSubmission, 3000);
+          }
         }
       } catch (error) {
         if (!isMounted.current) return;
         
         console.log('Poll attempt error:', error);
-        if (retryCount < maxRetries && shouldContinuePolling) {
-          retryCount++;
-          setRetryAttempt(retryCount);
-          const nextDelay = getBackoffTime(retryCount);
-          console.log(`Scheduling next poll after error in ${nextDelay}ms`);
-          timeoutId = setTimeout(pollSubmission, nextDelay);
+        if (!foundSubmission) {
+          // Only use retry logic if we haven't found the submission yet
+          if (retryCount < maxRetries && shouldContinuePolling) {
+            retryCount++;
+            setRetryAttempt(retryCount);
+            const nextDelay = getBackoffTime(retryCount);
+            console.log(`Scheduling next poll after error in ${nextDelay}ms (retry ${retryCount})`);
+            timeoutId = setTimeout(pollSubmission, nextDelay);
+          } else {
+            console.log('Max retries reached after error');
+            setShouldContinuePolling(false);
+            setError(error instanceof Error ? error.message : 'שגיאה בטעינת הנתונים');
+            setStatus('error');
+            setIsLoading(false);
+          }
         } else {
-          console.log('Max retries reached after error');
-          setShouldContinuePolling(false);
-          setError(error instanceof Error ? error.message : 'שגיאה בטעינת הנתונים');
-          setStatus('error');
-          setIsLoading(false);
+          // Regular polling retry if we've already found the submission
+          if (shouldContinuePolling) {
+            console.log('Scheduling next poll after error in 3000ms (regular polling)');
+            timeoutId = setTimeout(pollSubmission, 3000);
+          }
         }
       }
     };
