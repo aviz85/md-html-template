@@ -78,7 +78,7 @@ export default function ResultsPage() {
       return;
     }
 
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: NodeJS.Timeout | undefined;
     let retryCount = 0;
     const maxRetries = 5;
     const getBackoffTime = (retry: number) => {
@@ -97,34 +97,31 @@ export default function ResultsPage() {
 
         const { submission, template: templateData } = data;
 
-        // If submission exists and completed/error, process it
         if (submission?.status === 'completed') {
           setResult(submission.result);
           setStatus('completed');
           setTemplate(templateData);
           setIsLoading(false);
-          return; // Stop polling when completed
+          return;
         } else if (submission?.status === 'error') {
           setError('שגיאה בעיבוד הטופס: ' + (submission.result?.error || 'שגיאה לא ידועה'));
           setStatus('error');
           setIsLoading(false);
-          return; // Stop polling on error
+          return;
         }
 
-        // If no submission or still processing, retry immediately
         if (retryCount < maxRetries) {
           retryCount++;
-          pollSubmission(); // Call immediately without setTimeout
+          timeoutId = setTimeout(pollSubmission, getBackoffTime(retryCount));
         } else {
           setError('לא נמצא טופס מתאים');
           setStatus('error');
           setIsLoading(false);
         }
       } catch (error) {
-        // On error, retry immediately
         if (retryCount < maxRetries) {
           retryCount++;
-          pollSubmission(); // Call immediately without setTimeout
+          timeoutId = setTimeout(pollSubmission, getBackoffTime(retryCount));
         } else {
           setError(error instanceof Error ? error.message : 'שגיאה בטעינת הנתונים');
           setStatus('error');
