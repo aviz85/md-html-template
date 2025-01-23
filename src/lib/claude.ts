@@ -188,8 +188,7 @@ async function callClaude(messages: Message[], submissionId: string): Promise<Cl
   });
 
   const claudePromise = anthropic.messages.create({
-    model: "claude-3-sonnet-20240620",
-    max_tokens: MAX_TOKENS,
+    model: "claude-3-5-sonnet-20241022",
     messages: messages,
     temperature: 0.7,
   });

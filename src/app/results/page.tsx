@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
@@ -64,6 +64,7 @@ type Template = {
 export default function ResultsPage() {
   const searchParams = useSearchParams();
   const submissionId = searchParams.get('s') || new URLSearchParams(window.location.search).get('submissionID');
+  const isMounted = useRef(false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState('loading');
@@ -75,14 +76,18 @@ export default function ResultsPage() {
   const [progress, setProgress] = useState({ stage: 'init', message: 'מתחיל טעינה...' });
   const [shouldContinuePolling, setShouldContinuePolling] = useState(true);
 
-  // Debug mount/unmount
   useEffect(() => {
     console.log('Component mounted');
-    return () => console.log('Component unmounted');
+    isMounted.current = true;
+    return () => {
+      console.log('Component unmounted');
+      isMounted.current = false;
+    }
   }, []);
 
-  // Debug state changes
   useEffect(() => {
+    if (!isMounted.current) return;
+    
     console.log('State changed:', {
       isLoading,
       status,
@@ -95,6 +100,7 @@ export default function ResultsPage() {
   }, [isLoading, status, result, error, template, retryAttempt, shouldContinuePolling]);
 
   useEffect(() => {
+    if (!isMounted.current) return;
     console.log('Starting polling effect with submissionId:', submissionId);
     
     if (!submissionId) {
@@ -112,6 +118,8 @@ export default function ResultsPage() {
     };
 
     const pollSubmission = async () => {
+      if (!isMounted.current) return;
+      
       console.log('Polling attempt:', {
         retryCount,
         shouldContinuePolling,
@@ -127,6 +135,8 @@ export default function ResultsPage() {
         setProgress({ stage: 'loading', message: 'מכין את התוצאות עבורך...' });
         const response = await fetch(`/api/submission?s=${submissionId}`);
         const data = await response.json();
+
+        if (!isMounted.current) return;
 
         if (!response.ok) {
           throw new Error(data.error || 'שגיאה בטעינת הנתונים');
@@ -168,7 +178,7 @@ export default function ResultsPage() {
           setProgress(submission.progress);
         }
 
-        if (retryCount < maxRetries && shouldContinuePolling) {
+        if (retryCount < maxRetries && shouldContinuePolling && isMounted.current) {
           retryCount++;
           setRetryAttempt(retryCount);
           const nextDelay = getBackoffTime(retryCount);
@@ -182,6 +192,8 @@ export default function ResultsPage() {
           setIsLoading(false);
         }
       } catch (error) {
+        if (!isMounted.current) return;
+        
         console.log('Poll attempt error:', error);
         if (retryCount < maxRetries && shouldContinuePolling) {
           retryCount++;
