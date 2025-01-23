@@ -191,7 +191,7 @@ async function callClaude(messages: Message[], submissionId: string): Promise<Cl
     model: "claude-3-5-sonnet-20241022",
     messages: messages,
     temperature: 0.7,
-    max_tokens: 200000
+    max_tokens: 8192
   });
 
   try {
