@@ -58,7 +58,7 @@ const anthropic = new Anthropic({
 })
 
 const MAX_RETRIES = 5;
-const MAX_TOKENS = 8192;
+const MAX_TOKENS = 200000;
 const RETRY_DELAY = 3000;
 const CLAUDE_TIMEOUT = 600000; // 10 minutes
 
@@ -188,9 +188,10 @@ async function callClaude(messages: Message[], submissionId: string): Promise<Cl
   });
 
   const claudePromise = anthropic.messages.create({
-    model: "claude-3-5-sonnet-20240620",
+    model: "claude-3-sonnet-20240620",
     max_tokens: MAX_TOKENS,
-    messages: messages
+    messages: messages,
+    temperature: 0.7,
   });
 
   try {
