@@ -79,12 +79,15 @@ export default function ResultsPage() {
     }
 
     let timeoutId: NodeJS.Timeout;
+    let retryCount = 0;
+    const maxRetries = 5;
+    const getBackoffTime = (retry: number) => {
+      // 1s, 2s, 5s, 10s, 20s
+      return [1000, 2000, 5000, 10000, 20000][retry] || 20000;
+    };
 
     const pollSubmission = async () => {
       try {
-        // Add 2 second delay before first fetch
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
         const response = await fetch(`/api/submission?s=${submissionId}`);
         const data = await response.json();
 
@@ -94,94 +97,46 @@ export default function ResultsPage() {
 
         const { submission, template: templateData } = data;
 
-        // Extract user name
-        try {
-          const formData = submission.content?.form_data || {};
-          const name = formData.q26_input26;
-          if (name && typeof name === 'string') {
-            setUserName(name.trim());
-          }
-        } catch (e) {
-          console.error('Error extracting name:', e);
-        }
-
-        // Add CSS and fonts
-        if (templateData) {
-          const globalStyles = `
-            body {
-              background-color: ${templateData.element_styles?.body?.backgroundColor || 'transparent'};
-              margin: 0;
-              padding: 0;
-            }
-            
-            main {
-              background-color: ${templateData.element_styles?.main?.backgroundColor || 'transparent'};
-              padding: 2rem;
-              max-width: 800px;
-              margin: 0 auto;
-            }
-
-            .prose {
-              background-color: ${templateData.element_styles?.prose?.backgroundColor || 'transparent'};
-              padding: 2rem;
-              border-radius: 0.5rem;
-            }
-            
-            ${templateData.css || ''}
-          `;
-
-          const styleSheet = document.createElement('style');
-          styleSheet.textContent = globalStyles;
-          document.head.appendChild(styleSheet);
-
-          // Add custom fonts if they exist
-          if (templateData?.custom_fonts?.length > 0) {
-            const fontFaces = templateData.custom_fonts.map((font: CustomFont) => {
-              const format = font.format === 'ttf' ? 'truetype' : font.format;
-              const fullUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${font.file_path}`;
-              return `
-                @font-face {
-                  font-family: '${font.font_family}';
-                  src: url('${fullUrl}') format('${format}');
-                  font-weight: 400;
-                  font-style: normal;
-                  font-display: swap;
-                }
-              `;
-            }).join('\n');
-
-            const fontStyleSheet = document.createElement('style');
-            fontStyleSheet.textContent = fontFaces;
-            document.head.appendChild(fontStyleSheet);
-          }
-        }
-
-        if (submission.status === 'completed') {
+        // If submission exists and completed/error, process it
+        if (submission?.status === 'completed') {
           setResult(submission.result);
           setStatus('completed');
           setTemplate(templateData);
           setIsLoading(false);
           return; // Stop polling when completed
-        } else if (submission.status === 'error') {
+        } else if (submission?.status === 'error') {
           setError('שגיאה בעיבוד הטופס: ' + (submission.result?.error || 'שגיאה לא ידועה'));
           setStatus('error');
           setIsLoading(false);
           return; // Stop polling on error
+        }
+
+        // If no submission or still processing, retry immediately
+        if (retryCount < maxRetries) {
+          retryCount++;
+          pollSubmission(); // Call immediately without setTimeout
         } else {
-          // Keep polling if still processing
-          timeoutId = setTimeout(pollSubmission, 2000);
+          setError('לא נמצא טופס מתאים');
+          setStatus('error');
+          setIsLoading(false);
         }
       } catch (error) {
-        setError(error instanceof Error ? error.message : 'שגיאה בטעינת הנתונים');
-        setStatus('error');
-        setIsLoading(false);
-        return; // Stop polling on error
+        // On error, retry immediately
+        if (retryCount < maxRetries) {
+          retryCount++;
+          pollSubmission(); // Call immediately without setTimeout
+        } else {
+          setError(error instanceof Error ? error.message : 'שגיאה בטעינת הנתונים');
+          setStatus('error');
+          setIsLoading(false);
+        }
       }
     };
 
+    // Start polling
     pollSubmission();
 
-    // Cleanup function to clear timeout
+    // Cleanup function
     return () => {
       if (timeoutId) {
         clearTimeout(timeoutId);
@@ -219,7 +174,6 @@ export default function ResultsPage() {
           <div className="prose prose-lg max-w-none mb-12">
             {template?.logo && template.element_styles?.header?.showLogo !== false && (
               <div style={{
-                position: 'relative',
                 textAlign: template.element_styles?.header?.logoPosition?.includes('center') ? 'center' : 
                           template.element_styles?.header?.logoPosition?.includes('left') ? 'left' : 'right',
                 margin: template.element_styles?.header?.logoMargin || '1rem'
@@ -227,8 +181,10 @@ export default function ResultsPage() {
                 <img 
                   src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${template.logo.file_path}`}
                   style={{
-                    width: template.element_styles?.header?.logoWidth || '100px',
-                    height: template.element_styles?.header?.logoHeight || 'auto',
+                    height: template.element_styles?.header?.logoHeight || '100px',
+                    width: 'auto',
+                    maxWidth: '100%',
+                    display: 'inline-block'
                   }}
                   alt="Logo"
                 />
@@ -255,7 +211,6 @@ export default function ResultsPage() {
             <div key={index} className={`prose prose-lg max-w-none ${index > 0 ? 'mt-12' : ''}`}>
               {index === 0 && template?.logo && template.element_styles?.header?.showLogo !== false && !template?.opening_page_content && (
                 <div style={{
-                  position: 'relative',
                   textAlign: template.element_styles?.header?.logoPosition?.includes('center') ? 'center' : 
                             template.element_styles?.header?.logoPosition?.includes('left') ? 'left' : 'right',
                   margin: template.element_styles?.header?.logoMargin || '1rem'
@@ -263,8 +218,10 @@ export default function ResultsPage() {
                   <img 
                     src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${template.logo.file_path}`}
                     style={{
-                      width: template.element_styles?.header?.logoWidth || '100px',
-                      height: template.element_styles?.header?.logoHeight || 'auto',
+                      height: template.element_styles?.header?.logoHeight || '100px',
+                      width: 'auto',
+                      maxWidth: '100%',
+                      display: 'inline-block'
                     }}
                     alt="Logo"
                   />
@@ -289,7 +246,6 @@ export default function ResultsPage() {
           <div className="prose prose-lg max-w-none">
             {template?.logo && template.element_styles?.header?.showLogo !== false && !template?.opening_page_content && (
               <div style={{
-                position: 'relative',
                 textAlign: template.element_styles?.header?.logoPosition?.includes('center') ? 'center' : 
                           template.element_styles?.header?.logoPosition?.includes('left') ? 'left' : 'right',
                 margin: template.element_styles?.header?.logoMargin || '1rem'
@@ -297,8 +253,10 @@ export default function ResultsPage() {
                 <img 
                   src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${template.logo.file_path}`}
                   style={{
-                    width: template.element_styles?.header?.logoWidth || '100px',
-                    height: template.element_styles?.header?.logoHeight || 'auto',
+                    height: template.element_styles?.header?.logoHeight || '100px',
+                    width: 'auto',
+                    maxWidth: '100%',
+                    display: 'inline-block'
                   }}
                   alt="Logo"
                 />
@@ -365,45 +323,26 @@ export default function ResultsPage() {
   }
 
   const bodyStyles = {
-    ...template?.element_styles?.body,
-    minHeight: '100vh',
+    backgroundColor: template?.element_styles?.body?.backgroundColor || 'transparent',
+    minHeight: '100vh'
+  };
+
+  const mainStyles = {
+    backgroundColor: template?.element_styles?.main?.backgroundColor || 'transparent',
+    padding: '2rem'
+  };
+
+  const containerStyles = {
+    maxWidth: '800px',
+    backgroundColor: template?.element_styles?.prose?.backgroundColor || 'transparent',
+    padding: '2rem',
+    borderRadius: '0.5rem'
   };
 
   return (
     <div dir="rtl" className="min-h-screen" style={bodyStyles}>
-      {/* Logo Section */}
-      {(() => {
-        console.log('Logo rendering:', {
-          show_logo: template?.show_logo,
-          has_logo: !!template?.logo,
-          logo_position: template?.logo_position,
-          logo_file_path: template?.logo?.file_path
-        });
-        
-        return template?.show_logo && template?.logo && (
-          <div 
-            className={`flex ${getLogoAlignment(template.logo_position || 'top-left')}`}
-            style={{
-              margin: template.element_styles?.header?.logoMargin || '1rem',
-              padding: '1rem',
-              width: '100%'
-            }}
-          >
-            <img
-              src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${template.logo.file_path}`}
-              alt="Logo"
-              style={{
-                width: template.element_styles?.header?.logoWidth || 'auto',
-                height: template.element_styles?.header?.logoHeight || 'auto',
-                maxWidth: '200px'
-              }}
-            />
-          </div>
-        );
-      })()}
-      
-      <main>
-        <div className="container mx-auto">
+      <main style={mainStyles}>
+        <div className="container mx-auto px-4" style={containerStyles}>
           {userName && (
             <h1 style={template?.element_styles?.h1} className="text-3xl font-bold mb-8">
               שלום {userName}
@@ -414,17 +353,4 @@ export default function ResultsPage() {
       </main>
     </div>
   );
-}
-
-function getLogoAlignment(position: string): string {
-  switch (position) {
-    case 'top-left':
-      return 'justify-end';
-    case 'top-right':
-      return 'justify-start';
-    case 'top-center':
-      return 'justify-center';
-    default:
-      return 'justify-end';
-  }
 } 

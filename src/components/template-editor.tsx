@@ -883,6 +883,16 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       .data.publicUrl
   }
 
+  const handleHeaderChange = (prop: keyof ElementStyle, value: any) => {
+    setElementStyles(prev => ({
+      ...prev,
+      header: {
+        ...prev.header,
+        [prop]: value
+      }
+    }))
+  }
+
   return (
     <div className="space-y-6" dir="rtl">
       <div className="space-y-6">
@@ -919,55 +929,35 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                   <input
                     type="checkbox"
                     id="showLogo"
-                    checked={elementStyles.header.showLogo !== false}
-                    onChange={(e) => setElementStyles(prev => ({
-                      ...prev,
-                      header: {
-                        ...prev.header,
-                        showLogo: e.target.checked
-                      }
-                    }))}
-                    className="w-4 h-4"
+                    checked={elementStyles.header?.showLogo ?? true}
+                    onChange={(e) => handleHeaderChange('showLogo', e.target.checked)}
                   />
-                  <label htmlFor="showLogo" className="text-sm">הצג לוגו</label>
+                  <label htmlFor="showLogo">הצג לוגו</label>
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="logoHeight">גובה לוגו</label>
                   <input
-                    type="checkbox"
-                    id="showLogoOnAllPages"
-                    checked={elementStyles.header.showLogoOnAllPages !== false}
-                    onChange={(e) => setElementStyles(prev => ({
-                      ...prev,
-                      header: {
-                        ...prev.header,
-                        showLogoOnAllPages: e.target.checked
-                      }
-                    }))}
-                    className="w-4 h-4"
+                    type="number"
+                    id="logoHeight"
+                    className="border rounded p-2"
+                    value={elementStyles.header?.logoHeight?.replace('px', '') || '100'}
+                    onChange={(e) => handleHeaderChange('logoHeight', `${e.target.value}px`)}
+                    min="20"
+                    max="500"
                   />
-                  <label htmlFor="showLogoOnAllPages" className="text-sm">הצג לוגו בכל העמודים</label>
                 </div>
-                <div className="flex items-center gap-2">
-                  <label htmlFor="logoPosition" className="text-sm">מיקום לוגו:</label>
+
+                <div className="flex flex-col gap-2">
+                  <label>מיקום לוגו</label>
                   <select
-                    id="logoPosition"
-                    value={elementStyles.header.logoPosition || 'top-right'}
-                    onChange={(e) => setElementStyles(prev => ({
-                      ...prev,
-                      header: {
-                        ...prev.header,
-                        logoPosition: e.target.value as ElementStyle['logoPosition']
-                      }
-                    }))}
-                    className="text-sm p-1 border rounded"
-                    disabled={elementStyles.header.showLogo === false}
+                    value={elementStyles.header?.logoPosition || 'right'}
+                    onChange={(e) => handleHeaderChange('logoPosition', e.target.value)}
+                    className="border rounded p-2"
                   >
-                    <option value="top-right">ימין למעלה</option>
-                    <option value="top-center">מרכז למעלה</option>
-                    <option value="top-left">שמאל למעלה</option>
-                    <option value="bottom-right">ימין למטה</option>
-                    <option value="bottom-center">מרכז למטה</option>
-                    <option value="bottom-left">שמאל למטה</option>
+                    <option value="right">ימין</option>
+                    <option value="center">מרכז</option>
+                    <option value="left">שמאל</option>
                   </select>
                 </div>
               </div>
