@@ -216,27 +216,25 @@ export default function ResultsPage() {
     return (
       <div className="my-8 fade-in">
         {template?.opening_page_content && (
-          <ReactMarkdown 
-            className="prose prose-lg max-w-none mb-12"
-            rehypePlugins={[rehypeRaw]}
-            components={{
-              h1: ({ children }) => <h1 style={{ ...template?.element_styles?.h1, marginTop: '2rem', marginBottom: '1rem' }}>{children}</h1>,
-              h2: ({ children }) => <h2 style={{ ...template?.element_styles?.h2, marginTop: '1.5rem', marginBottom: '0.75rem' }}>{children}</h2>,
-              h3: ({ children }) => <h3 style={{ ...template?.element_styles?.h3, marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h3>,
-              p: ({ children }) => <p style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}>{children}</p>,
-              ul: ({ children }) => <ul style={{ ...template?.element_styles?.list, marginLeft: '1.5rem', marginBottom: '1rem' }}>{children}</ul>,
-              li: ({ children }) => <li style={{ marginBottom: '0.5rem' }}>{children}</li>,
-            }}
-          >
-            {processContent(template.opening_page_content)}
-          </ReactMarkdown>
-        )}
-
-        {Array.isArray(result.finalResponse) ? (
-          result.finalResponse.map((content: string, index: number) => (
+          <div className="prose prose-lg max-w-none mb-12">
+            {template?.logo && template.element_styles?.header?.showLogo !== false && (
+              <div style={{
+                position: 'relative',
+                textAlign: template.element_styles?.header?.logoPosition?.includes('center') ? 'center' : 
+                          template.element_styles?.header?.logoPosition?.includes('left') ? 'left' : 'right',
+                margin: template.element_styles?.header?.logoMargin || '1rem'
+              }}>
+                <img 
+                  src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${template.logo.file_path}`}
+                  style={{
+                    width: template.element_styles?.header?.logoWidth || '100px',
+                    height: template.element_styles?.header?.logoHeight || 'auto',
+                  }}
+                  alt="Logo"
+                />
+              </div>
+            )}
             <ReactMarkdown 
-              key={index}
-              className={`prose prose-lg max-w-none ${index > 0 ? 'mt-12' : ''}`}
               rehypePlugins={[rehypeRaw]}
               components={{
                 h1: ({ children }) => <h1 style={{ ...template?.element_styles?.h1, marginTop: '2rem', marginBottom: '1rem' }}>{children}</h1>,
@@ -247,24 +245,79 @@ export default function ResultsPage() {
                 li: ({ children }) => <li style={{ marginBottom: '0.5rem' }}>{children}</li>,
               }}
             >
-              {processContent(content)}
+              {processContent(template.opening_page_content)}
             </ReactMarkdown>
+          </div>
+        )}
+
+        {Array.isArray(result.finalResponse) ? (
+          result.finalResponse.map((content: string, index: number) => (
+            <div key={index} className={`prose prose-lg max-w-none ${index > 0 ? 'mt-12' : ''}`}>
+              {index === 0 && template?.logo && template.element_styles?.header?.showLogo !== false && !template?.opening_page_content && (
+                <div style={{
+                  position: 'relative',
+                  textAlign: template.element_styles?.header?.logoPosition?.includes('center') ? 'center' : 
+                            template.element_styles?.header?.logoPosition?.includes('left') ? 'left' : 'right',
+                  margin: template.element_styles?.header?.logoMargin || '1rem'
+                }}>
+                  <img 
+                    src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${template.logo.file_path}`}
+                    style={{
+                      width: template.element_styles?.header?.logoWidth || '100px',
+                      height: template.element_styles?.header?.logoHeight || 'auto',
+                    }}
+                    alt="Logo"
+                  />
+                </div>
+              )}
+              <ReactMarkdown 
+                rehypePlugins={[rehypeRaw]}
+                components={{
+                  h1: ({ children }) => <h1 style={{ ...template?.element_styles?.h1, marginTop: '2rem', marginBottom: '1rem' }}>{children}</h1>,
+                  h2: ({ children }) => <h2 style={{ ...template?.element_styles?.h2, marginTop: '1.5rem', marginBottom: '0.75rem' }}>{children}</h2>,
+                  h3: ({ children }) => <h3 style={{ ...template?.element_styles?.h3, marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h3>,
+                  p: ({ children }) => <p style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}>{children}</p>,
+                  ul: ({ children }) => <ul style={{ ...template?.element_styles?.list, marginLeft: '1.5rem', marginBottom: '1rem' }}>{children}</ul>,
+                  li: ({ children }) => <li style={{ marginBottom: '0.5rem' }}>{children}</li>,
+                }}
+              >
+                {processContent(content)}
+              </ReactMarkdown>
+            </div>
           ))
         ) : (
-          <ReactMarkdown 
-            className="prose prose-lg max-w-none"
-            rehypePlugins={[rehypeRaw]}
-            components={{
-              h1: ({ children }) => <h1 style={{ ...template?.element_styles?.h1, marginTop: '2rem', marginBottom: '1rem' }}>{children}</h1>,
-              h2: ({ children }) => <h2 style={{ ...template?.element_styles?.h2, marginTop: '1.5rem', marginBottom: '0.75rem' }}>{children}</h2>,
-              h3: ({ children }) => <h3 style={{ ...template?.element_styles?.h3, marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h3>,
-              p: ({ children }) => <p style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}>{children}</p>,
-              ul: ({ children }) => <ul style={{ ...template?.element_styles?.list, marginLeft: '1.5rem', marginBottom: '1rem' }}>{children}</ul>,
-              li: ({ children }) => <li style={{ marginBottom: '0.5rem' }}>{children}</li>,
-            }}
-          >
-            {processContent(result.finalResponse)}
-          </ReactMarkdown>
+          <div className="prose prose-lg max-w-none">
+            {template?.logo && template.element_styles?.header?.showLogo !== false && !template?.opening_page_content && (
+              <div style={{
+                position: 'relative',
+                textAlign: template.element_styles?.header?.logoPosition?.includes('center') ? 'center' : 
+                          template.element_styles?.header?.logoPosition?.includes('left') ? 'left' : 'right',
+                margin: template.element_styles?.header?.logoMargin || '1rem'
+              }}>
+                <img 
+                  src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${template.logo.file_path}`}
+                  style={{
+                    width: template.element_styles?.header?.logoWidth || '100px',
+                    height: template.element_styles?.header?.logoHeight || 'auto',
+                  }}
+                  alt="Logo"
+                />
+              </div>
+            )}
+            <ReactMarkdown 
+              rehypePlugins={[rehypeRaw]}
+              components={{
+                h1: ({ children }) => <h1 style={{ ...template?.element_styles?.h1, marginTop: '2rem', marginBottom: '1rem' }}>{children}</h1>,
+                h2: ({ children }) => <h2 style={{ ...template?.element_styles?.h2, marginTop: '1.5rem', marginBottom: '0.75rem' }}>{children}</h2>,
+                h3: ({ children }) => <h3 style={{ ...template?.element_styles?.h3, marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h3>,
+                p: ({ children }) => <p style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}>{children}</p>,
+                ul: ({ children }) => <ul style={{ ...template?.element_styles?.list, marginLeft: '1.5rem', marginBottom: '1rem' }}>{children}</ul>,
+                li: ({ children }) => <li style={{ marginBottom: '0.5rem' }}>{children}</li>,
+              }}
+            >
+              {processContent(result.finalResponse)}
+            </ReactMarkdown>
+          </div>
         )}
 
         {template?.closing_page_content && (
