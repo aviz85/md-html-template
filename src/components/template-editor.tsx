@@ -32,6 +32,7 @@ import { Label } from "@/components/ui/label"
 import { Trash2 } from "lucide-react"
 import { ImageIcon } from "lucide-react"
 import { ElementStyle } from "@/types"
+import { ColorPicker } from "@/components/ui/color-picker"
 
 type ElementType = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "list" | "p" | "specialParagraph" | "header" | "footer" | "main" | "prose"
 
@@ -1078,46 +1079,35 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
         <div className="grid grid-cols-4 gap-4">
           {Object.entries(colors).map(([key, value]) => (
-            <div key={key}>
-              <label className="text-sm font-medium">{key}</label>
-              <Input
-                type="color"
-                value={value}
-                onChange={(e) => setColors(prev => ({ ...prev, [key]: e.target.value }))}
-                dir="ltr"
-              />
-            </div>
+            <ColorPicker
+              key={key}
+              id={key}
+              label={key}
+              value={value}
+              onChange={(newValue) => setColors(prev => ({ ...prev, [key]: newValue || '#ffffff' }))}
+            />
           ))}
         </div>
 
         <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className="text-sm font-medium">צבע רקע כללי</label>
-            <Input
-              type="color"
-              value={styles?.bodyBackground || '#ffffff'}
-              onChange={(e) => setStyles(prev => ({ ...prev, bodyBackground: e.target.value }))}
-              dir="ltr"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium">צבע רקע אזור ראשי</label>
-            <Input
-              type="color"
-              value={styles?.mainBackground || '#ffffff'}
-              onChange={(e) => setStyles(prev => ({ ...prev, mainBackground: e.target.value }))}
-              dir="ltr"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium">צבע רקע אזור תוכן</label>
-            <Input
-              type="color"
-              value={styles?.contentBackground || '#ffffff'}
-              onChange={(e) => setStyles(prev => ({ ...prev, contentBackground: e.target.value }))}
-              dir="ltr"
-            />
-          </div>
+          <ColorPicker
+            id="bodyBackground"
+            label="צבע רקע כללי"
+            value={styles?.bodyBackground}
+            onChange={(value) => setStyles(prev => ({ ...prev, bodyBackground: value }))}
+          />
+          <ColorPicker
+            id="mainBackground"
+            label="צבע רקע אזור ראשי"
+            value={styles?.mainBackground}
+            onChange={(value) => setStyles(prev => ({ ...prev, mainBackground: value }))}
+          />
+          <ColorPicker
+            id="contentBackground"
+            label="צבע רקע אזור תוכן"
+            value={styles?.contentBackground}
+            onChange={(value) => setStyles(prev => ({ ...prev, contentBackground: value }))}
+          />
         </div>
       </div>
 

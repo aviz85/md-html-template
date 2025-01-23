@@ -25,6 +25,7 @@ import {
 import { Upload } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { ElementStyle } from "@/types"
+import { ColorPicker } from "@/components/ui/color-picker"
 
 const HEBREW_FONTS = [
   { name: "ברירת מחדל", value: "inherit" },
@@ -73,6 +74,13 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
     onChange({ 
       ...style, 
       [key]: value || undefined
+    })
+  }
+
+  const handleColorChange = (key: keyof ElementStyle) => (value: string | undefined) => {
+    onChange({
+      ...style,
+      [key]: value
     })
   }
 
@@ -136,59 +144,6 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
       setIsUploading(false)
     }
   }
-
-  const ColorPicker = ({ id, label, value, onChange }: { 
-    id: string
-    label: string
-    value: string
-    onChange: (value: string) => void 
-  }) => (
-    <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
-      <div className="flex gap-2">
-        <Input
-          id={id}
-          type="color"
-          value={value || "#000000"}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-[100px]"
-          dir="ltr"
-        />
-        <Input
-          type="text"
-          value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="#000000"
-          className="font-mono"
-          dir="ltr"
-        />
-        {id === "backgroundColor" && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onChange("")}
-            className="whitespace-nowrap"
-          >
-            {TRANSLATIONS.none}
-          </Button>
-        )}
-      </div>
-      {templateColors && (
-        <div className="flex gap-2 mt-2">
-          {Object.entries(templateColors).map(([key, color]) => (
-            <Button
-              key={key}
-              variant="outline"
-              size="sm"
-              className="w-8 h-8 p-0"
-              style={{ backgroundColor: color }}
-              onClick={() => onChange(color)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )
 
   // Logo style handler
   const handleLogoStyleChange = (key: keyof ElementStyle, value: string) => {
@@ -263,14 +218,14 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
           <ColorPicker
             id="color"
             label={TRANSLATIONS.color}
-            value={style.color || ""}
-            onChange={(value) => onChange({ ...style, color: value })}
+            value={style.color}
+            onChange={(value) => handleColorChange('color')(value)}
           />
           <ColorPicker
             id="backgroundColor"
-            label={TRANSLATIONS.background}
-            value={style.backgroundColor || ""}
-            onChange={(value) => onChange({ ...style, backgroundColor: value })}
+            label={TRANSLATIONS.backgroundColor}
+            value={style.backgroundColor}
+            onChange={(value) => handleColorChange('backgroundColor')(value)}
           />
         </div>
         <div className="grid grid-cols-2 gap-4">

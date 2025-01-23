@@ -46,6 +46,10 @@ export async function GET(request: Request) {
 
   try {
     console.log('Making Supabase query for submission...');
+    
+    // Add 2 second delay before fetching submission
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
     // Get submission
     const { data: submission, error: submissionError } = await supabase
       .from('form_submissions')

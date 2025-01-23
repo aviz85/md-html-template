@@ -82,6 +82,9 @@ export default function ResultsPage() {
 
     const pollSubmission = async () => {
       try {
+        // Add 2 second delay before first fetch
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
         const response = await fetch(`/api/submission?s=${submissionId}`);
         const data = await response.json();
 
@@ -106,20 +109,20 @@ export default function ResultsPage() {
         if (templateData) {
           const globalStyles = `
             body {
-              background-color: ${templateData.element_styles?.body?.backgroundColor || '#ffffff'};
+              background-color: ${templateData.element_styles?.body?.backgroundColor || 'transparent'};
               margin: 0;
               padding: 0;
             }
             
             main {
-              background-color: ${templateData.element_styles?.main?.backgroundColor || '#ffffff'};
+              background-color: ${templateData.element_styles?.main?.backgroundColor || 'transparent'};
               padding: 2rem;
               max-width: 800px;
               margin: 0 auto;
             }
 
             .prose {
-              background-color: ${templateData.element_styles?.prose?.backgroundColor || '#ffffff'};
+              background-color: ${templateData.element_styles?.prose?.backgroundColor || 'transparent'};
               padding: 2rem;
               border-radius: 0.5rem;
             }

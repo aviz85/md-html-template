@@ -93,5 +93,6 @@ export const TRANSLATIONS = {
   text-transform: uppercase;
   font-size: 18px;  /* יעקוף את הגדרת גודל הגופן שנקבעה למעלה */
   color: var(--color4);  /* יעקוף את הגדרת הצבע שנקבעה למעלה */
-*/`
+*/`,
+  backgroundColor: "צבע רקע"
 } as const; 
