@@ -31,7 +31,7 @@ import { Upload } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Trash2 } from "lucide-react"
 import { ImageIcon } from "lucide-react"
-import { ElementStyle } from "@/types"
+import { ElementStyle, LogoPosition } from "@/types"
 import { ColorPicker } from "@/components/ui/color-picker"
 
 type ElementType = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "list" | "p" | "specialParagraph" | "header" | "footer" | "main" | "prose"
@@ -141,25 +141,26 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     color4: "#666666"
   })
   const [elementStyles, setElementStyles] = useState<Template["elementStyles"]>({
-    body: { backgroundColor: '#ffffff' },
+    body: {},
     h1: {},
     h2: {},
     h3: {},
     h4: {},
     h5: {},
     h6: {},
-    list: {},
     p: {},
+    list: {},
     specialParagraph: {},
     header: {
+      showLogo: true,
       logoWidth: '100px',
       logoHeight: 'auto',
+      logoMargin: '1rem',
       logoPosition: 'top-right',
-      logoMargin: '1rem'
     },
     footer: {},
-    main: { backgroundColor: '#ffffff' },
-    prose: { backgroundColor: '#ffffff' }
+    main: {},
+    prose: {}
   })
   const [sidebarWidth, setSidebarWidth] = useState(200)
   const [openingPageContent, setOpeningPageContent] = useState("")
@@ -884,13 +885,25 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   }
 
   const handleHeaderChange = (prop: keyof ElementStyle, value: any) => {
+    if (prop === 'logoPosition' && typeof value === 'string') {
+      const position = value as LogoPosition;
+      setElementStyles(prev => ({
+        ...prev,
+        header: {
+          ...prev.header,
+          logoPosition: position
+        }
+      }));
+      return;
+    }
+    
     setElementStyles(prev => ({
       ...prev,
       header: {
         ...prev.header,
         [prop]: value
       }
-    }))
+    }));
   }
 
   return (
@@ -951,13 +964,16 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                 <div className="flex flex-col gap-2">
                   <label>מיקום לוגו</label>
                   <select
-                    value={elementStyles.header?.logoPosition || 'right'}
+                    value={elementStyles.header?.logoPosition || 'top-right'}
                     onChange={(e) => handleHeaderChange('logoPosition', e.target.value)}
                     className="border rounded p-2"
                   >
-                    <option value="right">ימין</option>
-                    <option value="center">מרכז</option>
-                    <option value="left">שמאל</option>
+                    <option value="top-right">ימין למעלה</option>
+                    <option value="top-center">מרכז למעלה</option>
+                    <option value="top-left">שמאל למעלה</option>
+                    <option value="bottom-right">ימין למטה</option>
+                    <option value="bottom-center">מרכז למטה</option>
+                    <option value="bottom-left">שמאל למטה</option>
                   </select>
                 </div>
               </div>

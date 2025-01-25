@@ -1,3 +1,5 @@
+export type LogoPosition = 'top-right' | 'top-center' | 'top-left' | 'bottom-right' | 'bottom-center' | 'bottom-left';
+
 export interface ElementStyle {
   // Base styles
   color?: string;
@@ -5,7 +7,7 @@ export interface ElementStyle {
   fontSize?: string;
   fontWeight?: string;
   fontFamily?: string;
-  textAlign?: 'right' | 'left' | 'center' | 'justify';
+  textAlign?: 'left' | 'center' | 'right';
   lineHeight?: string;
   margin?: string;
   padding?: string;
@@ -25,7 +27,7 @@ export interface ElementStyle {
   // Logo styles
   logoWidth?: string;
   logoHeight?: string;
-  logoPosition?: 'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
+  logoPosition?: LogoPosition;
   logoMargin?: string;
   showLogo?: boolean;
   showLogoOnAllPages?: boolean;
