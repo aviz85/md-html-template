@@ -210,7 +210,7 @@ export default function ResultsPage() {
           setProgress(submission.progress);
         }
 
-        // If we haven't found the submission yet, use retry logic
+        // If we haven't found the submission yet, use retry logic with delay
         if (!foundSubmission) {
           if (retryCount < maxRetries && shouldContinuePolling && isMounted.current) {
             retryCount++;
@@ -226,10 +226,10 @@ export default function ResultsPage() {
             setIsLoading(false);
           }
         } else {
-          // Regular polling every 3 seconds once we've found the submission
+          // No delay when submission is found - poll immediately
           if (shouldContinuePolling && isMounted.current) {
-            console.log('Scheduling next poll in 3000ms (regular polling)');
-            timeoutId = setTimeout(pollSubmission, 3000);
+            console.log('Polling immediately (submission found)');
+            pollSubmission();
           }
         }
       } catch (error) {
@@ -237,7 +237,7 @@ export default function ResultsPage() {
         
         console.log('Poll attempt error:', error);
         if (!foundSubmission) {
-          // Only use retry logic if we haven't found the submission yet
+          // Only use retry delay logic if we haven't found the submission yet
           if (retryCount < maxRetries && shouldContinuePolling) {
             retryCount++;
             setRetryAttempt(retryCount);
@@ -252,10 +252,10 @@ export default function ResultsPage() {
             setIsLoading(false);
           }
         } else {
-          // Regular polling retry if we've already found the submission
+          // No delay when submission is found - poll immediately even after error
           if (shouldContinuePolling) {
-            console.log('Scheduling next poll after error in 3000ms (regular polling)');
-            timeoutId = setTimeout(pollSubmission, 3000);
+            console.log('Polling immediately after error (submission found)');
+            pollSubmission();
           }
         }
       }
