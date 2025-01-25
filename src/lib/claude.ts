@@ -316,8 +316,12 @@ export async function processSubmission(submissionId: string) {
 
     console.log('🔄 About to fetch prompts for form_id:', submission.form_id);
     
-    // Get prompts
+    // Get prompts with validation
     const prompts = await getPrompts(submission.form_id, submissionId);
+    
+    if (!prompts || !Array.isArray(prompts) || prompts.length === 0) {
+      throw new Error('Failed to get valid prompts array');
+    }
     
     console.log('📝 Received prompts:', {
       count: prompts.length,
@@ -361,7 +365,7 @@ export async function processSubmission(submissionId: string) {
     let claudeResponses = [];
 
     // First Claude call with retry
-    let msg = await retryWithExponentialBackoff(async () => {
+    msg = await retryWithExponentialBackoff(async () => {
       await updateProgress(
         submissionId, 
         'claude', 
@@ -384,8 +388,13 @@ export async function processSubmission(submissionId: string) {
     claudeResponses.push(msg);
     totalTokens += estimateTokens(firstResponse);
 
-    // Process remaining prompts
+    // Process remaining prompts with validation
     for (let i = 1; i < prompts.length; i++) {
+      if (!prompts[i]) {
+        console.warn(`Skipping undefined prompt at index ${i}`);
+        continue;
+      }
+
       await updateProgress(
         submissionId, 
         'claude', 
