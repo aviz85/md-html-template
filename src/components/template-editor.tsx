@@ -201,6 +201,11 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const [recentSubmissions, setRecentSubmissions] = useState<SubmissionStatus[]>([])
   const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false)
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionStatus | null>(null)
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false)
+  const [mediaFiles, setMediaFiles] = useState<FileList | null>(null)
+  const [uploadedMediaUrls, setUploadedMediaUrls] = useState<string[]>([])
+  const [isMediaUploading, setIsMediaUploading] = useState(false)
+  const [showMediaInstructions, setShowMediaInstructions] = useState(false)
 
   useEffect(() => {
     if (templateId) {
@@ -945,13 +950,12 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     console.log('Fetching recent submissions');
     setIsLoadingSubmissions(true);
     try {
-      const response = await fetch('/api/jotform-results');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/jotform-results`);
       if (!response.ok) {
         throw new Error('Failed to fetch submissions');
       }
       const data = await response.json();
       console.log('Fetched submissions:', data);
-      // Ensure we have an array
       const submissions = Array.isArray(data) ? data : data.submissions || [];
       setRecentSubmissions(submissions);
     } catch (error) {
@@ -987,6 +991,65 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         )}
       </div>
     );
+  };
+
+  const handleMediaUpload = async () => {
+    if (!mediaFiles || !templateId) {
+      toast({
+        variant: "destructive",
+        title: "שגיאה",
+        description: "נא לבחור קבצים להעלאה"
+      });
+      return;
+    }
+
+    setIsMediaUploading(true);
+    const urls: string[] = [];
+
+    try {
+      for (let i = 0; i < mediaFiles.length; i++) {
+        const file = mediaFiles[i];
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('templateId', templateId);
+
+        const response = await fetch('/api/media', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to upload ${file.name}`);
+        }
+
+        const { filePath } = await response.json();
+        const publicUrl = supabase.storage
+          .from('storage')
+          .getPublicUrl(filePath)
+          .data.publicUrl;
+        
+        urls.push(publicUrl);
+      }
+
+      setUploadedMediaUrls(urls);
+      setShowMediaInstructions(true);
+      setIsMediaModalOpen(false);
+      
+      toast({
+        title: "הצלחה",
+        description: `${urls.length} קבצים הועלו בהצלחה`
+      });
+    } catch (error) {
+      console.error('Error uploading media:', error);
+      toast({
+        variant: "destructive",
+        title: "שגיאה",
+        description: "שגיאה בהעלאת הקבצים"
+      });
+    } finally {
+      setIsMediaUploading(false);
+      setMediaFiles(null);
+    }
   };
 
   return (
@@ -1210,30 +1273,42 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         </TabsList>
 
         <TabsContent value="content">
-          <Textarea
-            placeholder={TRANSLATIONS.enterMarkdownContent}
-            value={mdContent}
-            onChange={(e) => setMdContent(e.target.value)}
-            className="min-h-[300px]"
-          />
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button onClick={handlePreview} className="w-full">{TRANSLATIONS.preview}</Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-[90vw] max-h-[90vh]">
-              <DialogHeader>
-                <DialogTitle>{TRANSLATIONS.preview}</DialogTitle>
-                <DialogDescription>{TRANSLATIONS.previewDescription}</DialogDescription>
-              </DialogHeader>
-              <div className="mt-4 overflow-auto max-h-[70vh]">
-                <iframe
-                  srcDoc={previewHtml}
-                  className="w-full h-[60vh] border rounded"
-                  title={TRANSLATIONS.preview}
-                />
-              </div>
-            </DialogContent>
-          </Dialog>
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsMediaModalOpen(true)}
+                className="mb-2"
+              >
+                <Upload className="h-4 w-4 ml-2" />
+                העלאת מדיה
+              </Button>
+            </div>
+            <Textarea
+              placeholder={TRANSLATIONS.enterMarkdownContent}
+              value={mdContent}
+              onChange={(e) => setMdContent(e.target.value)}
+              className="min-h-[300px]"
+            />
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button onClick={handlePreview} className="w-full">{TRANSLATIONS.preview}</Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-[90vw] max-h-[90vh]">
+                <DialogHeader>
+                  <DialogTitle>{TRANSLATIONS.preview}</DialogTitle>
+                  <DialogDescription>{TRANSLATIONS.previewDescription}</DialogDescription>
+                </DialogHeader>
+                <div className="mt-4 overflow-auto max-h-[70vh]">
+                  <iframe
+                    srcDoc={previewHtml}
+                    className="w-full h-[60vh] border rounded"
+                    title={TRANSLATIONS.preview}
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </TabsContent>
 
         <TabsContent value="microCopy">
@@ -1630,6 +1705,62 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isMediaModalOpen} onOpenChange={setIsMediaModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>העלאת מדיה</DialogTitle>
+            <DialogDescription>בחר תמונות להעלאה</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label>קבצי מדיה</Label>
+              <Input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => setMediaFiles(e.target.files)}
+              />
+            </div>
+            <div className="flex justify-end">
+              <Button 
+                onClick={handleMediaUpload}
+                disabled={!mediaFiles || isMediaUploading}
+              >
+                {isMediaUploading ? 'מעלה...' : 'העלאה'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showMediaInstructions} onOpenChange={setShowMediaInstructions}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>הקבצים הועלו בהצלחה!</DialogTitle>
+            <DialogDescription>כך תוכל להשתמש בקבצים בתוכן:</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="bg-muted p-4 rounded-lg">
+              <p className="font-bold mb-2">הוראות שימוש:</p>
+              <p>להוספת תמונה לתוכן, העתק את אחת מהשורות הבאות והדבק במקום הרצוי:</p>
+              <div className="mt-4 space-y-4">
+                {uploadedMediaUrls.map((url, index) => (
+                  <div key={index} className="space-y-2">
+                    <p className="font-bold text-sm">קובץ {index + 1}:</p>
+                    <pre className="bg-background p-2 rounded text-sm overflow-x-auto">
+                      ![תמונה {index + 1}]({url})
+                    </pre>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4">
+                <p className="text-sm text-muted-foreground">טיפ: אתה יכול לשנות את הטקסט "תמונה {uploadedMediaUrls.length}" לכל תיאור שתרצה</p>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
