@@ -26,18 +26,45 @@ export async function POST(request: Request) {
     }
 
     // Create new template
-    const { id, ...templateWithoutId } = template
+    const { id: oldId, ...templateWithoutId } = template
     const newTemplate = {
       ...templateWithoutId,
       name: `${template.name} - ${TRANSLATIONS.copy}${copyNumber}`,
-      template_gsheets_id: undefined
+      template_gsheets_id: undefined,
+      form_id: undefined
     }
 
-    const { error: insertError } = await supabaseAdmin
+    // Insert new template and get its ID
+    const { data: insertedTemplate, error: insertError } = await supabaseAdmin
       .from('templates')
       .insert(newTemplate)
+      .select()
+      .single()
 
     if (insertError) throw insertError
+
+    // Get template contents
+    const { data: templateContents, error: contentsError } = await supabaseAdmin
+      .from('template_contents')
+      .select('content_name, md_content')
+      .eq('template_id', oldId)
+
+    if (contentsError) throw contentsError
+
+    // Copy template contents if they exist
+    if (templateContents && templateContents.length > 0) {
+      const newContents = templateContents.map(content => ({
+        template_id: insertedTemplate.id,
+        content_name: content.content_name,
+        md_content: content.md_content
+      }))
+
+      const { error: copyError } = await supabaseAdmin
+        .from('template_contents')
+        .insert(newContents)
+
+      if (copyError) throw copyError
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
