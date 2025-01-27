@@ -67,6 +67,9 @@ interface Template {
     mainBackground?: string
     contentBackground?: string
   }
+  email_subject?: string
+  email_body?: string
+  email_from?: string
 }
 
 interface TemplateEditorProps {
@@ -174,6 +177,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     mainBackground: '#ffffff',
     contentBackground: '#ffffff'
   })
+  const [emailSubject, setEmailSubject] = useState("")
+  const [emailBody, setEmailBody] = useState("")
+  const [emailFrom, setEmailFrom] = useState("")
 
   useEffect(() => {
     if (templateId) {
@@ -453,6 +459,10 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         mainBackground: template.element_styles?.main?.backgroundColor || '#ffffff',
         contentBackground: template.element_styles?.prose?.backgroundColor || '#ffffff'
       })
+
+      setEmailSubject(template.email_subject || "")
+      setEmailBody(template.email_body || "")
+      setEmailFrom(template.email_from || "")
     }
   }
 
@@ -569,7 +579,10 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           show_logo: elementStyles.header.showLogo !== false,
           show_logo_on_all_pages: elementStyles.header.showLogoOnAllPages !== false,
           logo_position: elementStyles.header.logoPosition || 'top-right',
-          form_id: formId
+          form_id: formId,
+          email_subject: emailSubject,
+          email_body: emailBody,
+          email_from: emailFrom,
         })
         .select()
         .single()
@@ -1119,6 +1132,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           <TabsTrigger value="content">{TRANSLATIONS.content}</TabsTrigger>
           <TabsTrigger value="microCopy">{TRANSLATIONS.microCopy}</TabsTrigger>
           <TabsTrigger value="styles">{TRANSLATIONS.styles}</TabsTrigger>
+          <TabsTrigger value="email">מיקרוקופי</TabsTrigger>
         </TabsList>
 
         <TabsContent value="content">
@@ -1302,6 +1316,77 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                 templateColors={colors}
                 customFonts={customFonts}
               />
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="email" className="flex-1">
+          <div className="space-y-4 p-4">
+            <div className="bg-muted p-4 rounded-lg mb-4 text-right space-y-4">
+              <div>
+                <h3 className="font-bold mb-2">הסבר על שימוש במשתנים בתבנית המייל:</h3>
+                <p>ניתן להשתמש במשתנים מהטופס על ידי שימוש בתחביר הבא: {'{{שם_השדה}}'}</p>
+                <p>דוגמאות:</p>
+                <ul className="list-disc list-inside mr-4">
+                  <li>{'{{name}}'} - שם המשתמש</li>
+                  <li>{'{{email}}'} - כתובת המייל</li>
+                  <li>{'{{form.field_name}}'} - גישה לשדה ספציפי מהטופס</li>
+                  <li>{'{{submission.created_at}}'} - תאריך שליחת הטופס</li>
+                </ul>
+              </div>
+
+              <div className="border-t border-border/40 pt-4">
+                <h3 className="font-bold mb-2">שימוש בתנאים (למשל עבור פנייה בזכר/נקבה):</h3>
+                <p>ניתן להשתמש בתנאים בתבנית המייל בצורה הבאה:</p>
+                <div className="bg-background p-3 rounded mt-2 text-sm font-mono" dir="ltr">
+                  {'{{if gender === \'male\'}}\n  שלום מר {{lastName}}\n{{else}}\n  שלום גברת {{lastName}}\n{{endif}}'}
+                </div>
+                
+                <p className="mt-3">דוגמה נוספת עם תנאים מקוננים:</p>
+                <div className="bg-background p-3 rounded mt-2 text-sm font-mono" dir="ltr">
+                  {'{{if gender === \'male\'}}\n  ברוך הבא\n  {{if role === \'student\'}}\n    התלמיד\n  {{else}}\n    המורה\n  {{endif}}\n{{else}}\n  ברוכה הבאה\n  {{if role === \'student\'}}\n    התלמידה\n  {{else}}\n    המורה\n  {{endif}}\n{{endif}}'}
+                </div>
+
+                <ul className="list-disc list-inside mr-4 mt-3">
+                  <li>התנאים תומכים בהשוואה מדויקת בלבד (===)</li>
+                  <li>ניתן לקנן תנאים אחד בתוך השני</li>
+                  <li>חובה לסיים כל תנאי עם endif</li>
+                  <li>חובה לכלול else גם אם אין צורך בו (השאר ריק במקרה כזה)</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <Label>כתובת שולח המייל</Label>
+                <Input
+                  value={emailFrom}
+                  onChange={(e) => setEmailFrom(e.target.value)}
+                  placeholder="noreply@yourdomain.com"
+                  dir="ltr"
+                />
+              </div>
+              
+              <div>
+                <Label>נושא המייל</Label>
+                <Input
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder="תודה על הפנייה שלך"
+                  dir="rtl"
+                />
+              </div>
+              
+              <div>
+                <Label>תוכן המייל (HTML)</Label>
+                <Textarea
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  placeholder={'<div dir="rtl">\n  {{if gender === \'male\'}}\n    שלום מר {{lastName}},\n  {{else}}\n    שלום גברת {{lastName}},\n  {{endif}}\n\n  תודה על פנייתך.\n  נחזור אליך בהקדם.\n\n  בברכה,\n  הצוות\n</div>'}
+                  className="min-h-[300px] font-mono"
+                  dir="ltr"
+                />
+              </div>
             </div>
           </div>
         </TabsContent>

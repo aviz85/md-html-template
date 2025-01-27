@@ -2,6 +2,7 @@ import { processSubmission } from '@/lib/claude'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { findEmailInFormData, replaceVariables, sendEmail } from '@/lib/email'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -49,6 +50,44 @@ export async function GET(request: Request) {
 
         // If we found the submission, process it
         const result = await processSubmission(submissionId);
+
+        // After processing submission
+        const { data: template } = await supabaseAdmin
+          .from('templates')
+          .select('*')
+          .eq('id', submission.template_id)
+          .single();
+
+        if (template?.email_body && template?.email_subject && template?.email_from) {
+          const recipientEmail = findEmailInFormData(submission.form_data);
+          
+          if (recipientEmail) {
+            const emailHtml = replaceVariables(template.email_body, {
+              ...submission.form_data,
+              submission: {
+                created_at: submission.created_at,
+                id: submission.id
+              }
+            });
+
+            const emailSubject = replaceVariables(template.email_subject, {
+              ...submission.form_data,
+              submission: {
+                created_at: submission.created_at,
+                id: submission.id
+              }
+            });
+
+            await sendEmail({
+              to: recipientEmail,
+              from: template.email_from,
+              subject: emailSubject,
+              html: emailHtml,
+              submissionId: submission.id
+            });
+          }
+        }
+
         return NextResponse.json({ success: true, result });
       } catch (error) {
         lastError = error;
