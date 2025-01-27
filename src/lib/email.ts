@@ -44,11 +44,19 @@ export const findEmailInFormData = (formData: any): string | null => {
 };
 
 export const replaceVariables = (template: string, data: any): string => {
+  // Add submission and form data with clean references
+  const cleanData = {
+    ...data,
+    id: data.submission?.id,
+    form_id: data.submission?.form_id,
+    created_at: data.submission?.created_at,
+  };
+
   // First handle conditionals
   template = template.replace(/\{\{if\s+([^}]+)\}\}(.*?)\{\{else\}\}(.*?)\{\{endif\}\}/g, (match, condition, ifContent, elseContent) => {
     try {
       const [field, value] = condition.split('===').map((s: string) => s.trim());
-      const fieldValue = field.split('.').reduce((obj: any, key: string) => obj?.[key], data);
+      const fieldValue = field.split('.').reduce((obj: any, key: string) => obj?.[key], cleanData);
       return fieldValue === value.replace(/['"]/g, '') ? ifContent : elseContent;
     } catch (error) {
       console.error('Error processing condition:', error);
@@ -59,7 +67,7 @@ export const replaceVariables = (template: string, data: any): string => {
   // Then handle simple variables
   return template.replace(/\{\{(.*?)\}\}/g, (match, key) => {
     const path = key.trim().split('.');
-    let value = data;
+    let value = cleanData;
     for (const segment of path) {
       value = value?.[segment];
       if (value === undefined) return match;

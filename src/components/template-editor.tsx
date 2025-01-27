@@ -1332,7 +1332,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                   <li>{'{{email}}'} - כתובת המייל</li>
                   <li>{'{{gender}}'} - מגדר</li>
                   <li>{'{{phone}}'} - טלפון</li>
-                  <li>{'{{submission.created_at}}'} - תאריך שליחת הטופס</li>
+                  <li>{'{{id}}'} - מזהה הפנייה</li>
+                  <li>{'{{form_id}}'} - מזהה הטופס</li>
+                  <li>{'{{created_at}}'} - תאריך שליחת הטופס</li>
                 </ul>
                 <div className="bg-background p-3 rounded mt-2 text-sm">
                   <p className="font-bold mb-1">דוגמאות לשימוש בנושא המייל:</p>
