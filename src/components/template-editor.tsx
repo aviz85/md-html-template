@@ -1128,11 +1128,11 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       </div>
 
       <Tabs defaultValue="content" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="content">{TRANSLATIONS.content}</TabsTrigger>
           <TabsTrigger value="microCopy">{TRANSLATIONS.microCopy}</TabsTrigger>
           <TabsTrigger value="styles">{TRANSLATIONS.styles}</TabsTrigger>
-          <TabsTrigger value="email">מיקרוקופי</TabsTrigger>
+          <TabsTrigger value="email">תבנית מייל</TabsTrigger>
         </TabsList>
 
         <TabsContent value="content">
@@ -1325,19 +1325,28 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             <div className="bg-muted p-4 rounded-lg mb-4 text-right space-y-4">
               <div>
                 <h3 className="font-bold mb-2">הסבר על שימוש במשתנים בתבנית המייל:</h3>
-                <p>ניתן להשתמש במשתנים מהטופס על ידי שימוש בתחביר הבא: {'{{שם_השדה}}'}</p>
-                <p>דוגמאות:</p>
+                <p>ניתן להשתמש במשתנים מהטופס בנושא המייל ובתוכן המייל על ידי שימוש בתחביר הבא: {'{{שם_השדה}}'}</p>
+                <p className="mt-2">דוגמאות לשימוש בשדות:</p>
                 <ul className="list-disc list-inside mr-4">
                   <li>{'{{name}}'} - שם המשתמש</li>
                   <li>{'{{email}}'} - כתובת המייל</li>
-                  <li>{'{{form.field_name}}'} - גישה לשדה ספציפי מהטופס</li>
+                  <li>{'{{gender}}'} - מגדר</li>
+                  <li>{'{{phone}}'} - טלפון</li>
                   <li>{'{{submission.created_at}}'} - תאריך שליחת הטופס</li>
                 </ul>
+                <div className="bg-background p-3 rounded mt-2 text-sm">
+                  <p className="font-bold mb-1">דוגמאות לשימוש בנושא המייל:</p>
+                  <div className="font-mono" dir="ltr">
+                    {'• שלום {' + '{name}' + '} - קבלנו את פנייתך\n' +
+                     '• בקשה חדשה מ-{' + '{email}' + '}\n' +
+                     '• {' + '{if gender === \'male\'}' + '}מר{' + '{else}' + '}גברת{' + '{endif}' + '} {' + '{lastName}' + '} - אישור הרשמה'}
+                  </div>
+                </div>
               </div>
 
               <div className="border-t border-border/40 pt-4">
                 <h3 className="font-bold mb-2">שימוש בתנאים (למשל עבור פנייה בזכר/נקבה):</h3>
-                <p>ניתן להשתמש בתנאים בתבנית המייל בצורה הבאה:</p>
+                <p>ניתן להשתמש בתנאים בנושא ובתוכן המייל בצורה הבאה:</p>
                 <div className="bg-background p-3 rounded mt-2 text-sm font-mono" dir="ltr">
                   {'{{if gender === \'male\'}}\n  שלום מר {{lastName}}\n{{else}}\n  שלום גברת {{lastName}}\n{{endif}}'}
                 </div>
@@ -1372,7 +1381,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                 <Input
                   value={emailSubject}
                   onChange={(e) => setEmailSubject(e.target.value)}
-                  placeholder="תודה על הפנייה שלך"
+                  placeholder="שלום {{name}} - תודה על פנייתך"
                   dir="rtl"
                 />
               </div>
