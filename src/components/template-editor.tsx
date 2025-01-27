@@ -33,6 +33,7 @@ import { Trash2 } from "lucide-react"
 import { ImageIcon } from "lucide-react"
 import { ElementStyle, LogoPosition } from "@/types"
 import { ColorPicker } from "@/components/ui/color-picker"
+import { format } from 'date-fns'
 
 type ElementType = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "list" | "p" | "specialParagraph" | "header" | "footer" | "main" | "prose"
 
@@ -70,6 +71,23 @@ interface Template {
   email_subject?: string
   email_body?: string
   email_from?: string
+}
+
+interface SubmissionStatus {
+  submission_id: string;
+  status: string;
+  email_status: string;
+  created_at: string;
+  updated_at: string;
+  progress?: {
+    stage: string;
+    message: string;
+  };
+  email_error?: string;
+  email_sent_at?: string;
+  recipient_email?: string;
+  result?: any;
+  logs?: any[];
 }
 
 interface TemplateEditorProps {
@@ -180,6 +198,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const [emailSubject, setEmailSubject] = useState("")
   const [emailBody, setEmailBody] = useState("")
   const [emailFrom, setEmailFrom] = useState("")
+  const [recentSubmissions, setRecentSubmissions] = useState<SubmissionStatus[]>([])
 
   useEffect(() => {
     if (templateId) {
@@ -916,6 +935,47 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     }));
   }
 
+  // Add function to fetch recent submissions
+  const fetchRecentSubmissions = async () => {
+    if (!templateId) return;
+
+    const oneDayAgo = new Date();
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+
+    const { data, error } = await supabase
+      .from('form_submissions')
+      .select(`
+        submission_id,
+        status,
+        email_status,
+        created_at,
+        updated_at,
+        progress,
+        email_error,
+        email_sent_at,
+        recipient_email,
+        result,
+        logs
+      `)
+      .eq('form_id', formId)
+      .gte('created_at', oneDayAgo.toISOString())
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching recent submissions:', error);
+      return;
+    }
+
+    setRecentSubmissions(data || []);
+  };
+
+  // Fetch on mount and every minute
+  useEffect(() => {
+    fetchRecentSubmissions();
+    const interval = setInterval(fetchRecentSubmissions, 60000);
+    return () => clearInterval(interval);
+  }, [templateId]);
+
   return (
     <div className="space-y-6" dir="rtl">
       <div className="space-y-6">
@@ -1128,11 +1188,12 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       </div>
 
       <Tabs defaultValue="content" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="content">{TRANSLATIONS.content}</TabsTrigger>
           <TabsTrigger value="microCopy">{TRANSLATIONS.microCopy}</TabsTrigger>
           <TabsTrigger value="styles">{TRANSLATIONS.styles}</TabsTrigger>
           <TabsTrigger value="email">תבנית מייל</TabsTrigger>
+          <TabsTrigger value="status">סטטוס שליחות</TabsTrigger>
         </TabsList>
 
         <TabsContent value="content">
@@ -1398,6 +1459,87 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                   dir="ltr"
                 />
               </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="status" className="flex-1">
+          <div className="space-y-4 p-4">
+            <div className="flex justify-between items-center">
+              <h3 className="font-bold">שליחות מהיממה האחרונה</h3>
+              <Button variant="outline" onClick={fetchRecentSubmissions} size="sm">
+                רענן
+              </Button>
+            </div>
+            
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="p-2 text-right">זמן</th>
+                    <th className="p-2 text-right">מזהה</th>
+                    <th className="p-2 text-right">סטטוס עיבוד</th>
+                    <th className="p-2 text-right">סטטוס מייל</th>
+                    <th className="p-2 text-right">נמען</th>
+                    <th className="p-2 text-right">זמן שליחה</th>
+                    <th className="p-2 text-right">פרטים</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentSubmissions.map((sub) => (
+                    <tr key={sub.submission_id} className="border-t">
+                      <td className="p-2">
+                        {format(new Date(sub.created_at), 'HH:mm:ss')}
+                      </td>
+                      <td className="p-2 font-mono text-sm">
+                        {sub.submission_id}
+                      </td>
+                      <td className="p-2">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                          sub.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          sub.status === 'error' ? 'bg-red-100 text-red-800' :
+                          sub.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {sub.status === 'completed' ? 'הושלם' :
+                           sub.status === 'error' ? 'שגיאה' :
+                           sub.status === 'processing' ? 'מעבד' :
+                           'ממתין'}
+                        </span>
+                      </td>
+                      <td className="p-2">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                          sub.email_status === 'sent' ? 'bg-green-100 text-green-800' :
+                          sub.email_status === 'error' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {sub.email_status === 'sent' ? 'נשלח' :
+                           sub.email_status === 'error' ? 'שגיאה' :
+                           'ממתין'}
+                        </span>
+                      </td>
+                      <td className="p-2 font-mono text-sm">
+                        {sub.recipient_email || '-'}
+                      </td>
+                      <td className="p-2">
+                        {sub.email_sent_at ? format(new Date(sub.email_sent_at), 'HH:mm:ss') : '-'}
+                      </td>
+                      <td className="p-2">
+                        <div className="text-sm text-gray-600">
+                          {sub.progress?.message || sub.email_error || '-'}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {recentSubmissions.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="p-4 text-center text-gray-500">
+                        אין שליחות מהיממה האחרונה
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </TabsContent>

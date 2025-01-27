@@ -76,7 +76,11 @@ export async function POST(request: Request) {
     // Return success immediately
     return NextResponse.json({ 
       message: 'Submission received and processing started',
-      submissionId: submission.submission_id
+      submissionId: submission.submission_id,
+      links: {
+        status: `/api/submission/status?id=${submission.submission_id}`,
+        results: `/results?s=${submission.submission_id}`
+      }
     });
 
   } catch (error) {
