@@ -199,6 +199,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const [emailBody, setEmailBody] = useState("")
   const [emailFrom, setEmailFrom] = useState("")
   const [recentSubmissions, setRecentSubmissions] = useState<SubmissionStatus[]>([])
+  const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false)
+  const [selectedSubmission, setSelectedSubmission] = useState<SubmissionStatus | null>(null)
 
   useEffect(() => {
     if (templateId) {
@@ -387,101 +389,105 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   }
 
   const loadTemplate = async (id: string) => {
-    const { data: template, error } = await supabase
-      .from('templates')
-      .select('*')
-      .eq('id', id)
-      .single()
+    try {
+      const { data: template, error } = await supabase
+        .from('templates')
+        .select('*')
+        .eq('id', id)
+        .single()
 
-    if (error) {
+      if (error) throw error;
+
+      console.log('Loaded template:', template);
+      console.log('Template form_id:', template.form_id);
+      
+      if (template) {
+        setTemplateName(template.name)
+        setTemplateGsheetsId(template.template_gsheets_id || "")
+        setHeaderContent("")
+        setFooterContent("")
+        setOpeningPageContent("")
+        setClosingPageContent("")
+        setCustomContents([])  // Reset custom contents first
+        setCustomFonts(template.custom_fonts || [])
+        setColors({
+          color1: template.color1 || "#000000",
+          color2: template.color2 || "#ffffff",
+          color3: template.color3 || "#cccccc",
+          color4: template.color4 || "#666666"
+        })
+        
+        if (template.element_styles) {
+          setElementStyles(template.element_styles)
+        } else {
+          const extractedStyles = parseCSS(template.css)
+          setElementStyles(extractedStyles)
+        }
+        
+        // Load logo
+        const { data: logoData } = await supabase
+          .from('logos')
+          .select('file_path')
+          .eq('template_id', id)
+          .single()
+
+        if (logoData) {
+          setLogoPath(logoData.file_path)
+        } else {
+          setLogoPath(null)
+        }
+        
+        // Load template contents
+        const { data: contentsData, error: contentsError } = await supabase
+          .from('template_contents')
+          .select('content_name, md_content')
+          .eq('template_id', id)
+
+        if (!contentsError && contentsData) {
+          // Create a Map to store unique contents
+          const customContentMap = new Map()
+          
+          contentsData.forEach(content => {
+            if (content.content_name === 'header') {
+              setHeaderContent(content.md_content)
+            } else if (content.content_name === 'footer') {
+              setFooterContent(content.md_content)
+            } else if (content.content_name === 'opening_page') {
+              setOpeningPageContent(content.md_content)
+            } else if (content.content_name === 'closing_page') {
+              setClosingPageContent(content.md_content)
+            } else if (content.content_name.startsWith('custom_')) {
+              const name = content.content_name.replace('custom_', '')
+              // Use Map to ensure uniqueness
+              customContentMap.set(name, {
+                name,
+                content: content.md_content
+              })
+            }
+          })
+          
+          // Convert Map values to array and set state
+          setCustomContents(Array.from(customContentMap.values()))
+        }
+
+        setFormId(template.form_id || '')
+        setStyles({
+          bodyBackground: template.element_styles?.body?.backgroundColor || '#ffffff',
+          mainBackground: template.element_styles?.main?.backgroundColor || '#ffffff',
+          contentBackground: template.element_styles?.prose?.backgroundColor || '#ffffff'
+        })
+
+        setEmailSubject(template.email_subject || "")
+        setEmailBody(template.email_body || "")
+        setEmailFrom(template.email_from || "")
+      }
+    } catch (error) {
       console.error('Error loading template:', error)
       toast({
         variant: "destructive",
         title: "Error",
         description: "Failed to load template"
       })
-      return
-    }
-
-    if (template) {
-      setTemplateName(template.name)
-      setTemplateGsheetsId(template.template_gsheets_id || "")
-      setHeaderContent("")
-      setFooterContent("")
-      setOpeningPageContent("")
-      setClosingPageContent("")
-      setCustomContents([])  // Reset custom contents first
-      setCustomFonts(template.custom_fonts || [])
-      setColors({
-        color1: template.color1 || "#000000",
-        color2: template.color2 || "#ffffff",
-        color3: template.color3 || "#cccccc",
-        color4: template.color4 || "#666666"
-      })
-      
-      if (template.element_styles) {
-        setElementStyles(template.element_styles)
-      } else {
-        const extractedStyles = parseCSS(template.css)
-        setElementStyles(extractedStyles)
-      }
-      
-      // Load logo
-      const { data: logoData } = await supabase
-        .from('logos')
-        .select('file_path')
-        .eq('template_id', id)
-        .single()
-
-      if (logoData) {
-        setLogoPath(logoData.file_path)
-      } else {
-        setLogoPath(null)
-      }
-      
-      // Load template contents
-      const { data: contentsData, error: contentsError } = await supabase
-        .from('template_contents')
-        .select('content_name, md_content')
-        .eq('template_id', id)
-
-      if (!contentsError && contentsData) {
-        // Create a Map to store unique contents
-        const customContentMap = new Map()
-        
-        contentsData.forEach(content => {
-          if (content.content_name === 'header') {
-            setHeaderContent(content.md_content)
-          } else if (content.content_name === 'footer') {
-            setFooterContent(content.md_content)
-          } else if (content.content_name === 'opening_page') {
-            setOpeningPageContent(content.md_content)
-          } else if (content.content_name === 'closing_page') {
-            setClosingPageContent(content.md_content)
-          } else if (content.content_name.startsWith('custom_')) {
-            const name = content.content_name.replace('custom_', '')
-            // Use Map to ensure uniqueness
-            customContentMap.set(name, {
-              name,
-              content: content.md_content
-            })
-          }
-        })
-        
-        // Convert Map values to array and set state
-        setCustomContents(Array.from(customContentMap.values()))
-      }
-
-      setFormId(template.form_id || '')
-      setStyles({
-        bodyBackground: template.element_styles?.body?.backgroundColor || '#ffffff',
-        mainBackground: template.element_styles?.main?.backgroundColor || '#ffffff',
-        contentBackground: template.element_styles?.prose?.backgroundColor || '#ffffff'
-      })
-
-      setEmailSubject(template.email_subject || "")
-      setEmailBody(template.email_body || "")
-      setEmailFrom(template.email_from || "")
     }
   }
 
@@ -935,38 +941,25 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     }));
   }
 
-  // Add function to fetch recent submissions
   const fetchRecentSubmissions = async () => {
-    if (!templateId) return;
-
-    const oneDayAgo = new Date();
-    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-
-    const { data, error } = await supabase
-      .from('form_submissions')
-      .select(`
-        submission_id,
-        status,
-        email_status,
-        created_at,
-        updated_at,
-        progress,
-        email_error,
-        email_sent_at,
-        recipient_email,
-        result,
-        logs
-      `)
-      .eq('form_id', formId)
-      .gte('created_at', oneDayAgo.toISOString())
-      .order('created_at', { ascending: false });
-
-    if (error) {
+    console.log('Fetching recent submissions');
+    setIsLoadingSubmissions(true);
+    try {
+      const response = await fetch('/api/jotform-results');
+      if (!response.ok) {
+        throw new Error('Failed to fetch submissions');
+      }
+      const data = await response.json();
+      console.log('Fetched submissions:', data);
+      // Ensure we have an array
+      const submissions = Array.isArray(data) ? data : data.submissions || [];
+      setRecentSubmissions(submissions);
+    } catch (error) {
       console.error('Error fetching recent submissions:', error);
-      return;
+      setRecentSubmissions([]);
+    } finally {
+      setIsLoadingSubmissions(false);
     }
-
-    setRecentSubmissions(data || []);
   };
 
   // Fetch on mount and every minute
@@ -974,7 +967,27 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     fetchRecentSubmissions();
     const interval = setInterval(fetchRecentSubmissions, 60000);
     return () => clearInterval(interval);
-  }, [templateId]);
+  }, []);
+
+  const handleDetailsClick = (submission: SubmissionStatus) => {
+    setSelectedSubmission(submission);
+  };
+
+  const formatLogEntry = (log: any) => {
+    if (!log) return null;
+    return (
+      <div className="border-b pb-2 mb-2 last:border-0">
+        <div className="text-sm font-medium">{log.stage}</div>
+        <div className="text-sm text-gray-600">{log.message}</div>
+        <div className="text-xs text-gray-400">{new Date(log.timestamp).toLocaleString()}</div>
+        {log.details && (
+          <pre className="mt-1 text-xs bg-muted p-2 rounded overflow-auto">
+            {JSON.stringify(log.details, null, 2)}
+          </pre>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6" dir="rtl">
@@ -1012,7 +1025,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                   <input
                     type="checkbox"
                     id="showLogo"
-                    checked={elementStyles.header?.showLogo ?? true}
+                    checked={elementStyles.header.showLogo ?? true}
                     onChange={(e) => handleHeaderChange('showLogo', e.target.checked)}
                   />
                   <label htmlFor="showLogo">הצג לוגו</label>
@@ -1477,22 +1490,16 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                 <thead className="bg-muted">
                   <tr>
                     <th className="p-2 text-right">זמן</th>
-                    <th className="p-2 text-right">מזהה</th>
                     <th className="p-2 text-right">סטטוס עיבוד</th>
                     <th className="p-2 text-right">סטטוס מייל</th>
-                    <th className="p-2 text-right">נמען</th>
-                    <th className="p-2 text-right">זמן שליחה</th>
                     <th className="p-2 text-right">פרטים</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {recentSubmissions.map((sub) => (
+                  {recentSubmissions.slice(0, 10).map((sub) => (
                     <tr key={sub.submission_id} className="border-t">
                       <td className="p-2">
                         {format(new Date(sub.created_at), 'HH:mm:ss')}
-                      </td>
-                      <td className="p-2 font-mono text-sm">
-                        {sub.submission_id}
                       </td>
                       <td className="p-2">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
@@ -1518,23 +1525,27 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                            'ממתין'}
                         </span>
                       </td>
-                      <td className="p-2 font-mono text-sm">
-                        {sub.recipient_email || '-'}
-                      </td>
-                      <td className="p-2">
-                        {sub.email_sent_at ? format(new Date(sub.email_sent_at), 'HH:mm:ss') : '-'}
-                      </td>
-                      <td className="p-2">
-                        <div className="text-sm text-gray-600">
+                      <td 
+                        className="p-2 cursor-pointer hover:bg-muted/50" 
+                        onClick={() => handleDetailsClick(sub)}
+                      >
+                        <a 
+                          className="block text-sm text-gray-600 hover:text-blue-500 transition-colors"
+                          onClick={(e) => e.preventDefault()}
+                        >
                           {sub.progress?.message || sub.email_error || '-'}
-                        </div>
+                        </a>
                       </td>
                     </tr>
                   ))}
                   {recentSubmissions.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="p-4 text-center text-gray-500">
-                        אין שליחות מהיממה האחרונה
+                      <td colSpan={4} className="p-4 text-center text-gray-500">
+                        {isLoadingSubmissions ? (
+                          'טוען שליחות...'
+                        ) : (
+                          'אין שליחות מהיממה האחרונה'
+                        )}
                       </td>
                     </tr>
                   )}
@@ -1545,6 +1556,82 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         </TabsContent>
       </Tabs>
       <Button onClick={handleSave} className="w-full mt-4">{TRANSLATIONS.saveTemplate}</Button>
+
+      <Dialog open={!!selectedSubmission} onOpenChange={(open) => !open && setSelectedSubmission(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>פרטי שליחה מלאים</DialogTitle>
+          </DialogHeader>
+          {selectedSubmission && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">מזהה שליחה</label>
+                  <div className="text-sm font-mono">{selectedSubmission.submission_id}</div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">זמן יצירה</label>
+                  <div className="text-sm">{new Date(selectedSubmission.created_at).toLocaleString()}</div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">סטטוס עיבוד</label>
+                  <div className="text-sm">{selectedSubmission.status}</div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">סטטוס מייל</label>
+                  <div className="text-sm">{selectedSubmission.email_status}</div>
+                </div>
+                {selectedSubmission.email_sent_at && (
+                  <div>
+                    <label className="text-sm font-medium">זמן שליחת מייל</label>
+                    <div className="text-sm">{new Date(selectedSubmission.email_sent_at).toLocaleString()}</div>
+                  </div>
+                )}
+                {selectedSubmission.recipient_email && (
+                  <div>
+                    <label className="text-sm font-medium">נמען</label>
+                    <div className="text-sm">{selectedSubmission.recipient_email}</div>
+                  </div>
+                )}
+              </div>
+
+              {selectedSubmission.progress && (
+                <div>
+                  <label className="text-sm font-medium">התקדמות</label>
+                  {formatLogEntry(selectedSubmission.progress)}
+                </div>
+              )}
+
+              {selectedSubmission.logs && selectedSubmission.logs.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium">לוג מלא</label>
+                  <div className="mt-2 space-y-2">
+                    {selectedSubmission.logs.map((log, index) => (
+                      <div key={index}>{formatLogEntry(log)}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedSubmission.result && (
+                <div>
+                  <label className="text-sm font-medium">תוצאה</label>
+                  <pre className="mt-2 text-sm bg-muted p-2 rounded overflow-auto">
+                    {JSON.stringify(selectedSubmission.result, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {selectedSubmission.email_error && (
+                <div>
+                  <label className="text-sm font-medium text-red-600">שגיאת מייל</label>
+                  <div className="text-sm text-red-600">{selectedSubmission.email_error}</div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 

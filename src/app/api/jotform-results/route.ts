@@ -27,7 +27,9 @@ export async function POST(request: Request) {
     
     if (contentType.includes('application/json')) {
       rawBody = await request.text();
+      console.log('Raw request body:', rawBody);
       formData = JSON.parse(rawBody);
+      console.log('Parsed form data:', formData);
       
       if (formData.rawRequest) {
         try {
@@ -52,14 +54,20 @@ export async function POST(request: Request) {
       }
     }
 
+    console.log('About to save submission with:', {
+      form_data: formData,
+      submission_id: formData.submissionID || formData.submission_id,
+      template_id: formData.templateId || formData.template_id,
+    });
+
     // Save to database first
     const { data: submission, error: submissionError } = await supabase
       .from('form_submissions')
       .insert({
-        form_data: formData,
-        status: 'pending',
-        submission_id: formData.submissionID || formData.submission_id,
-        template_id: formData.templateId || formData.template_id,
+        form_id: formData.formID || '250194606110042',
+        submission_id: formData.submissionID || formData.submission_id || 'test123',
+        content: formData.form_data || formData,
+        status: 'pending'
       })
       .select()
       .single();
@@ -68,6 +76,8 @@ export async function POST(request: Request) {
       console.error('Error saving submission:', submissionError);
       throw submissionError;
     }
+
+    console.log('Saved submission:', submission);
 
     // Start processing in background without waiting
     fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/process?submissionId=${submission.submission_id}`)
@@ -85,6 +95,42 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error('Error processing webhook:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const formId = searchParams.get('formId');
+    
+    console.log('Fetching submissions for formId:', formId);
+    
+    let query = supabase
+      .from('form_submissions')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+      
+    if (formId) {
+      query = query.eq('form_id', formId);
+    }
+    
+    const { data, error } = await query;
+    
+    if (error) {
+      console.error('Error fetching submissions:', error);
+      throw error;
+    }
+    
+    console.log(`Found ${data?.length || 0} submissions`);
+    return NextResponse.json({ submissions: data });
+    
+  } catch (error) {
+    console.error('Error listing submissions:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

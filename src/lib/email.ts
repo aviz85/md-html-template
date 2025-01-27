@@ -143,14 +143,21 @@ export async function sendEmail(config: EmailConfig) {
         status: 'sent'
       });
 
-      await supabaseAdmin
+      const { data: updateData, error: updateError } = await supabaseAdmin
         .from('form_submissions')
         .update({
           email_status: 'sent',
           email_sent_at: new Date().toISOString(),
           recipient_email: config.to
         })
-        .eq('submission_id', config.submissionId);
+        .eq('submission_id', config.submissionId)
+        .select();
+
+      if (updateError) {
+        console.error('[Email Service] Failed to update email status:', updateError);
+      } else {
+        console.log('[Email Service] Successfully updated email status:', updateData);
+      }
     }
 
     console.log('[Email Service] Email sent successfully');
