@@ -120,18 +120,9 @@ export async function sendEmail(config: EmailConfig) {
     from: config.from,
     subject: config.subject,
     submissionId: config.submissionId,
-    tracking: config.tracking,
   });
 
   try {
-    // Validate required env vars
-    if (!MAILGUN_API_KEY) {
-      throw new Error('Missing MAILGUN_API_KEY environment variable');
-    }
-    if (!MAILGUN_DOMAIN) {
-      throw new Error('Missing MAILGUN_DOMAIN environment variable');
-    }
-
     // Prepare form data
     const formData = new URLSearchParams();
     formData.append('from', config.from);
@@ -139,34 +130,21 @@ export async function sendEmail(config: EmailConfig) {
     formData.append('subject', config.subject);
     formData.append('html', config.html);
     
-    // Add tracking if specified
-    if (config.tracking?.opens) {
-      formData.append('o:tracking-opens', 'yes');
-    }
-    if (config.tracking?.clicks) {
-      formData.append('o:tracking-clicks', 'yes');
-    }
-
-    // Add delivery time if specified
-    if (config.deliveryTime) {
-      formData.append('o:deliverytime', config.deliveryTime.toUTCString());
-    }
-
-    // Add tags if specified
-    if (config.tags) {
-      config.tags.forEach(tag => formData.append('o:tag', tag));
-    }
+    if (config.tracking?.opens) formData.append('o:tracking-opens', 'yes');
+    if (config.tracking?.clicks) formData.append('o:tracking-clicks', 'yes');
+    if (config.deliveryTime) formData.append('o:deliverytime', config.deliveryTime.toUTCString());
+    if (config.tags) config.tags.forEach(tag => formData.append('o:tag', tag));
 
     const mailgunUrl = `${MAILGUN_API_URL}/${MAILGUN_DOMAIN}/messages`;
+    
+    // Log full configuration for debugging
     console.log('[Email Service] Configuration:', {
       url: mailgunUrl,
       domain: MAILGUN_DOMAIN,
-      apiKeyLength: MAILGUN_API_KEY.length,
-      apiKeyStart: MAILGUN_API_KEY.substring(0, 4) + '...',
+      apiKeyPresent: !!MAILGUN_API_KEY,
       formData: Object.fromEntries(formData),
     });
 
-    // Send request to Mailgun
     const response = await fetch(mailgunUrl, {
       method: 'POST',
       headers: {
@@ -176,17 +154,17 @@ export async function sendEmail(config: EmailConfig) {
       body: formData.toString()
     });
 
-    // Try to parse response as JSON, but handle non-JSON responses too
     let responseData;
-    const responseText = await response.text();
     try {
-      responseData = JSON.parse(responseText);
-    } catch (e) {
-      responseData = { message: responseText };
+      responseData = await response.json();
+    } catch {
+      const text = await response.text();
+      responseData = { message: text };
     }
 
     console.log('[Email Service] Mailgun response:', {
       status: response.status,
+      statusText: response.statusText,
       ok: response.ok,
       data: responseData
     });
@@ -199,39 +177,21 @@ export async function sendEmail(config: EmailConfig) {
     }
 
     if (config.submissionId) {
-      console.log('[Email Service] Updating submission status:', {
-        submissionId: config.submissionId,
-        status: 'sent'
-      });
-
-      const { data: updateData, error: updateError } = await supabaseAdmin
+      await supabaseAdmin
         .from('form_submissions')
         .update({
           email_status: 'sent',
           email_sent_at: new Date().toISOString(),
           recipient_email: config.to
         })
-        .eq('submission_id', config.submissionId)
-        .select();
-
-      if (updateError) {
-        console.error('[Email Service] Failed to update email status:', updateError);
-      } else {
-        console.log('[Email Service] Successfully updated email status:', updateData);
-      }
+        .eq('submission_id', config.submissionId);
     }
 
-    console.log('[Email Service] Email sent successfully');
     return responseData;
   } catch (error) {
-    console.error('[Email Service] Error sending email:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      submissionId: config.submissionId,
-      to: config.to
-    });
-
+    console.error('[Email Service] Error:', error);
+    
     if (config.submissionId) {
-      console.log('[Email Service] Updating submission with error status');
       await supabaseAdmin
         .from('form_submissions')
         .update({
