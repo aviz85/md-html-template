@@ -99,10 +99,13 @@ async function handleRequest(req: Request) {
             // After processing submission, try to send email
             console.log('🔍 Starting email process for submission:', submissionId);
             
+            // Log form_id for debugging
+            console.log('📝 Form ID:', submission.form_id);
+            
             const { data: template, error: templateError } = await supabaseAdmin
               .from('templates')
               .select('*')
-              .eq('id', submission.template_id)
+              .eq('form_id', submission.form_id)  // Changed from id to form_id
               .single();
 
             if (templateError) {
@@ -118,14 +121,14 @@ async function handleRequest(req: Request) {
             });
 
             if (template?.email_body && template?.email_subject && template?.email_from) {
-              console.log('🔍 Looking for recipient email in form_data:', submission.form_data);
-              const recipientEmail = findEmailInFormData(submission.form_data);
+              console.log('🔍 Looking for recipient email in content:', submission.content);
+              const recipientEmail = findEmailInFormData(submission.content);
               
               if (recipientEmail) {
                 console.log('✉️ Found recipient email:', recipientEmail);
                 
                 const emailHtml = replaceVariables(template.email_body, {
-                  ...submission.form_data,
+                  ...submission.content,
                   submission: {
                     created_at: submission.created_at,
                     id: submission.id
@@ -133,7 +136,7 @@ async function handleRequest(req: Request) {
                 });
 
                 const emailSubject = replaceVariables(template.email_subject, {
-                  ...submission.form_data,
+                  ...submission.content,
                   submission: {
                     created_at: submission.created_at,
                     id: submission.id
