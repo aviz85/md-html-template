@@ -97,16 +97,33 @@ async function handleRequest(req: Request) {
               .eq('submission_id', submissionId);
 
             // After processing submission, try to send email
-            const { data: template } = await supabaseAdmin
+            console.log('🔍 Starting email process for submission:', submissionId);
+            
+            const { data: template, error: templateError } = await supabaseAdmin
               .from('templates')
               .select('*')
               .eq('id', submission.template_id)
               .single();
 
+            if (templateError) {
+              console.error('❌ Failed to fetch template:', templateError);
+              throw templateError;
+            }
+
+            console.log('📋 Found template:', {
+              id: template?.id,
+              has_email_body: !!template?.email_body,
+              has_email_subject: !!template?.email_subject,
+              has_email_from: !!template?.email_from
+            });
+
             if (template?.email_body && template?.email_subject && template?.email_from) {
+              console.log('🔍 Looking for recipient email in form_data:', submission.form_data);
               const recipientEmail = findEmailInFormData(submission.form_data);
               
               if (recipientEmail) {
+                console.log('✉️ Found recipient email:', recipientEmail);
+                
                 const emailHtml = replaceVariables(template.email_body, {
                   ...submission.form_data,
                   submission: {
@@ -123,6 +140,13 @@ async function handleRequest(req: Request) {
                   }
                 });
 
+                console.log('📧 Attempting to send email:', {
+                  to: recipientEmail,
+                  from: template.email_from,
+                  subject: emailSubject.substring(0, 50) + '...',
+                  submissionId: submission.id
+                });
+
                 await sendEmail({
                   to: recipientEmail,
                   from: template.email_from,
@@ -130,7 +154,17 @@ async function handleRequest(req: Request) {
                   html: emailHtml,
                   submissionId: submission.id
                 });
+
+                console.log('✅ Email sent successfully');
+              } else {
+                console.warn('⚠️ No recipient email found in form data');
               }
+            } else {
+              console.warn('⚠️ Template missing required email fields:', {
+                has_body: !!template?.email_body,
+                has_subject: !!template?.email_subject,
+                has_from: !!template?.email_from
+              });
             }
 
             return {
