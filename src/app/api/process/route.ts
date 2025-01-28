@@ -84,18 +84,8 @@ async function handleRequest(req: Request) {
             // Don't split by backticks, keep the original response
             const cleanResponse = result.finalResponse;
 
-            // Update final status and result
-            await supabaseAdmin
-              .from('form_submissions')
-              .update({
-                status: 'completed',
-                result: {
-                  finalResponse: cleanResponse,
-                  tokenCount: result.tokenCount
-                }
-              })
-              .eq('submission_id', submissionId);
-
+            // No need to update status here since processSubmission handles it
+            
             // After processing submission, try to send email
             console.log('🔍 Starting email process for submission:', submissionId);
             
@@ -196,6 +186,7 @@ async function handleRequest(req: Request) {
 
             console.log('✅ Email sent successfully');
 
+            // Even if email fails, we keep the completed status from processSubmission
             return {
               message: 'Processing completed',
               submissionId,
@@ -205,19 +196,10 @@ async function handleRequest(req: Request) {
               }
             };
           } catch (processError) {
-            // Handle processSubmission errors specifically
+            // Only update status if it's a processing error, not an email error
             console.error('Error in processSubmission:', processError);
-            await supabaseAdmin
-              .from('form_submissions')
-              .update({
-                status: 'error',
-                progress: {
-                  stage: 'processing',
-                  message: processError instanceof Error ? processError.message : 'Error in processing submission',
-                  timestamp: new Date().toISOString()
-                }
-              })
-              .eq('submission_id', submissionId);
+            
+            // Let processSubmission handle its own status updates
             throw processError;
           }
 

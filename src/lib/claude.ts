@@ -236,20 +236,26 @@ async function addLog(submissionId: string, message: string, data?: any) {
 async function updateProgress(submissionId: string, stage: string, message: string, details?: any, current?: number, total?: number) {
   const timestamp = new Date().toISOString();
   
-  // Update both progress and status
+  // Only update status to 'processing' during the processing stages
+  const update: any = {
+    progress: {
+      stage,
+      message,
+      details,
+      current,
+      total,
+      timestamp
+    }
+  };
+
+  // Only set status to 'processing' during active processing stages
+  if (['init', 'template', 'prompts', 'claude'].includes(stage)) {
+    update.status = 'processing';
+  }
+  
   await supabaseAdmin
     .from('form_submissions')
-    .update({
-      status: 'processing',
-      progress: {
-        stage,
-        message,
-        details,
-        current,
-        total,
-        timestamp
-      }
-    })
+    .update(update)
     .eq('submission_id', submissionId);
     
   // Add log
@@ -478,32 +484,40 @@ export async function processSubmission(submissionId: string) {
       console.warn('⚠️ Invalid markdown detected in Claude response');
     }
 
-    // Update final status
+    // Update final status to completed regardless of what happens next
     const result = {
       finalResponse: lastResponse,
       tokenCount: totalTokens
     };
 
-    await updateProgress(
-      submissionId, 
-      'completed', 
-      'העיבוד הושלם',
-      result
-    );
+    await supabaseAdmin
+      .from('form_submissions')
+      .update({
+        status: 'completed', // Always mark as completed here
+        result: result,
+        progress: {
+          stage: 'completed',
+          message: 'העיבוד הושלם',
+          timestamp: new Date().toISOString()
+        }
+      })
+      .eq('submission_id', submissionId);
 
     return result;
   } catch (error) {
     console.error('Error in processSubmission:', error);
     
-    await updateProgress(
-      submissionId, 
-      'error', 
-      error instanceof Error ? error.message : 'שגיאה לא ידועה',
-      { 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        details: error
-      }
-    );
+    await supabaseAdmin
+      .from('form_submissions')
+      .update({
+        status: 'error',
+        progress: {
+          stage: 'error',
+          message: error instanceof Error ? error.message : 'שגיאה לא ידועה',
+          timestamp: new Date().toISOString()
+        }
+      })
+      .eq('submission_id', submissionId);
 
     throw error;
   }

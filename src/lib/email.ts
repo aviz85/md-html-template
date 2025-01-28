@@ -158,9 +158,11 @@ export async function sendEmail(config: EmailConfig) {
     }
 
     const mailgunUrl = `${MAILGUN_API_URL}/${MAILGUN_DOMAIN}/messages`;
-    console.log('[Email Service] Sending request to Mailgun:', {
+    console.log('[Email Service] Configuration:', {
       url: mailgunUrl,
       domain: MAILGUN_DOMAIN,
+      apiKeyLength: MAILGUN_API_KEY.length,
+      apiKeyStart: MAILGUN_API_KEY.substring(0, 4) + '...',
       formData: Object.fromEntries(formData),
     });
 

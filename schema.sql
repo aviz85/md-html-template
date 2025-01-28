@@ -74,10 +74,16 @@ CREATE TABLE form_submissions (
     form_id TEXT NOT NULL,
     submission_id TEXT NOT NULL,
     content JSONB NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending',
+    claude_status TEXT NOT NULL DEFAULT 'pending',
     result JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    progress JSONB,
+    logs JSONB[] DEFAULT array[]::jsonb[],
+    email_status TEXT DEFAULT 'pending',
+    email_error TEXT,
+    email_sent_at TIMESTAMPTZ,
+    recipient_email TEXT,
     UNIQUE(form_id, submission_id)
 );
 
@@ -94,7 +100,7 @@ BEGIN
     -- Process the submission
     UPDATE form_submissions fs
     SET 
-        status = 'completed',
+        claude_status = 'completed',
         result = jsonb_build_object('processed_at', NOW(), 'mock_result', 'זוהי תוצאה לדוגמה'),
         updated_at = NOW()
     WHERE fs.id = NEW.id;
