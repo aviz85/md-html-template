@@ -236,10 +236,11 @@ async function addLog(submissionId: string, message: string, data?: any) {
 async function updateProgress(submissionId: string, stage: string, message: string, details?: any, current?: number, total?: number) {
   const timestamp = new Date().toISOString();
   
-  // עדכון progress
+  // Update both progress and status
   await supabaseAdmin
     .from('form_submissions')
     .update({
+      status: 'processing',
       progress: {
         stage,
         message,
@@ -251,7 +252,7 @@ async function updateProgress(submissionId: string, stage: string, message: stri
     })
     .eq('submission_id', submissionId);
     
-  // הוספת לוג
+  // Add log
   await supabaseAdmin.rpc('append_log', { 
     p_submission_id: submissionId,
     p_log: {
