@@ -20,28 +20,66 @@ export interface EmailConfig {
   tags?: string[];
 }
 
-export const findEmailInFormData = (formData: any): string | null => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  
-  // Recursively search through object
-  const searchForEmail = (obj: any): string | null => {
-    for (const key in obj) {
-      const value = obj[key];
-      
-      if (typeof value === 'string' && emailRegex.test(value)) {
-        return value;
+export function findEmailInFormData(formData: any): string | null {
+  // Simple email regex pattern
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+
+  // Helper function to recursively search for email in object
+  function findEmailInObject(obj: any): string | null {
+    if (!obj) return null;
+
+    // If string - check if it's an email
+    if (typeof obj === 'string') {
+      const match = obj.match(emailRegex);
+      if (match) return match[0];
+      return null;
+    }
+
+    // If array - search in each element
+    if (Array.isArray(obj)) {
+      for (const item of obj) {
+        const email = findEmailInObject(item);
+        if (email) return email;
       }
+      return null;
+    }
+
+    // If object - search in all values
+    if (typeof obj === 'object') {
+      // Common email field names to check first
+      const commonEmailFields = ['email', 'mail', 'e-mail', 'emailAddress', 'JJ'];
       
-      if (typeof value === 'object' && value !== null) {
-        const found = searchForEmail(value);
-        if (found) return found;
+      // First check common email fields
+      for (const field of commonEmailFields) {
+        if (obj[field]) {
+          const email = findEmailInObject(obj[field]);
+          if (email) return email;
+        }
+      }
+
+      // Then check all other fields
+      for (const key in obj) {
+        // Skip if we already checked this field
+        if (commonEmailFields.includes(key)) continue;
+        
+        const email = findEmailInObject(obj[key]);
+        if (email) return email;
       }
     }
-    return null;
-  };
 
-  return searchForEmail(formData);
-};
+    return null;
+  }
+
+  console.log('🔍 Searching for email in form data');
+  const email = findEmailInObject(formData);
+  if (email) {
+    console.log('✉️ Found email:', email);
+  } else {
+    console.log('❌ No email found in form data');
+  }
+  
+  return email;
+}
 
 export const replaceVariables = (template: string, data: any): string => {
   // Add submission and form data with clean references
