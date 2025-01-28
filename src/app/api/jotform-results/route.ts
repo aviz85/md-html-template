@@ -79,9 +79,19 @@ export async function POST(request: Request) {
 
     console.log('Saved submission:', submission);
 
-    // Start processing in background without waiting
-    fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/process?submissionId=${submission.submission_id}`)
-      .catch(error => console.error('Failed to trigger processing:', error));
+    // Start processing in background
+    try {
+      const processResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_APP_URL}/api/process?submissionId=${submission.submission_id}`,
+        { method: 'POST' }  // Changed to POST to match the process route
+      );
+      
+      if (!processResponse.ok) {
+        console.error('Failed to start processing:', await processResponse.text());
+      }
+    } catch (error) {
+      console.error('Failed to trigger processing:', error);
+    }
 
     // Return success immediately
     return NextResponse.json({ 

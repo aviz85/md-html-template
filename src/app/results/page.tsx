@@ -142,15 +142,29 @@ export default function ResultsPage() {
       return [1000, 2000, 5000, 10000, 20000][retry] || 20000;
     };
     let foundSubmission = false;
+    const POLL_INTERVAL = 3000; // 3 seconds between polls
+    const MAX_POLL_TIME = 5 * 60 * 1000; // 5 minutes total
+    const pollStartTime = Date.now();
 
     const pollSubmission = async () => {
       if (!isMounted.current) return;
       
+      // Check if we've exceeded the maximum polling time
+      if (Date.now() - pollStartTime > MAX_POLL_TIME) {
+        console.log('Max polling time exceeded');
+        setShouldContinuePolling(false);
+        setError('תהליך העיבוד נמשך יותר מדי זמן');
+        setStatus('error');
+        setIsLoading(false);
+        return;
+      }
+
       console.log('Polling attempt:', {
         retryCount,
         shouldContinuePolling,
         hasTimeout: !!timeoutId,
-        foundSubmission
+        foundSubmission,
+        elapsedTime: Date.now() - pollStartTime
       });
 
       if (!shouldContinuePolling) {
@@ -210,34 +224,18 @@ export default function ResultsPage() {
           setProgress(submission.progress);
         }
 
-        // If we haven't found the submission yet, use retry logic with delay
-        if (!foundSubmission) {
-          if (retryCount < maxRetries && shouldContinuePolling && isMounted.current) {
-            retryCount++;
-            setRetryAttempt(retryCount);
-            const nextDelay = getBackoffTime(retryCount);
-            console.log(`Scheduling next poll in ${nextDelay}ms (retry ${retryCount})`);
-            timeoutId = setTimeout(pollSubmission, nextDelay);
-          } else if (retryCount >= maxRetries) {
-            console.log('Max retries reached without finding submission');
-            setShouldContinuePolling(false);
-            setError('לא נמצא טופס מתאים');
-            setStatus('error');
-            setIsLoading(false);
-          }
-        } else {
-          // No delay when submission is found - poll immediately
-          if (shouldContinuePolling && isMounted.current) {
-            console.log('Polling immediately (submission found)');
-            pollSubmission();
-          }
+        // Schedule next poll with appropriate delay
+        if (shouldContinuePolling && isMounted.current) {
+          const nextDelay = foundSubmission ? POLL_INTERVAL : getBackoffTime(retryCount);
+          console.log(`Scheduling next poll in ${nextDelay}ms`);
+          timeoutId = setTimeout(pollSubmission, nextDelay);
         }
+
       } catch (error) {
         if (!isMounted.current) return;
         
         console.log('Poll attempt error:', error);
         if (!foundSubmission) {
-          // Only use retry delay logic if we haven't found the submission yet
           if (retryCount < maxRetries && shouldContinuePolling) {
             retryCount++;
             setRetryAttempt(retryCount);
@@ -252,10 +250,10 @@ export default function ResultsPage() {
             setIsLoading(false);
           }
         } else {
-          // No delay when submission is found - poll immediately even after error
+          // Use regular interval even after errors if submission was found
           if (shouldContinuePolling) {
-            console.log('Polling immediately after error (submission found)');
-            pollSubmission();
+            console.log('Scheduling next poll after error with regular interval');
+            timeoutId = setTimeout(pollSubmission, POLL_INTERVAL);
           }
         }
       }
