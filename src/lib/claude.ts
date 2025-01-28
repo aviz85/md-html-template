@@ -347,7 +347,26 @@ export async function processSubmission(submissionId: string) {
       'validatedNewRequiredFieldIDs'
     ];
 
-    const answers = Object.entries(submission.content.form_data)
+    // Debug logging
+    console.log('Raw submission content:', submission.content);
+    console.log('Form data path:', submission.content?.form_data);
+
+    // Ensure form_data exists and is an object
+    let formData = {};
+    try {
+      if (typeof submission.content?.form_data === 'object' && submission.content.form_data !== null) {
+        formData = submission.content.form_data;
+      } else if (typeof submission.content === 'object' && submission.content !== null) {
+        formData = submission.content;
+      }
+    } catch (error) {
+      console.error('Error processing form data:', error);
+      console.log('Using empty form data object as fallback');
+    }
+    
+    console.log('Processed form data:', formData);
+    
+    const answers = Object.entries(formData)
       .filter(([key]) => !technicalFields.includes(key))
       .map(([key, value]) => `${key}: ${value}`)
       .join('\n');
