@@ -15,168 +15,145 @@ const supabase = createClient(
   }
 );
 
-export const runtime = 'nodejs'  // Changed from edge to nodejs
-export const maxDuration = 300; // 5 minutes timeout for Vercel Pro plan
+export const runtime = 'nodejs'
+export const maxDuration = 300 // 5 minutes timeout for Vercel Pro plan
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const submissionId = searchParams.get('submissionId')
-  
-  if (!submissionId) {
-    return NextResponse.json({ error: 'Missing submissionId' }, { status: 400 })
-  }
-
-  try {
-    // Try up to 5 times with increasing delays
-    let attempts = 0;
-    let lastError;
-    const delays = [2000, 3000, 5000, 8000, 13000]; // Fibonacci-like sequence for backoff
-    
-    while (attempts < delays.length) {
-      try {
-        const { data: submission } = await supabaseAdmin
-          .from('form_submissions')
-          .select('*')
-          .eq('submission_id', submissionId)
-          .single();
-
-        if (!submission) {
-          lastError = new Error('Submission not found');
-          console.log(`Attempt ${attempts + 1}: Submission not found, waiting ${delays[attempts]}ms`);
-          await new Promise(resolve => setTimeout(resolve, delays[attempts]));
-          attempts++;
-          continue;
-        }
-
-        // If we found the submission, process it
-        const result = await processSubmission(submissionId);
-
-        // After processing submission
-        const { data: template } = await supabaseAdmin
-          .from('templates')
-          .select('*')
-          .eq('id', submission.template_id)
-          .single();
-
-        if (template?.email_body && template?.email_subject && template?.email_from) {
-          const recipientEmail = findEmailInFormData(submission.form_data);
-          
-          if (recipientEmail) {
-            const emailHtml = replaceVariables(template.email_body, {
-              ...submission.form_data,
-              submission: {
-                created_at: submission.created_at,
-                id: submission.id
-              }
-            });
-
-            const emailSubject = replaceVariables(template.email_subject, {
-              ...submission.form_data,
-              submission: {
-                created_at: submission.created_at,
-                id: submission.id
-              }
-            });
-
-            await sendEmail({
-              to: recipientEmail,
-              from: template.email_from,
-              subject: emailSubject,
-              html: emailHtml,
-              submissionId: submission.id
-            });
-          }
-        }
-
-        return NextResponse.json({ success: true, result });
-      } catch (error) {
-        lastError = error;
-        if (error instanceof Error && error.message.includes('not found')) {
-          console.log(`Attempt ${attempts + 1}: Error - ${error.message}, waiting ${delays[attempts]}ms`);
-          await new Promise(resolve => setTimeout(resolve, delays[attempts]));
-          attempts++;
-          continue;
-        }
-        // If it's not a "not found" error, throw immediately
-        throw error;
-      }
-    }
-    
-    // If we got here, all attempts failed
-    console.error('Error processing submission after all retries:', lastError);
-    const errorMessage = lastError instanceof Error ? lastError.message : 'An unknown error occurred';
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
-    
-  } catch (error) {
-    console.error('Error processing submission:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
-  }
-}
-
-export async function POST(req: Request) {
+// Shared handler for both GET and POST
+async function handleRequest(req: Request) {
   let submissionId: string | undefined;
   
   try {
-    const body = await req.json();
-    submissionId = body.submissionId;
+    // Try to get submissionId from query params first
+    const url = new URL(req.url);
+    submissionId = url.searchParams.get('submissionId') || undefined;
+
+    // If not in query params, try to get from body for POST requests
+    if (!submissionId && req.method === 'POST') {
+      const body = await req.json().catch(() => ({}));
+      submissionId = body.submissionId;
+    }
     
     if (!submissionId) {
       return NextResponse.json({ error: 'Missing submissionId' }, { status: 400 });
     }
 
-    // Update status to processing
-    await supabaseAdmin
-      .from('form_submissions')
-      .update({
-        status: 'processing',
-        progress: {
-          stage: 'init',
-          message: 'התחלת עיבוד',
-          timestamp: new Date().toISOString()
-        }
-      })
-      .eq('submission_id', submissionId);
-
-    // Wait for the full process
-    const result = await processSubmission(submissionId);
-
-    // Don't split by backticks, keep the original response
-    const cleanResponse = result.finalResponse;
-
-    // Update final status and result
-    await supabaseAdmin
-      .from('form_submissions')
-      .update({
-        status: 'completed',
-        result: {
-          finalResponse: cleanResponse,
-          tokenCount: result.tokenCount
-        }
-      })
-      .eq('submission_id', submissionId);
-
-    return NextResponse.json({
-      message: 'Processing completed',
-      submissionId,
-      result: {
-        ...result,
-        finalResponse: cleanResponse
-      }
+    // Try up to 5 times with increasing delays to find the submission
+    let attempts = 0;
+    let lastError;
+    const delays = [2000, 3000, 5000, 8000, 13000]; // Fibonacci-like sequence for backoff
+    
+    // Set overall timeout of 4 minutes (leaving 1 minute buffer from Vercel's 5 minute limit)
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Processing timeout after 4 minutes')), 240000);
     });
+
+    const processPromise = (async () => {
+      while (attempts < delays.length) {
+        try {
+          const { data: submission } = await supabaseAdmin
+            .from('form_submissions')
+            .select('*')
+            .eq('submission_id', submissionId)
+            .single();
+
+          if (!submission) {
+            lastError = new Error('Submission not found');
+            console.log(`Attempt ${attempts + 1}: Submission not found, waiting ${delays[attempts]}ms`);
+            await new Promise(resolve => setTimeout(resolve, delays[attempts]));
+            attempts++;
+            continue;
+          }
+
+          // Update status to processing
+          await supabaseAdmin
+            .from('form_submissions')
+            .update({
+              status: 'processing',
+              progress: {
+                stage: 'init',
+                message: 'התחלת עיבוד',
+                timestamp: new Date().toISOString()
+              }
+            })
+            .eq('submission_id', submissionId);
+
+          try {
+            // Process the submission
+            const result = await processSubmission(submissionId);
+
+            // Don't split by backticks, keep the original response
+            const cleanResponse = result.finalResponse;
+
+            // Update final status and result
+            await supabaseAdmin
+              .from('form_submissions')
+              .update({
+                status: 'completed',
+                result: {
+                  finalResponse: cleanResponse,
+                  tokenCount: result.tokenCount
+                }
+              })
+              .eq('submission_id', submissionId);
+
+            return {
+              message: 'Processing completed',
+              submissionId,
+              result: {
+                ...result,
+                finalResponse: cleanResponse
+              }
+            };
+          } catch (processError) {
+            // Handle processSubmission errors specifically
+            console.error('Error in processSubmission:', processError);
+            await supabaseAdmin
+              .from('form_submissions')
+              .update({
+                status: 'error',
+                progress: {
+                  stage: 'processing',
+                  message: processError instanceof Error ? processError.message : 'Error in processing submission',
+                  timestamp: new Date().toISOString()
+                }
+              })
+              .eq('submission_id', submissionId);
+            throw processError;
+          }
+
+        } catch (error) {
+          lastError = error;
+          if (error instanceof Error && error.message.includes('not found')) {
+            console.log(`Attempt ${attempts + 1}: Error - ${error.message}, waiting ${delays[attempts]}ms`);
+            await new Promise(resolve => setTimeout(resolve, delays[attempts]));
+            attempts++;
+            continue;
+          }
+          // If it's not a "not found" error, throw immediately
+          throw error;
+        }
+      }
+      
+      // If we got here, all attempts failed
+      throw lastError || new Error('Failed to find submission after all retries');
+    })();
+
+    // Race between the process and the timeout
+    const result = await Promise.race([processPromise, timeoutPromise]);
+    return NextResponse.json(result);
     
   } catch (error) {
     console.error('API error:', error);
     
     // Update status to error if we have a submissionId
-    if (error instanceof Error && submissionId) {
+    if (submissionId) {
       await supabaseAdmin
         .from('form_submissions')
         .update({
           status: 'error',
           progress: {
             stage: 'error',
-            message: error.message,
+            message: error instanceof Error ? error.message : 'Unknown error',
             timestamp: new Date().toISOString()
           }
         })
@@ -188,4 +165,8 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
-} 
+}
+
+// Export handlers that use the shared implementation
+export const POST = handleRequest;
+export const GET = handleRequest; 
