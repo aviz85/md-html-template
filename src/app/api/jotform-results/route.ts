@@ -107,8 +107,6 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const formId = searchParams.get('formId');
     
-    console.log('Fetching submissions for formId:', formId);
-    
     let query = supabase
       .from('form_submissions')
       .select('*')
@@ -126,7 +124,6 @@ export async function GET(request: Request) {
       throw error;
     }
     
-    console.log(`Found ${data?.length || 0} submissions`);
     return NextResponse.json({ submissions: data });
     
   } catch (error) {
