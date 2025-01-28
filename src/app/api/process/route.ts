@@ -177,7 +177,7 @@ async function handleRequest(req: Request) {
             });
 
             // Use default sender if template's email_from is empty
-            const senderEmail = template.email_from || process.env.DEFAULT_EMAIL_FROM || 'no-reply@system.com';
+            const senderEmail = template.email_from || process.env.DEFAULT_EMAIL_FROM || 'no-reply@reports.vocalvault.ai';
 
             console.log('📧 Attempting to send email:', {
               to: recipientEmail,

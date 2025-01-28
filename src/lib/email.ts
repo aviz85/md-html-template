@@ -124,6 +124,14 @@ export async function sendEmail(config: EmailConfig) {
   });
 
   try {
+    // Validate required env vars
+    if (!MAILGUN_API_KEY) {
+      throw new Error('Missing MAILGUN_API_KEY environment variable');
+    }
+    if (!MAILGUN_DOMAIN) {
+      throw new Error('Missing MAILGUN_DOMAIN environment variable');
+    }
+
     // Prepare form data
     const formData = new URLSearchParams();
     formData.append('from', config.from);
@@ -149,13 +157,15 @@ export async function sendEmail(config: EmailConfig) {
       config.tags.forEach(tag => formData.append('o:tag', tag));
     }
 
+    const mailgunUrl = `${MAILGUN_API_URL}/${MAILGUN_DOMAIN}/messages`;
     console.log('[Email Service] Sending request to Mailgun:', {
-      url: `${MAILGUN_API_URL}/${MAILGUN_DOMAIN}/messages`,
+      url: mailgunUrl,
+      domain: MAILGUN_DOMAIN,
       formData: Object.fromEntries(formData),
     });
 
     // Send request to Mailgun
-    const response = await fetch(`${MAILGUN_API_URL}/${MAILGUN_DOMAIN}/messages`, {
+    const response = await fetch(mailgunUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${Buffer.from(`api:${MAILGUN_API_KEY}`).toString('base64')}`,
@@ -164,7 +174,15 @@ export async function sendEmail(config: EmailConfig) {
       body: formData.toString()
     });
 
-    const responseData = await response.json();
+    // Try to parse response as JSON, but handle non-JSON responses too
+    let responseData;
+    const responseText = await response.text();
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (e) {
+      responseData = { message: responseText };
+    }
+
     console.log('[Email Service] Mailgun response:', {
       status: response.status,
       ok: response.ok,
@@ -172,7 +190,10 @@ export async function sendEmail(config: EmailConfig) {
     });
 
     if (!response.ok) {
-      throw new Error(responseData.message || 'Failed to send email');
+      throw new Error(
+        responseData.message || 
+        `Failed to send email: ${response.status} ${response.statusText}`
+      );
     }
 
     if (config.submissionId) {
