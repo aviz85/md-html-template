@@ -154,7 +154,8 @@ async function handleRequest(req: Request) {
               ...submission.content,
               submission: {
                 created_at: submission.created_at,
-                id: submission.id
+                id: submission.submission_id,
+                form_id: submission.form_id
               }
             });
 
@@ -162,7 +163,8 @@ async function handleRequest(req: Request) {
               ...submission.content,
               submission: {
                 created_at: submission.created_at,
-                id: submission.id
+                id: submission.submission_id,
+                form_id: submission.form_id
               }
             });
 

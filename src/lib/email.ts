@@ -145,10 +145,22 @@ export async function sendEmail(config: EmailConfig) {
       formData: Object.fromEntries(formData),
     });
 
+    // Add this before the fetch call
+    console.log('[Email Service] Auth details:', {
+      apiKeyLength: MAILGUN_API_KEY?.length || 0,
+      apiKeyStart: MAILGUN_API_KEY ? `${MAILGUN_API_KEY.substring(0, 4)}...` : 'missing',
+      domain: MAILGUN_DOMAIN,
+      isEU: process.env.MAILGUN_EU_DOMAIN === 'true',
+      url: `${MAILGUN_API_URL}/${MAILGUN_DOMAIN}/messages`,
+    });
+
+    const authHeader = `Basic ${Buffer.from(`api:${MAILGUN_API_KEY}`).toString('base64')}`;
+    console.log('[Email Service] Auth header:', authHeader.substring(0, 20) + '...');
+
     const response = await fetch(mailgunUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${Buffer.from(`api:${MAILGUN_API_KEY}`).toString('base64')}`,
+        'Authorization': authHeader,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: formData.toString()
