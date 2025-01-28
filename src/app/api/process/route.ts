@@ -100,15 +100,15 @@ async function handleRequest(req: Request) {
             const { data: template } = await supabaseAdmin
               .from('templates')
               .select('*')
-              .eq('form_id', submission.form_id)
+              .eq('id', submission.template_id)
               .single();
 
             if (template?.email_body && template?.email_subject && template?.email_from) {
-              const recipientEmail = findEmailInFormData(submission.content);
+              const recipientEmail = findEmailInFormData(submission.form_data);
               
               if (recipientEmail) {
                 const emailHtml = replaceVariables(template.email_body, {
-                  ...submission.content,
+                  ...submission.form_data,
                   submission: {
                     created_at: submission.created_at,
                     id: submission.id
@@ -116,7 +116,7 @@ async function handleRequest(req: Request) {
                 });
 
                 const emailSubject = replaceVariables(template.email_subject, {
-                  ...submission.content,
+                  ...submission.form_data,
                   submission: {
                     created_at: submission.created_at,
                     id: submission.id
