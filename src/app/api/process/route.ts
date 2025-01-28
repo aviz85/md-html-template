@@ -123,12 +123,11 @@ async function handleRequest(req: Request) {
             }
 
             // Check if template exists but has no email fields
-            if (!template?.email_body || !template?.email_subject || !template?.email_from) {
+            if (!template?.email_body || !template?.email_subject) {
               console.warn('⚠️ Template missing required email fields:', {
                 template_id: template?.id,
                 has_body: !!template?.email_body,
-                has_subject: !!template?.email_subject,
-                has_from: !!template?.email_from
+                has_subject: !!template?.email_subject
               });
               // Don't throw, just continue without email
               return {
@@ -176,16 +175,19 @@ async function handleRequest(req: Request) {
               }
             });
 
+            // Use default sender if template's email_from is empty
+            const senderEmail = template.email_from || process.env.DEFAULT_EMAIL_FROM || 'no-reply@system.com';
+
             console.log('📧 Attempting to send email:', {
               to: recipientEmail,
-              from: template.email_from,
+              from: senderEmail,
               subject: emailSubject.substring(0, 50) + '...',
               submissionId: submission.id
             });
 
             await sendEmail({
               to: recipientEmail,
-              from: template.email_from,
+              from: senderEmail,
               subject: emailSubject,
               html: emailHtml,
               submissionId: submission.id
