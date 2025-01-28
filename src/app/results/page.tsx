@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import { motion, AnimatePresence } from 'framer-motion';
-import marked from 'marked';
+import { marked } from 'marked';
 
 type CustomFont = {
   font_family: string;
@@ -301,7 +301,7 @@ export default function ResultsPage() {
           const originalPattern = new RegExp(`\\[${cleanTag}\\]`, 'g');
           
           // First process any markdown in the custom content
-          const processedCustomContent = marked.parse(content);
+          const processedCustomContent = marked.parse(content).toString();
           
           processedContent = processedContent
             .replace(upperPattern, processedCustomContent)
