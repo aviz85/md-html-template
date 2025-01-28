@@ -122,16 +122,17 @@ async function handleRequest(req: Request) {
               };
             }
 
-            // Check if template exists but has no email fields
+            // Check if template exists but has no required email fields
             if (!template?.email_body || !template?.email_subject) {
               console.warn('⚠️ Template missing required email fields:', {
                 template_id: template?.id,
                 has_body: !!template?.email_body,
-                has_subject: !!template?.email_subject
+                has_subject: !!template?.email_subject,
+                has_from: !!template?.email_from
               });
               // Don't throw, just continue without email
               return {
-                message: 'Processing completed (no email sent - missing template fields)',
+                message: 'Processing completed (no email sent - missing required template fields)',
                 submissionId,
                 result: {
                   ...result,
