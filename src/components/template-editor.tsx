@@ -1711,7 +1711,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             <DialogTitle>העלאת מדיה</DialogTitle>
             <DialogDescription>בחר תמונות להעלאה</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 mt-4">
+          <div className="space-y-6 mt-4">
             <div>
               <Label>קבצי מדיה</Label>
               <Input
@@ -1728,6 +1728,51 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
               >
                 {isMediaUploading ? 'מעלה...' : 'העלאה'}
               </Button>
+            </div>
+
+            {/* Gallery Grid */}
+            <div>
+              <h3 className="text-sm font-medium mb-3">תמונות קיימות בתבנית</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {uploadedMediaUrls.map((url, index) => (
+                  <div key={index} className="relative group">
+                    <div className="aspect-square overflow-hidden rounded-lg border bg-muted">
+                      <img 
+                        src={url} 
+                        alt={`תמונה ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          navigator.clipboard.writeText(`![תמונה ${index + 1}](${url})`);
+                          toast({
+                            title: "הצלחה",
+                            description: "קוד Markdown הועתק ללוח",
+                          });
+                        }}
+                      >
+                        העתק Markdown
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => {
+                          if (confirm('האם אתה בטוח שברצונך למחוק תמונה זו?')) {
+                            // TODO: Implement delete functionality
+                            // handleMediaDelete(url);
+                          }
+                        }}
+                      >
+                        מחק
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </DialogContent>
@@ -1750,30 +1795,98 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                     
                     <div>
                       <p className="text-sm font-medium mb-1">Markdown:</p>
-                      <pre className="bg-background p-2 rounded text-sm overflow-x-auto">
-                        ![תמונה {index + 1}]({url})
-                      </pre>
+                      <div className="relative">
+                        <Input 
+                          value={`![תמונה ${index + 1}](${url})`}
+                          readOnly
+                          className="pr-20 font-mono text-sm"
+                        />
+                        <Button
+                          className="absolute right-1 top-1 h-6"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`![תמונה ${index + 1}](${url})`);
+                            toast({
+                              title: "הצלחה",
+                              description: "הקוד הועתק ללוח",
+                            });
+                          }}
+                        >
+                          העתק
+                        </Button>
+                      </div>
                     </div>
 
                     <div>
                       <p className="text-sm font-medium mb-1">HTML (בסיסי):</p>
-                      <pre className="bg-background p-2 rounded text-sm overflow-x-auto">
-                        {'<img src="' + url + '" alt="תמונה ' + (index + 1) + '" />'}
-                      </pre>
+                      <div className="relative">
+                        <Input 
+                          value={`<img src="${url}" alt="תמונה ${index + 1}" />`}
+                          readOnly
+                          className="pr-20 font-mono text-sm"
+                        />
+                        <Button
+                          className="absolute right-1 top-1 h-6"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`<img src="${url}" alt="תמונה ${index + 1}" />`);
+                            toast({
+                              title: "הצלחה",
+                              description: "הקוד הועתק ללוח",
+                            });
+                          }}
+                        >
+                          העתק
+                        </Button>
+                      </div>
                     </div>
 
                     <div>
                       <p className="text-sm font-medium mb-1">HTML (עם סגנון):</p>
-                      <pre className="bg-background p-2 rounded text-sm overflow-x-auto">
-                        {'<img src="' + url + '" alt="תמונה ' + (index + 1) + '" style="width: 300px; height: auto; border-radius: 8px; margin: 1rem 0;" />'}
-                      </pre>
+                      <div className="relative">
+                        <Input 
+                          value={`<img src="${url}" alt="תמונה ${index + 1}" style="width: 300px; height: auto; border-radius: 8px; margin: 1rem 0;" />`}
+                          readOnly
+                          className="pr-20 font-mono text-sm"
+                        />
+                        <Button
+                          className="absolute right-1 top-1 h-6"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`<img src="${url}" alt="תמונה ${index + 1}" style="width: 300px; height: auto; border-radius: 8px; margin: 1rem 0;" />`);
+                            toast({
+                              title: "הצלחה",
+                              description: "הקוד הועתק ללוח",
+                            });
+                          }}
+                        >
+                          העתק
+                        </Button>
+                      </div>
                     </div>
 
                     <div>
                       <p className="text-sm font-medium mb-1">HTML (מותאם למובייל):</p>
-                      <pre className="bg-background p-2 rounded text-sm overflow-x-auto">
-                        {'<img src="' + url + '" alt="תמונה ' + (index + 1) + '" style="max-width: 100%; height: auto; border-radius: 8px; margin: 1rem 0;" />'}
-                      </pre>
+                      <div className="relative">
+                        <Input 
+                          value={`<img src="${url}" alt="תמונה ${index + 1}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 1rem 0;" />`}
+                          readOnly
+                          className="pr-20 font-mono text-sm"
+                        />
+                        <Button
+                          className="absolute right-1 top-1 h-6"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`<img src="${url}" alt="תמונה ${index + 1}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 1rem 0;" />`);
+                            toast({
+                              title: "הצלחה",
+                              description: "הקוד הועתק ללוח",
+                            });
+                          }}
+                        >
+                          העתק
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}

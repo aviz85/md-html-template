@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import { motion, AnimatePresence } from 'framer-motion';
+import marked from 'marked';
 
 type CustomFont = {
   font_family: string;
@@ -280,16 +281,32 @@ export default function ResultsPage() {
       let processedContent = content;
       
       if (template?.custom_contents) {
-        Object.entries(template.custom_contents).forEach(([tag, replacement]) => {
-          const cleanTag = tag.replace('custom_', '');
+        // Configure marked for proper line breaks
+        marked.setOptions({
+          breaks: true,
+          gfm: true
+        });
+
+        // Convert custom_contents object to array format expected by convertMarkdownToHtml
+        const customContentsArray = Object.entries(template.custom_contents).map(([key, value]) => ({
+          name: key,
+          content: value
+        }));
+        
+        // Process each custom content replacement
+        customContentsArray.forEach(({ name, content }) => {
+          const cleanTag = name.replace('custom_', '');
           const upperPattern = new RegExp(`\\[${cleanTag.toUpperCase()}\\]`, 'g');
           const lowerPattern = new RegExp(`\\[${cleanTag.toLowerCase()}\\]`, 'g');
           const originalPattern = new RegExp(`\\[${cleanTag}\\]`, 'g');
           
+          // First process any markdown in the custom content
+          const processedCustomContent = marked.parse(content);
+          
           processedContent = processedContent
-            .replace(upperPattern, replacement)
-            .replace(lowerPattern, replacement)
-            .replace(originalPattern, replacement);
+            .replace(upperPattern, processedCustomContent)
+            .replace(lowerPattern, processedCustomContent)
+            .replace(originalPattern, processedCustomContent);
         });
       }
       
