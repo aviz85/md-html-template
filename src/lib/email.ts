@@ -154,11 +154,15 @@ export async function sendEmail(config: EmailConfig) {
       body: formData.toString()
     });
 
+    // Clone the response before reading it
+    const responseClone = response.clone();
+
     let responseData;
     try {
       responseData = await response.json();
     } catch {
-      const text = await response.text();
+      // If JSON parsing fails, use the cloned response to get text
+      const text = await responseClone.text();
       responseData = { message: text };
     }
 
