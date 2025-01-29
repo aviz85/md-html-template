@@ -88,10 +88,11 @@ export async function POST(request: Request) {
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ submissionId: submission.submission_id }),
-          signal: AbortSignal.timeout(1)
+          body: JSON.stringify({ submissionId: submission.submission_id })
         }
-      ).catch(console.error);
+      ).catch(error => {
+        console.error('Background process request failed:', error);
+      });
     } catch (error) {
       console.error('Failed to trigger processing:', error);
     }
