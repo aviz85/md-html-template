@@ -171,10 +171,10 @@ async function handleRequest(req: Request) {
               }
             });
 
-            // Use default sender if template's email_from is empty
-            const senderEmail = template.email_from || process.env.DEFAULT_EMAIL_FROM || 'no-reply@reports.vocalvault.ai';
-            const senderName = template.name || 'VocalVault Reports';
-            const formattedSender = `${senderName} <${senderEmail}>`;
+            // Use template name as display name, and email from editor or default
+            const defaultEmail = 'no-reply@reports.vocalvault.ai';
+            const senderEmail = template.email_from?.trim() || process.env.DEFAULT_EMAIL_FROM || defaultEmail;
+            const formattedSender = `${template.name} <${senderEmail}>`;
 
             console.log('📧 Attempting to send email:', {
               to: recipientEmail,
