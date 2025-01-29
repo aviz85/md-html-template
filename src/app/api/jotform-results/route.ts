@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { processSubmission } from '@/lib/claude';
 
+export const runtime = 'edge';
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -81,11 +83,24 @@ export async function POST(request: Request) {
 
     // Start processing in background
     try {
-      // Run processSubmission in background
-      processSubmission(submission.submission_id)
-        .catch(error => {
-          console.error('Background process failed:', error);
-        });
+      // Get the current hostname
+      const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+      const host = request.headers.get('host') || 'localhost:3000';
+      const processUrl = `${protocol}://${host}/api/process`;
+
+      console.log('Triggering process at:', processUrl);
+
+      fetch(processUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-forwarded-host': host,
+          'x-forwarded-proto': protocol
+        },
+        body: JSON.stringify({ submissionId: submission.submission_id })
+      }).catch(error => {
+        console.error('Background process request failed:', error);
+      });
     } catch (error) {
       console.error('Failed to trigger processing:', error);
     }
