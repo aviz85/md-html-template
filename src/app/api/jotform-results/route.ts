@@ -81,18 +81,11 @@ export async function POST(request: Request) {
 
     // Start processing in background
     try {
-      fetch(
-        `${process.env.NEXT_PUBLIC_APP_URL}/api/process`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ submissionId: submission.submission_id })
-        }
-      ).catch(error => {
-        console.error('Background process request failed:', error);
-      });
+      // Run processSubmission in background
+      processSubmission(submission.submission_id)
+        .catch(error => {
+          console.error('Background process failed:', error);
+        });
     } catch (error) {
       console.error('Failed to trigger processing:', error);
     }
