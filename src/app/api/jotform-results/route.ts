@@ -84,11 +84,12 @@ export async function POST(request: Request) {
 
     // Start processing in background
     try {
-      const baseUrl = process.env.VERCEL_URL 
-        ? `https://${process.env.VERCEL_URL}`
-        : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-      
+      // Get the current request URL and use it as base
+      const requestUrl = new URL(request.url);
+      const baseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
       const processUrl = `${baseUrl}/api/process`;
+      
+      console.log('Current request URL:', request.url);
       console.log('Triggering process at:', processUrl);
 
       // Use node-fetch with keepalive
@@ -105,6 +106,9 @@ export async function POST(request: Request) {
       }).catch(error => {
         console.error('Background process request failed:', error);
       });
+
+      // Add verification log
+      console.log('Process request sent successfully for submission:', submission.submission_id);
     } catch (error) {
       console.error('Failed to trigger processing:', error);
     }
