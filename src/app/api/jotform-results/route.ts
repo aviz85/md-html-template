@@ -81,20 +81,17 @@ export async function POST(request: Request) {
 
     // Start processing in background
     try {
-      const processResponse = await fetch(
+      fetch(
         `${process.env.NEXT_PUBLIC_APP_URL}/api/process`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ submissionId: submission.submission_id })
+          body: JSON.stringify({ submissionId: submission.submission_id }),
+          signal: AbortSignal.timeout(1)
         }
-      );
-      
-      if (!processResponse.ok) {
-        console.error('Failed to start processing:', await processResponse.text());
-      }
+      ).catch(console.error);
     } catch (error) {
       console.error('Failed to trigger processing:', error);
     }
