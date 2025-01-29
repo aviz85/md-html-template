@@ -1470,46 +1470,19 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           <div className="space-y-4 p-4">
             <div className="bg-muted p-4 rounded-lg mb-4 text-right space-y-4">
               <div>
-                <h3 className="font-bold mb-2">הסבר על שימוש במשתנים בתבנית המייל:</h3>
-                <p>ניתן להשתמש במשתנים מהטופס בנושא המייל ובתוכן המייל על ידי שימוש בתחביר הבא: {'{{שם_השדה}}'}</p>
-                <p className="mt-2">דוגמאות לשימוש בשדות:</p>
-                <ul className="list-disc list-inside mr-4">
-                  <li>{'{{name}}'} - שם המשתמש</li>
-                  <li>{'{{email}}'} - כתובת המייל</li>
-                  <li>{'{{gender}}'} - מגדר</li>
-                  <li>{'{{phone}}'} - טלפון</li>
-                  <li>{'{{id}}'} - מזהה הפנייה</li>
-                  <li>{'{{form_id}}'} - מזהה הטופס</li>
-                  <li>{'{{created_at}}'} - תאריך שליחת הטופס</li>
-                </ul>
-                <div className="bg-background p-3 rounded mt-2 text-sm">
-                  <p className="font-bold mb-1">דוגמאות לשימוש בנושא המייל:</p>
-                  <div className="font-mono" dir="ltr">
-                    {'• שלום {' + '{name}' + '} - קבלנו את פנייתך\n' +
-                     '• בקשה חדשה מ-{' + '{email}' + '}\n' +
-                     '• {' + '{if gender === \'male\'}' + '}מר{' + '{else}' + '}גברת{' + '{endif}' + '} {' + '{lastName}' + '} - אישור הרשמה'}
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">נושא המייל</label>
+                    <input
+                      type="text"
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      className="w-full p-2 border rounded-md"
+                      dir="rtl"
+                      placeholder="נושא המייל שיישלח"
+                    />
                   </div>
                 </div>
-              </div>
-
-              <div className="border-t border-border/40 pt-4">
-                <h3 className="font-bold mb-2">שימוש בתנאים (למשל עבור פנייה בזכר/נקבה):</h3>
-                <p>ניתן להשתמש בתנאים בנושא ובתוכן המייל בצורה הבאה:</p>
-                <div className="bg-background p-3 rounded mt-2 text-sm font-mono" dir="ltr">
-                  {'{{if gender === \'male\'}}\n  שלום מר {{lastName}}\n{{else}}\n  שלום גברת {{lastName}}\n{{endif}}'}
-                </div>
-                
-                <p className="mt-3">דוגמה נוספת עם תנאים מקוננים:</p>
-                <div className="bg-background p-3 rounded mt-2 text-sm font-mono" dir="ltr">
-                  {'{{if gender === \'male\'}}\n  ברוך הבא\n  {{if role === \'student\'}}\n    התלמיד\n  {{else}}\n    המורה\n  {{endif}}\n{{else}}\n  ברוכה הבאה\n  {{if role === \'student\'}}\n    התלמידה\n  {{else}}\n    המורה\n  {{endif}}\n{{endif}}'}
-                </div>
-
-                <ul className="list-disc list-inside mr-4 mt-3">
-                  <li>התנאים תומכים בהשוואה מדויקת בלבד (===)</li>
-                  <li>ניתן לקנן תנאים אחד בתוך השני</li>
-                  <li>חובה לסיים כל תנאי עם endif</li>
-                  <li>חובה לכלול else גם אם אין צורך בו (השאר ריק במקרה כזה)</li>
-                </ul>
               </div>
             </div>
             
@@ -1521,16 +1494,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                   onChange={(e) => setEmailFrom(e.target.value)}
                   placeholder="noreply@yourdomain.com"
                   dir="ltr"
-                />
-              </div>
-              
-              <div>
-                <Label>נושא המייל</Label>
-                <Input
-                  value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
-                  placeholder="שלום {{name}} - תודה על פנייתך"
-                  dir="rtl"
                 />
               </div>
               
