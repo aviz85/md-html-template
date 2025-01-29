@@ -183,6 +183,16 @@ async function handleRequest(req: Request) {
               submissionId: submission.id
             });
 
+            // Update DB that we're attempting to send email
+            await supabaseAdmin
+              .from('form_submissions')
+              .update({
+                email_status: 'sending',
+                recipient_email: recipientEmail,
+                updated_at: new Date().toISOString()
+              })
+              .eq('submission_id', submissionId);
+
             await sendEmail({
               to: recipientEmail,
               from: formattedSender,
@@ -190,6 +200,16 @@ async function handleRequest(req: Request) {
               html: emailHtml,
               submissionId: submission.id
             });
+
+            // Update DB that email was sent successfully
+            await supabaseAdmin
+              .from('form_submissions')
+              .update({
+                email_status: 'sent',
+                email_sent_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+              .eq('submission_id', submissionId);
 
             console.log('✅ Email sent successfully');
 
@@ -205,6 +225,18 @@ async function handleRequest(req: Request) {
           } catch (processError) {
             // Only update status if it's a processing error, not an email error
             console.error('Error in processSubmission:', processError);
+            
+            // Update email status if it's an email error
+            if (submissionId && (processError as Error)?.message?.includes('email')) {
+              await supabaseAdmin
+                .from('form_submissions')
+                .update({
+                  email_status: 'error',
+                  email_error: (processError as Error).message,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('submission_id', submissionId);
+            }
             
             // Let processSubmission handle its own status updates
             throw processError;
