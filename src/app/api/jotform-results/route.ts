@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { processSubmission } from '@/lib/claude';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
+export const maxDuration = 10; // Set timeout to 10 seconds for initial handler
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -83,21 +84,24 @@ export async function POST(request: Request) {
 
     // Start processing in background
     try {
-      // Get the current hostname
-      const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-      const host = request.headers.get('host') || 'localhost:3000';
-      const processUrl = `${protocol}://${host}/api/process`;
-
+      const baseUrl = process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL}`
+        : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      
+      const processUrl = `${baseUrl}/api/process`;
       console.log('Triggering process at:', processUrl);
 
+      // Use node-fetch with keepalive
       fetch(processUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-forwarded-host': host,
-          'x-forwarded-proto': protocol
+          'Connection': 'keep-alive'
         },
-        body: JSON.stringify({ submissionId: submission.submission_id })
+        body: JSON.stringify({ 
+          submissionId: submission.submission_id,
+          _timestamp: Date.now() // Add timestamp to prevent caching
+        })
       }).catch(error => {
         console.error('Background process request failed:', error);
       });
