@@ -90,7 +90,10 @@ async function handleRequest(req: Request) {
             console.log('🔍 Starting email process for submission:', submissionId);
             
             // Log form_id for debugging
-            console.log('📝 Form ID:', submission.form_id);
+            console.log('📝 Form ID details:', {
+              form_id: submission.form_id,
+              submission_content: submission.content
+            });
             
             const { data: template, error: templateError } = await supabaseAdmin
               .from('templates')
@@ -170,17 +173,19 @@ async function handleRequest(req: Request) {
 
             // Use default sender if template's email_from is empty
             const senderEmail = template.email_from || process.env.DEFAULT_EMAIL_FROM || 'no-reply@reports.vocalvault.ai';
+            const senderName = template.name || 'VocalVault Reports';
+            const formattedSender = `${senderName} <${senderEmail}>`;
 
             console.log('📧 Attempting to send email:', {
               to: recipientEmail,
-              from: senderEmail,
+              from: formattedSender,
               subject: emailSubject.substring(0, 50) + '...',
               submissionId: submission.id
             });
 
             await sendEmail({
               to: recipientEmail,
-              from: senderEmail,
+              from: formattedSender,
               subject: emailSubject,
               html: emailHtml,
               submissionId: submission.id
