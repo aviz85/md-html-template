@@ -173,8 +173,15 @@ async function handleRequest(req: Request) {
 
             // Use template name as display name, and email from editor or default
             const defaultEmail = 'no-reply@reports.vocalvault.ai';
-            const senderEmail = template.email_from?.trim() || process.env.DEFAULT_EMAIL_FROM || defaultEmail;
-            const formattedSender = `${template.name} <${senderEmail}>`;
+            // Ensure valid email format and use default if empty or invalid
+            const senderEmail = template.email_from?.trim()?.includes('@') 
+              ? template.email_from.trim() 
+              : defaultEmail;
+            
+            // Ensure email format is valid for Mailgun
+            const formattedSender = template.name 
+              ? `"${template.name.replace(/"/g, '')}" <${senderEmail}>`  // Escape quotes in name
+              : `"VocalVault Reports" <${senderEmail}>`;  // Always include display name
 
             console.log('📧 Attempting to send email:', {
               to: recipientEmail,
