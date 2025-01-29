@@ -34,6 +34,7 @@ import { ImageIcon } from "lucide-react"
 import { ElementStyle, LogoPosition } from "@/types"
 import { ColorPicker } from "@/components/ui/color-picker"
 import { format } from 'date-fns'
+import { EmailEditor } from './email-editor'
 
 type ElementType = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "list" | "p" | "specialParagraph" | "header" | "footer" | "main" | "prose"
 
@@ -1498,13 +1499,10 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
               </div>
               
               <div>
-                <Label>תוכן המייל (HTML)</Label>
-                <Textarea
+                <Label>תוכן המייל</Label>
+                <EmailEditor
                   value={emailBody}
-                  onChange={(e) => setEmailBody(e.target.value)}
-                  placeholder={'<div dir="rtl">\n  {{if gender === \'male\'}}\n    שלום מר {{lastName}},\n  {{else}}\n    שלום גברת {{lastName}},\n  {{endif}}\n\n  תודה על פנייתך.\n  נחזור אליך בהקדם.\n\n  בברכה,\n  הצוות\n</div>'}
-                  className="min-h-[300px] font-mono"
-                  dir="ltr"
+                  onChange={setEmailBody}
                 />
               </div>
             </div>
