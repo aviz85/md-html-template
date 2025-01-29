@@ -42,16 +42,28 @@ export function EmailEditor({ value, onChange }: EmailEditorProps) {
           });
           
           editor.on('NodeChange', (e) => {
-            const node = e.element;
-            if (node.nodeName === 'P' && !node.style.direction) {
-              node.style.direction = 'rtl';
+            const node = e.element as HTMLElement;
+            if (node.nodeName === 'P' && !node.getAttribute('style')?.includes('direction')) {
+              node.style.setProperty('direction', 'rtl');
             }
           });
           
           editor.on('BeforeSetContent', (e) => {
-            if (!e.content.match(/style="direction:/)) {
-              e.content = e.content.replace(/<(p|h[1-6]|div)([^>]*)>/g, '<$1$2 style="direction: rtl;">');
+            if (!e.content.match(/style="[^"]*direction:/)) {
+              e.content = e.content.replace(/<(p|h[1-6]|div)([^>]*)>/g, (match, tag, attrs) => {
+                if (attrs.includes('style="')) {
+                  return match.replace('style="', 'style="direction: rtl; ');
+                }
+                return `<${tag}${attrs} style="direction: rtl;">`;
+              });
             }
+          });
+
+          // Add keyboard shortcut for direction toggle
+          editor.addShortcut('meta+shift+r', 'Toggle text direction', () => {
+            const node = editor.selection.getNode();
+            const currentDir = node.style.direction || 'rtl';
+            node.style.direction = currentDir === 'rtl' ? 'ltr' : 'rtl';
           });
         }
       }}
