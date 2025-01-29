@@ -143,8 +143,8 @@ export default function ResultsPage() {
       return [1000, 2000, 5000, 10000, 20000][retry] || 20000;
     };
     let foundSubmission = false;
-    const POLL_INTERVAL = 3000; // 3 seconds between polls
-    const MAX_POLL_TIME = 5 * 60 * 1000; // 5 minutes total
+    const POLL_INTERVAL = 1000; // 1 second between polls
+    const MAX_POLL_TIME = 2 * 60 * 1000; // 2 minutes total
     const pollStartTime = Date.now();
 
     const pollSubmission = async () => {
@@ -772,55 +772,15 @@ export default function ResultsPage() {
 
   if (isLoading) {
     return (
-      <motion.div 
-        initial={{ opacity: 0 }} 
-        animate={{ opacity: 1 }} 
-        exit={{ opacity: 0 }}
-        className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-white"
-      >
-        <div className="flex flex-col items-center gap-6 p-8 rounded-xl bg-white/80 backdrop-blur-sm shadow-lg">
-          <div className="relative">
-            <div className="w-24 h-24 rounded-full border-8 border-gray-200/50"></div>
-            <motion.div 
-              className="absolute inset-0 border-8 border-blue-500/80 rounded-full border-t-transparent"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-            />
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <motion.p 
-              className="text-lg font-medium text-gray-700"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              {getMagicalMessage(progress.stage, progress.message)}
-            </motion.p>
-            <motion.div 
-              className="flex items-center gap-2"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-            >
-              <div className="flex gap-1.5">
-                {[...Array(3)].map((_, i) => (
-                  <motion.span
-                    key={i}
-                    className="w-2 h-2 bg-blue-500/80 rounded-full"
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{
-                      duration: 1,
-                      repeat: Infinity,
-                      delay: i * 0.2,
-                      ease: "easeInOut"
-                    }}
-                  />
-                ))}
-              </div>
-            </motion.div>
-          </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="relative w-12 h-12">
+          <motion.div 
+            className="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          />
         </div>
-      </motion.div>
+      </div>
     );
   }
 
