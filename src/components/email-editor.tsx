@@ -1,11 +1,4 @@
-import { useEditor, EditorContent } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
-import TextAlign from '@tiptap/extension-text-align'
-import Link from '@tiptap/extension-link'
-import Underline from '@tiptap/extension-underline'
-import TextStyle from '@tiptap/extension-text-style'
-import Color from '@tiptap/extension-color'
-import { Button } from './ui/button'
+import { Editor } from '@tinymce/tinymce-react'
 
 interface EmailEditorProps {
   value: string
@@ -13,103 +6,42 @@ interface EmailEditorProps {
 }
 
 export function EmailEditor({ value, onChange }: EmailEditorProps) {
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      TextAlign.configure({
-        types: ['heading', 'paragraph'],
-      }),
-      Link.configure({
-        openOnClick: false,
-      }),
-      Underline,
-      TextStyle,
-      Color,
-    ],
-    content: value,
-    onUpdate: ({ editor }) => {
-      onChange(editor.getHTML())
-    },
-    editorProps: {
-      attributes: {
-        class: 'prose prose-sm max-w-none min-h-[200px] p-4 focus:outline-none',
-        dir: 'rtl',
-      },
-    },
-  })
-
-  if (!editor) {
-    return null
-  }
-
   return (
-    <div className="border rounded-md" dir="rtl">
-      <div className="border-b bg-muted p-2 flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant={editor.isActive('bold') ? 'default' : 'outline'}
-          onClick={() => editor.chain().focus().toggleBold().run()}
-        >
-          מודגש
-        </Button>
-        <Button
-          size="sm"
-          variant={editor.isActive('italic') ? 'default' : 'outline'}
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-        >
-          נטוי
-        </Button>
-        <Button
-          size="sm"
-          variant={editor.isActive('underline') ? 'default' : 'outline'}
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
-        >
-          קו תחתון
-        </Button>
-        <Button
-          size="sm"
-          variant={editor.isActive({ textAlign: 'right' }) ? 'default' : 'outline'}
-          onClick={() => editor.chain().focus().setTextAlign('right').run()}
-        >
-          ימין
-        </Button>
-        <Button
-          size="sm"
-          variant={editor.isActive({ textAlign: 'center' }) ? 'default' : 'outline'}
-          onClick={() => editor.chain().focus().setTextAlign('center').run()}
-        >
-          מרכז
-        </Button>
-        <Button
-          size="sm"
-          variant={editor.isActive({ textAlign: 'left' }) ? 'default' : 'outline'}
-          onClick={() => editor.chain().focus().setTextAlign('left').run()}
-        >
-          שמאל
-        </Button>
-        <Button
-          size="sm"
-          variant={editor.isActive('heading', { level: 1 }) ? 'default' : 'outline'}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-        >
-          כותרת 1
-        </Button>
-        <Button
-          size="sm"
-          variant={editor.isActive('heading', { level: 2 }) ? 'default' : 'outline'}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-        >
-          כותרת 2
-        </Button>
-        <Button
-          size="sm"
-          variant={editor.isActive('bulletList') ? 'default' : 'outline'}
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-        >
-          רשימה
-        </Button>
-      </div>
-      <EditorContent editor={editor} />
-    </div>
+    <Editor
+      apiKey="qseaxv2nzbwzjpmrnq28oi7mpf0igqfah7yq2uu8uti6jl7g"
+      value={value}
+      onEditorChange={onChange}
+      init={{
+        height: 400,
+        menubar: true,
+        directionality: 'rtl',
+        language: 'he_IL',
+        plugins: [
+          'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+          'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+          'insertdatetime', 'media', 'table', 'help', 'wordcount'
+        ],
+        toolbar: 'undo redo | blocks | ' +
+          'bold italic forecolor | alignleft aligncenter ' +
+          'alignright alignjustify | bullist numlist outdent indent | ' +
+          'removeformat | code | help',
+        content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif; font-size: 14px }',
+        block_formats: 'פסקה=p; כותרת 1=h1; כותרת 2=h2; כותרת 3=h3',
+        branding: false,
+        promotion: false,
+        elementpath: false,
+        force_p_newlines: true,
+        forced_root_block: 'p',
+        valid_elements: 'p,br,h1,h2,h3,h4,h5,h6,strong,em,u,s,ul,ol,li,a[href],span[style],div,img[src|alt|width|height],table,tr,td,th',
+        valid_styles: {
+          '*': 'font-size,font-family,color,text-decoration,text-align,background-color,margin,padding,direction'
+        },
+        setup: (editor) => {
+          editor.on('init', () => {
+            editor.getContainer().style.direction = 'rtl';
+          });
+        }
+      }}
+    />
   )
 } 
