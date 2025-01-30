@@ -101,7 +101,6 @@ export async function POST(request: Request) {
             submissionId: submission.submission_id,
             _timestamp: Date.now()
           }),
-          // Add timeout of 30 seconds
           signal: AbortSignal.timeout(30000)
         });
 
@@ -113,26 +112,53 @@ export async function POST(request: Request) {
       } catch (error) {
         console.error(`Background process request failed (attempt ${retryCount + 1}):`, error);
         
-        if (retryCount < maxRetries) {
-          // Exponential backoff: 5s, 10s, 20s, 40s, 80s
+        // Check if error is retryable
+        const shouldRetry = (error: any) => {
+          // Network errors that should trigger retry
+          const retryableErrors = [
+            'ECONNRESET',              // Connection reset
+            'ETIMEDOUT',               // Connection timeout
+            'ECONNREFUSED',            // Connection refused
+            'socket disconnected',     // Socket issues
+            'network socket',          // Network socket issues
+            'failed to fetch',         // General fetch failure
+            'network request failed'   // Network request failure
+          ];
+
+          // Check error and its cause
+          const errorString = error.toString().toLowerCase();
+          const causeString = error.cause?.toString().toLowerCase() || '';
+          
+          return retryableErrors.some(e => 
+            errorString.includes(e.toLowerCase()) || 
+            causeString.includes(e.toLowerCase())
+          );
+        };
+        
+        if (retryCount < maxRetries && shouldRetry(error)) {
           const delay = Math.min(5000 * Math.pow(2, retryCount), 80000);
-          console.log(`Retrying in ${delay/1000} seconds... (${retryCount + 1}/${maxRetries})`);
+          console.log(`Error is retryable, waiting ${delay/1000} seconds... (${retryCount + 1}/${maxRetries})`);
           await new Promise(resolve => setTimeout(resolve, delay));
           return triggerProcessWithRetry(retryCount + 1, maxRetries);
         } else {
-          // Update submission status to error if all retries failed
+          // If error is not retryable or max retries reached
+          const errorMessage = !shouldRetry(error) 
+            ? 'Processing failed with non-retryable error' 
+            : 'Failed to start processing after multiple retries';
+
           await supabase
             .from('form_submissions')
             .update({
               status: 'error',
               progress: {
                 stage: 'error',
-                message: 'Failed to start processing after multiple retries',
+                message: errorMessage,
                 timestamp: new Date().toISOString()
               }
             })
             .eq('submission_id', submission.submission_id);
-          console.error('Max retries reached, marked submission as error');
+          
+          console.error(errorMessage, error);
         }
       }
     };
