@@ -90,7 +90,7 @@ export async function POST(request: Request) {
             submissionId: submission.submission_id,
             _timestamp: Date.now()
           }),
-          signal: AbortSignal.timeout(30000)
+          signal: AbortSignal.timeout(300000)
         });
 
         if (!response.ok) {
@@ -138,28 +138,15 @@ export async function POST(request: Request) {
           await supabaseAdmin
             .from('form_submissions')
             .update({
-              logs: (logs: any[] | null) => logs ? [...logs, {
-                stage: 'retry',
-                message: `Attempt ${retryCount + 1}/${maxRetries} failed, retrying in ${delay/1000} seconds`,
-                error: {
-                  message: e.message,
-                  cause: (e as Error & { cause?: { message?: string } }).cause?.message,
-                  stack: e.stack,
-                  type: e.name || typeof e
-                },
-                timestamp: new Date().toISOString()
-              }] : [{
-                stage: 'retry',
-                message: `Attempt ${retryCount + 1}/${maxRetries} failed, retrying in ${delay/1000} seconds`,
-                error: {
-                  message: e.message,
-                  cause: (e as Error & { cause?: { message?: string } }).cause?.message,
-                  stack: e.stack,
-                  type: e.name || typeof e
-                },
-                timestamp: new Date().toISOString()
-              }],
-              updated_at: new Date().toISOString()
+              stage: 'retry',
+              message: `Attempt ${retryCount + 1}/${maxRetries} failed, retrying in ${delay/1000} seconds`,
+              error: {
+                message: e.message,
+                cause: (e as Error & { cause?: { message?: string } }).cause?.message,
+                stack: e.stack,
+                type: e.name || typeof e
+              },
+              timestamp: new Date().toISOString()
             })
             .eq('submission_id', submission.submission_id);
 
