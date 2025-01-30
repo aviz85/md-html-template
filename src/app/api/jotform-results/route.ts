@@ -122,22 +122,47 @@ export async function POST(request: Request) {
             'socket disconnected',     // Socket issues
             'network socket',          // Network socket issues
             'failed to fetch',         // General fetch failure
-            'network request failed'   // Network request failure
+            'network request failed',  // Network request failure
+            'processing failed',       // General processing failure
+            'error in processSubmission', // Process errors
+            'failed to start processing'  // Startup errors
           ];
 
           // Check error and its cause
           const errorString = error.toString().toLowerCase();
           const causeString = error.cause?.toString().toLowerCase() || '';
+          const messageString = error.message?.toLowerCase() || '';
           
           return retryableErrors.some(e => 
             errorString.includes(e.toLowerCase()) || 
-            causeString.includes(e.toLowerCase())
+            causeString.includes(e.toLowerCase()) ||
+            messageString.includes(e.toLowerCase())
           );
         };
         
         if (retryCount < maxRetries && shouldRetry(error)) {
           const delay = Math.min(5000 * Math.pow(2, retryCount), 80000);
           console.log(`Error is retryable, waiting ${delay/1000} seconds... (${retryCount + 1}/${maxRetries})`);
+          
+          // Add detailed log entry
+          await supabase
+            .from('form_submissions')
+            .update({
+              logs: supabase.sql`array_append(logs, ${JSON.stringify({
+                stage: 'retry',
+                message: `Attempt ${retryCount + 1}/${maxRetries} failed, retrying in ${delay/1000} seconds`,
+                error: {
+                  message: error.message,
+                  cause: error.cause?.message,
+                  stack: error.stack,
+                  type: error.name || typeof error
+                },
+                timestamp: new Date().toISOString()
+              })}::jsonb)`,
+              updated_at: new Date().toISOString()
+            })
+            .eq('submission_id', submission.submission_id);
+
           await new Promise(resolve => setTimeout(resolve, delay));
           return triggerProcessWithRetry(retryCount + 1, maxRetries);
         } else {
@@ -146,6 +171,7 @@ export async function POST(request: Request) {
             ? 'Processing failed with non-retryable error' 
             : 'Failed to start processing after multiple retries';
 
+          // Add detailed final error log
           await supabase
             .from('form_submissions')
             .update({
@@ -153,12 +179,44 @@ export async function POST(request: Request) {
               progress: {
                 stage: 'error',
                 message: errorMessage,
+                timestamp: new Date().toISOString(),
+                details: {
+                  error: {
+                    message: error.message,
+                    cause: error.cause?.message,
+                    stack: error.stack,
+                    type: error.name || typeof error
+                  },
+                  retryAttempts: retryCount,
+                  lastAttempt: new Date().toISOString()
+                }
+              },
+              logs: supabase.sql`array_append(logs, ${JSON.stringify({
+                stage: 'error',
+                message: errorMessage,
+                error: {
+                  message: error.message,
+                  cause: error.cause?.message,
+                  stack: error.stack,
+                  type: error.name || typeof error
+                },
+                retryAttempts: retryCount,
                 timestamp: new Date().toISOString()
-              }
+              })}::jsonb)`,
+              updated_at: new Date().toISOString()
             })
             .eq('submission_id', submission.submission_id);
           
-          console.error(errorMessage, error);
+          console.error('Final error details:', {
+            message: errorMessage,
+            error: {
+              message: error.message,
+              cause: error.cause?.message,
+              stack: error.stack,
+              type: error.name || typeof error
+            },
+            retryAttempts: retryCount
+          });
         }
       }
     };
