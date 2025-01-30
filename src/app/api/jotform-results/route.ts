@@ -82,36 +82,65 @@ export async function POST(request: Request) {
 
     console.log('Saved submission:', submission);
 
-    // Start processing in background
-    try {
-      // Get the current request URL and use it as base
-      const requestUrl = new URL(request.url);
-      const baseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
-      const processUrl = `${baseUrl}/api/process`;
-      
-      console.log('Current request URL:', request.url);
-      console.log('Triggering process at:', processUrl);
+    // Start processing in background with retry mechanism
+    const triggerProcessWithRetry = async (retryCount = 0, maxRetries = 5) => {
+      try {
+        const requestUrl = new URL(request.url);
+        const baseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
+        const processUrl = `${baseUrl}/api/process`;
+        
+        console.log('Triggering process at:', processUrl, 'attempt:', retryCount + 1);
 
-      // Use node-fetch with keepalive
-      fetch(processUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Connection': 'keep-alive'
-        },
-        body: JSON.stringify({ 
-          submissionId: submission.submission_id,
-          _timestamp: Date.now() // Add timestamp to prevent caching
-        })
-      }).catch(error => {
-        console.error('Background process request failed:', error);
-      });
+        const response = await fetch(processUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Connection': 'keep-alive'
+          },
+          body: JSON.stringify({ 
+            submissionId: submission.submission_id,
+            _timestamp: Date.now()
+          }),
+          // Add timeout of 30 seconds
+          signal: AbortSignal.timeout(30000)
+        });
 
-      // Add verification log
-      console.log('Process request sent successfully for submission:', submission.submission_id);
-    } catch (error) {
-      console.error('Failed to trigger processing:', error);
-    }
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        console.log('Process request sent successfully for submission:', submission.submission_id);
+      } catch (error) {
+        console.error(`Background process request failed (attempt ${retryCount + 1}):`, error);
+        
+        if (retryCount < maxRetries) {
+          // Exponential backoff: 5s, 10s, 20s, 40s, 80s
+          const delay = Math.min(5000 * Math.pow(2, retryCount), 80000);
+          console.log(`Retrying in ${delay/1000} seconds... (${retryCount + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return triggerProcessWithRetry(retryCount + 1, maxRetries);
+        } else {
+          // Update submission status to error if all retries failed
+          await supabase
+            .from('form_submissions')
+            .update({
+              status: 'error',
+              progress: {
+                stage: 'error',
+                message: 'Failed to start processing after multiple retries',
+                timestamp: new Date().toISOString()
+              }
+            })
+            .eq('submission_id', submission.submission_id);
+          console.error('Max retries reached, marked submission as error');
+        }
+      }
+    };
+
+    // Start the retry process
+    triggerProcessWithRetry().catch(error => {
+      console.error('Final error in retry process:', error);
+    });
 
     // Return success immediately
     return NextResponse.json({ 
