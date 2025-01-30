@@ -1,20 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { processSubmission } from '@/lib/claude';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export const runtime = 'nodejs';
 export const maxDuration = 10; // Set timeout to 10 seconds for initial handler
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
 
 export async function POST(request: Request) {
   try {
@@ -64,7 +53,7 @@ export async function POST(request: Request) {
     });
 
     // Save to database first
-    const { data: submission, error: submissionError } = await supabase
+    const { data: submission, error: submissionError } = await supabaseAdmin
       .from('form_submissions')
       .insert({
         form_id: formData.formID || '250194606110042',
@@ -110,10 +99,11 @@ export async function POST(request: Request) {
 
         console.log('Process request sent successfully for submission:', submission.submission_id);
       } catch (error) {
-        console.error(`Background process request failed (attempt ${retryCount + 1}):`, error);
+        const e = error as Error;
+        console.error(`Background process request failed (attempt ${retryCount + 1}):`, e);
         
         // Check if error is retryable
-        const shouldRetry = (error: any) => {
+        const shouldRetry = (err: Error) => {
           // Network errors that should trigger retry
           const retryableErrors = [
             'ECONNRESET',              // Connection reset
@@ -129,9 +119,9 @@ export async function POST(request: Request) {
           ];
 
           // Check error and its cause
-          const errorString = error.toString().toLowerCase();
-          const causeString = error.cause?.toString().toLowerCase() || '';
-          const messageString = error.message?.toLowerCase() || '';
+          const errorString = err.toString().toLowerCase();
+          const causeString = (err as Error & { cause?: { message?: string } }).cause?.message?.toLowerCase() || '';
+          const messageString = err.message?.toLowerCase() || '';
           
           return retryableErrors.some(e => 
             errorString.includes(e.toLowerCase()) || 
@@ -140,25 +130,35 @@ export async function POST(request: Request) {
           );
         };
         
-        if (retryCount < maxRetries && shouldRetry(error)) {
+        if (retryCount < maxRetries && shouldRetry(e)) {
           const delay = Math.min(5000 * Math.pow(2, retryCount), 80000);
           console.log(`Error is retryable, waiting ${delay/1000} seconds... (${retryCount + 1}/${maxRetries})`);
           
           // Add detailed log entry
-          await supabase
+          await supabaseAdmin
             .from('form_submissions')
             .update({
-              logs: supabase.sql`array_append(logs, ${JSON.stringify({
+              logs: (logs: any[] | null) => logs ? [...logs, {
                 stage: 'retry',
                 message: `Attempt ${retryCount + 1}/${maxRetries} failed, retrying in ${delay/1000} seconds`,
                 error: {
-                  message: error.message,
-                  cause: error.cause?.message,
-                  stack: error.stack,
-                  type: error.name || typeof error
+                  message: e.message,
+                  cause: (e as Error & { cause?: { message?: string } }).cause?.message,
+                  stack: e.stack,
+                  type: e.name || typeof e
                 },
                 timestamp: new Date().toISOString()
-              })}::jsonb)`,
+              }] : [{
+                stage: 'retry',
+                message: `Attempt ${retryCount + 1}/${maxRetries} failed, retrying in ${delay/1000} seconds`,
+                error: {
+                  message: e.message,
+                  cause: (e as Error & { cause?: { message?: string } }).cause?.message,
+                  stack: e.stack,
+                  type: e.name || typeof e
+                },
+                timestamp: new Date().toISOString()
+              }],
               updated_at: new Date().toISOString()
             })
             .eq('submission_id', submission.submission_id);
@@ -167,12 +167,12 @@ export async function POST(request: Request) {
           return triggerProcessWithRetry(retryCount + 1, maxRetries);
         } else {
           // If error is not retryable or max retries reached
-          const errorMessage = !shouldRetry(error) 
+          const errorMessage = !shouldRetry(e) 
             ? 'Processing failed with non-retryable error' 
             : 'Failed to start processing after multiple retries';
 
           // Add detailed final error log
-          await supabase
+          await supabaseAdmin
             .from('form_submissions')
             .update({
               status: 'error',
@@ -182,27 +182,38 @@ export async function POST(request: Request) {
                 timestamp: new Date().toISOString(),
                 details: {
                   error: {
-                    message: error.message,
-                    cause: error.cause?.message,
-                    stack: error.stack,
-                    type: error.name || typeof error
+                    message: e.message,
+                    cause: (e as Error & { cause?: { message?: string } }).cause?.message,
+                    stack: e.stack,
+                    type: e.name || typeof e
                   },
                   retryAttempts: retryCount,
                   lastAttempt: new Date().toISOString()
                 }
               },
-              logs: supabase.sql`array_append(logs, ${JSON.stringify({
+              logs: (logs: any[] | null) => logs ? [...logs, {
                 stage: 'error',
                 message: errorMessage,
                 error: {
-                  message: error.message,
-                  cause: error.cause?.message,
-                  stack: error.stack,
-                  type: error.name || typeof error
+                  message: e.message,
+                  cause: (e as Error & { cause?: { message?: string } }).cause?.message,
+                  stack: e.stack,
+                  type: e.name || typeof e
                 },
                 retryAttempts: retryCount,
                 timestamp: new Date().toISOString()
-              })}::jsonb)`,
+              }] : [{
+                stage: 'error',
+                message: errorMessage,
+                error: {
+                  message: e.message,
+                  cause: (e as Error & { cause?: { message?: string } }).cause?.message,
+                  stack: e.stack,
+                  type: e.name || typeof e
+                },
+                retryAttempts: retryCount,
+                timestamp: new Date().toISOString()
+              }],
               updated_at: new Date().toISOString()
             })
             .eq('submission_id', submission.submission_id);
@@ -210,10 +221,10 @@ export async function POST(request: Request) {
           console.error('Final error details:', {
             message: errorMessage,
             error: {
-              message: error.message,
-              cause: error.cause?.message,
-              stack: error.stack,
-              type: error.name || typeof error
+              message: e.message,
+              cause: (e as Error & { cause?: { message?: string } }).cause?.message,
+              stack: e.stack,
+              type: e.name || typeof e
             },
             retryAttempts: retryCount
           });
@@ -250,7 +261,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const formId = searchParams.get('formId');
     
-    let query = supabase
+    let query = supabaseAdmin
       .from('form_submissions')
       .select('*')
       .order('created_at', { ascending: false })
