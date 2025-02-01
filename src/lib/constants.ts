@@ -101,8 +101,6 @@ export const CSS_PROPERTIES = {
   color: 'color',
   backgroundColor: 'background-color',
   fontSize: 'font-size',
-  margin: 'margin',
-  padding: 'padding',
   fontFamily: 'font-family',
   textAlign: 'text-align',
   margin: 'margin',
