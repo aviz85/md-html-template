@@ -157,6 +157,28 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     mainBackground: '#ffffff',
     contentBackground: '#ffffff'
   })
+  const [elementStyles, setElementStyles] = useState<Template["elementStyles"]>({
+    body: {},
+    h1: {},
+    h2: {},
+    h3: {},
+    h4: {},
+    h5: {},
+    h6: {},
+    list: {},
+    p: {},
+    specialParagraph: {},
+    header: {
+      showLogo: true,
+      logoWidth: '100px',
+      logoHeight: 'auto',
+      logoMargin: '1rem',
+      logoPosition: 'top-right',
+    },
+    footer: {},
+    main: {},
+    prose: {}
+  })
   const [sidebarWidth, setSidebarWidth] = useState(200)
   const [openingPageContent, setOpeningPageContent] = useState("")
   const [closingPageContent, setClosingPageContent] = useState("")
