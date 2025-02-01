@@ -397,6 +397,36 @@ export default function ResultsPage() {
                     {children}
                   </motion.h3>
                 ),
+                h4: ({ children }) => (
+                  <motion.h4 
+                    style={{ ...template?.element_styles?.h4, marginTop: '1rem', marginBottom: '0.5rem' }}
+                    initial={{ opacity: 0, x: -5 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, delay: 0.6 }}
+                  >
+                    {children}
+                  </motion.h4>
+                ),
+                h5: ({ children }) => (
+                  <motion.h5 
+                    style={{ ...template?.element_styles?.h5, marginTop: '0.75rem', marginBottom: '0.5rem' }}
+                    initial={{ opacity: 0, x: -3 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, delay: 0.7 }}
+                  >
+                    {children}
+                  </motion.h5>
+                ),
+                h6: ({ children }) => (
+                  <motion.h6 
+                    style={{ ...template?.element_styles?.h6, marginTop: '0.5rem', marginBottom: '0.5rem' }}
+                    initial={{ opacity: 0, x: -2 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, delay: 0.8 }}
+                  >
+                    {children}
+                  </motion.h6>
+                ),
                 p: ({ children }) => (
                   <motion.p 
                     style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}
@@ -513,6 +543,36 @@ export default function ResultsPage() {
                       {children}
                     </motion.h3>
                   ),
+                  h4: ({ children }) => (
+                    <motion.h4 
+                      style={{ ...template?.element_styles?.h4, marginTop: '1rem', marginBottom: '0.5rem' }}
+                      initial={{ opacity: 0, x: -5 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.5, delay: 0.6 }}
+                    >
+                      {children}
+                    </motion.h4>
+                  ),
+                  h5: ({ children }) => (
+                    <motion.h5 
+                      style={{ ...template?.element_styles?.h5, marginTop: '0.75rem', marginBottom: '0.5rem' }}
+                      initial={{ opacity: 0, x: -3 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.5, delay: 0.7 }}
+                    >
+                      {children}
+                    </motion.h5>
+                  ),
+                  h6: ({ children }) => (
+                    <motion.h6 
+                      style={{ ...template?.element_styles?.h6, marginTop: '0.5rem', marginBottom: '0.5rem' }}
+                      initial={{ opacity: 0, x: -2 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.5, delay: 0.8 }}
+                    >
+                      {children}
+                    </motion.h6>
+                  ),
                   p: ({ children }) => (
                     <motion.p 
                       style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}
@@ -626,6 +686,36 @@ export default function ResultsPage() {
                     {children}
                   </motion.h3>
                 ),
+                h4: ({ children }) => (
+                  <motion.h4 
+                    style={{ ...template?.element_styles?.h4, marginTop: '1rem', marginBottom: '0.5rem' }}
+                    initial={{ opacity: 0, x: -5 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, delay: 0.6 }}
+                  >
+                    {children}
+                  </motion.h4>
+                ),
+                h5: ({ children }) => (
+                  <motion.h5 
+                    style={{ ...template?.element_styles?.h5, marginTop: '0.75rem', marginBottom: '0.5rem' }}
+                    initial={{ opacity: 0, x: -3 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, delay: 0.7 }}
+                  >
+                    {children}
+                  </motion.h5>
+                ),
+                h6: ({ children }) => (
+                  <motion.h6 
+                    style={{ ...template?.element_styles?.h6, marginTop: '0.5rem', marginBottom: '0.5rem' }}
+                    initial={{ opacity: 0, x: -2 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, delay: 0.8 }}
+                  >
+                    {children}
+                  </motion.h6>
+                ),
                 p: ({ children }) => (
                   <motion.p 
                     style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}
@@ -716,6 +806,36 @@ export default function ResultsPage() {
                   >
                     {children}
                   </motion.h3>
+                ),
+                h4: ({ children }) => (
+                  <motion.h4 
+                    style={{ ...template?.element_styles?.h4, marginTop: '1rem', marginBottom: '0.5rem' }}
+                    initial={{ opacity: 0, x: -5 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, delay: 0.6 }}
+                  >
+                    {children}
+                  </motion.h4>
+                ),
+                h5: ({ children }) => (
+                  <motion.h5 
+                    style={{ ...template?.element_styles?.h5, marginTop: '0.75rem', marginBottom: '0.5rem' }}
+                    initial={{ opacity: 0, x: -3 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, delay: 0.7 }}
+                  >
+                    {children}
+                  </motion.h5>
+                ),
+                h6: ({ children }) => (
+                  <motion.h6 
+                    style={{ ...template?.element_styles?.h6, marginTop: '0.5rem', marginBottom: '0.5rem' }}
+                    initial={{ opacity: 0, x: -2 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, delay: 0.8 }}
+                  >
+                    {children}
+                  </motion.h6>
                 ),
                 p: ({ children }) => (
                   <motion.p 
