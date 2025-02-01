@@ -369,7 +369,11 @@ export default function ResultsPage() {
               components={{
                 h1: ({ children }) => (
                   <motion.h1 
-                    style={{ ...template?.element_styles?.h1, marginTop: '2rem', marginBottom: '1rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h1,
+                      marginTop: template?.element_styles?.h1?.margin ? undefined : '2rem',
+                      marginBottom: template?.element_styles?.h1?.margin ? undefined : '1rem'
+                    }}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.3 }}
@@ -379,7 +383,11 @@ export default function ResultsPage() {
                 ),
                 h2: ({ children }) => (
                   <motion.h2 
-                    style={{ ...template?.element_styles?.h2, marginTop: '1.5rem', marginBottom: '0.75rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h2,
+                      marginTop: template?.element_styles?.h2?.margin ? undefined : '1.5rem',
+                      marginBottom: template?.element_styles?.h2?.margin ? undefined : '0.75rem'
+                    }}
                     initial={{ opacity: 0, x: -15 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.4 }}
@@ -389,7 +397,11 @@ export default function ResultsPage() {
                 ),
                 h3: ({ children }) => (
                   <motion.h3 
-                    style={{ ...template?.element_styles?.h3, marginTop: '1.25rem', marginBottom: '0.5rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h3,
+                      marginTop: template?.element_styles?.h3?.margin ? undefined : '1.25rem',
+                      marginBottom: template?.element_styles?.h3?.margin ? undefined : '0.5rem'
+                    }}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.5 }}
@@ -399,7 +411,11 @@ export default function ResultsPage() {
                 ),
                 h4: ({ children }) => (
                   <motion.h4 
-                    style={{ ...template?.element_styles?.h4, marginTop: '1rem', marginBottom: '0.5rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h4,
+                      marginTop: template?.element_styles?.h4?.margin ? undefined : '1rem',
+                      marginBottom: template?.element_styles?.h4?.margin ? undefined : '0.5rem'
+                    }}
                     initial={{ opacity: 0, x: -5 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.6 }}
@@ -409,7 +425,11 @@ export default function ResultsPage() {
                 ),
                 h5: ({ children }) => (
                   <motion.h5 
-                    style={{ ...template?.element_styles?.h5, marginTop: '0.75rem', marginBottom: '0.5rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h5,
+                      marginTop: template?.element_styles?.h5?.margin ? undefined : '0.75rem',
+                      marginBottom: template?.element_styles?.h5?.margin ? undefined : '0.5rem'
+                    }}
                     initial={{ opacity: 0, x: -3 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.7 }}
@@ -419,7 +439,11 @@ export default function ResultsPage() {
                 ),
                 h6: ({ children }) => (
                   <motion.h6 
-                    style={{ ...template?.element_styles?.h6, marginTop: '0.5rem', marginBottom: '0.5rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h6,
+                      marginTop: template?.element_styles?.h6?.margin ? undefined : '0.5rem',
+                      marginBottom: template?.element_styles?.h6?.margin ? undefined : '0.5rem'
+                    }}
                     initial={{ opacity: 0, x: -2 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.8 }}
@@ -515,7 +539,11 @@ export default function ResultsPage() {
                 components={{
                   h1: ({ children }) => (
                     <motion.h1 
-                      style={{ ...template?.element_styles?.h1, marginTop: '2rem', marginBottom: '1rem' }}
+                      style={{ 
+                        ...template?.element_styles?.h1,
+                        marginTop: template?.element_styles?.h1?.margin ? undefined : '2rem',
+                        marginBottom: template?.element_styles?.h1?.margin ? undefined : '1rem'
+                      }}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.5, delay: 0.3 }}
@@ -525,7 +553,11 @@ export default function ResultsPage() {
                   ),
                   h2: ({ children }) => (
                     <motion.h2 
-                      style={{ ...template?.element_styles?.h2, marginTop: '1.5rem', marginBottom: '0.75rem' }}
+                      style={{ 
+                        ...template?.element_styles?.h2,
+                        marginTop: template?.element_styles?.h2?.margin ? undefined : '1.5rem',
+                        marginBottom: template?.element_styles?.h2?.margin ? undefined : '0.75rem'
+                      }}
                       initial={{ opacity: 0, x: -15 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.5, delay: 0.4 }}
@@ -535,7 +567,11 @@ export default function ResultsPage() {
                   ),
                   h3: ({ children }) => (
                     <motion.h3 
-                      style={{ ...template?.element_styles?.h3, marginTop: '1.25rem', marginBottom: '0.5rem' }}
+                      style={{ 
+                        ...template?.element_styles?.h3,
+                        marginTop: template?.element_styles?.h3?.margin ? undefined : '1.25rem',
+                        marginBottom: template?.element_styles?.h3?.margin ? undefined : '0.5rem'
+                      }}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.5, delay: 0.5 }}
@@ -545,7 +581,11 @@ export default function ResultsPage() {
                   ),
                   h4: ({ children }) => (
                     <motion.h4 
-                      style={{ ...template?.element_styles?.h4, marginTop: '1rem', marginBottom: '0.5rem' }}
+                      style={{ 
+                        ...template?.element_styles?.h4,
+                        marginTop: template?.element_styles?.h4?.margin ? undefined : '1rem',
+                        marginBottom: template?.element_styles?.h4?.margin ? undefined : '0.5rem'
+                      }}
                       initial={{ opacity: 0, x: -5 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.5, delay: 0.6 }}
@@ -555,7 +595,11 @@ export default function ResultsPage() {
                   ),
                   h5: ({ children }) => (
                     <motion.h5 
-                      style={{ ...template?.element_styles?.h5, marginTop: '0.75rem', marginBottom: '0.5rem' }}
+                      style={{ 
+                        ...template?.element_styles?.h5,
+                        marginTop: template?.element_styles?.h5?.margin ? undefined : '0.75rem',
+                        marginBottom: template?.element_styles?.h5?.margin ? undefined : '0.5rem'
+                      }}
                       initial={{ opacity: 0, x: -3 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.5, delay: 0.7 }}
@@ -565,7 +609,11 @@ export default function ResultsPage() {
                   ),
                   h6: ({ children }) => (
                     <motion.h6 
-                      style={{ ...template?.element_styles?.h6, marginTop: '0.5rem', marginBottom: '0.5rem' }}
+                      style={{ 
+                        ...template?.element_styles?.h6,
+                        marginTop: template?.element_styles?.h6?.margin ? undefined : '0.5rem',
+                        marginBottom: template?.element_styles?.h6?.margin ? undefined : '0.5rem'
+                      }}
                       initial={{ opacity: 0, x: -2 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.5, delay: 0.8 }}
@@ -658,7 +706,11 @@ export default function ResultsPage() {
               components={{
                 h1: ({ children }) => (
                   <motion.h1 
-                    style={{ ...template?.element_styles?.h1, marginTop: '2rem', marginBottom: '1rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h1,
+                      marginTop: template?.element_styles?.h1?.margin ? undefined : '2rem',
+                      marginBottom: template?.element_styles?.h1?.margin ? undefined : '1rem'
+                    }}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.3 }}
@@ -668,7 +720,11 @@ export default function ResultsPage() {
                 ),
                 h2: ({ children }) => (
                   <motion.h2 
-                    style={{ ...template?.element_styles?.h2, marginTop: '1.5rem', marginBottom: '0.75rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h2,
+                      marginTop: template?.element_styles?.h2?.margin ? undefined : '1.5rem',
+                      marginBottom: template?.element_styles?.h2?.margin ? undefined : '0.75rem'
+                    }}
                     initial={{ opacity: 0, x: -15 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.4 }}
@@ -678,7 +734,11 @@ export default function ResultsPage() {
                 ),
                 h3: ({ children }) => (
                   <motion.h3 
-                    style={{ ...template?.element_styles?.h3, marginTop: '1.25rem', marginBottom: '0.5rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h3,
+                      marginTop: template?.element_styles?.h3?.margin ? undefined : '1.25rem',
+                      marginBottom: template?.element_styles?.h3?.margin ? undefined : '0.5rem'
+                    }}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.5 }}
@@ -688,7 +748,11 @@ export default function ResultsPage() {
                 ),
                 h4: ({ children }) => (
                   <motion.h4 
-                    style={{ ...template?.element_styles?.h4, marginTop: '1rem', marginBottom: '0.5rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h4,
+                      marginTop: template?.element_styles?.h4?.margin ? undefined : '1rem',
+                      marginBottom: template?.element_styles?.h4?.margin ? undefined : '0.5rem'
+                    }}
                     initial={{ opacity: 0, x: -5 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.6 }}
@@ -698,7 +762,11 @@ export default function ResultsPage() {
                 ),
                 h5: ({ children }) => (
                   <motion.h5 
-                    style={{ ...template?.element_styles?.h5, marginTop: '0.75rem', marginBottom: '0.5rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h5,
+                      marginTop: template?.element_styles?.h5?.margin ? undefined : '0.75rem',
+                      marginBottom: template?.element_styles?.h5?.margin ? undefined : '0.5rem'
+                    }}
                     initial={{ opacity: 0, x: -3 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.7 }}
@@ -708,7 +776,11 @@ export default function ResultsPage() {
                 ),
                 h6: ({ children }) => (
                   <motion.h6 
-                    style={{ ...template?.element_styles?.h6, marginTop: '0.5rem', marginBottom: '0.5rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h6,
+                      marginTop: template?.element_styles?.h6?.margin ? undefined : '0.5rem',
+                      marginBottom: template?.element_styles?.h6?.margin ? undefined : '0.5rem'
+                    }}
                     initial={{ opacity: 0, x: -2 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.8 }}
@@ -779,7 +851,11 @@ export default function ResultsPage() {
               components={{
                 h1: ({ children }) => (
                   <motion.h1 
-                    style={{ ...template?.element_styles?.h1, marginTop: '2rem', marginBottom: '1rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h1,
+                      marginTop: template?.element_styles?.h1?.margin ? undefined : '2rem',
+                      marginBottom: template?.element_styles?.h1?.margin ? undefined : '1rem'
+                    }}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.3 }}
@@ -789,7 +865,11 @@ export default function ResultsPage() {
                 ),
                 h2: ({ children }) => (
                   <motion.h2 
-                    style={{ ...template?.element_styles?.h2, marginTop: '1.5rem', marginBottom: '0.75rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h2,
+                      marginTop: template?.element_styles?.h2?.margin ? undefined : '1.5rem',
+                      marginBottom: template?.element_styles?.h2?.margin ? undefined : '0.75rem'
+                    }}
                     initial={{ opacity: 0, x: -15 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.4 }}
@@ -799,7 +879,11 @@ export default function ResultsPage() {
                 ),
                 h3: ({ children }) => (
                   <motion.h3 
-                    style={{ ...template?.element_styles?.h3, marginTop: '1.25rem', marginBottom: '0.5rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h3,
+                      marginTop: template?.element_styles?.h3?.margin ? undefined : '1.25rem',
+                      marginBottom: template?.element_styles?.h3?.margin ? undefined : '0.5rem'
+                    }}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.5 }}
@@ -809,7 +893,11 @@ export default function ResultsPage() {
                 ),
                 h4: ({ children }) => (
                   <motion.h4 
-                    style={{ ...template?.element_styles?.h4, marginTop: '1rem', marginBottom: '0.5rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h4,
+                      marginTop: template?.element_styles?.h4?.margin ? undefined : '1rem',
+                      marginBottom: template?.element_styles?.h4?.margin ? undefined : '0.5rem'
+                    }}
                     initial={{ opacity: 0, x: -5 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.6 }}
@@ -819,7 +907,11 @@ export default function ResultsPage() {
                 ),
                 h5: ({ children }) => (
                   <motion.h5 
-                    style={{ ...template?.element_styles?.h5, marginTop: '0.75rem', marginBottom: '0.5rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h5,
+                      marginTop: template?.element_styles?.h5?.margin ? undefined : '0.75rem',
+                      marginBottom: template?.element_styles?.h5?.margin ? undefined : '0.5rem'
+                    }}
                     initial={{ opacity: 0, x: -3 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.7 }}
@@ -829,7 +921,11 @@ export default function ResultsPage() {
                 ),
                 h6: ({ children }) => (
                   <motion.h6 
-                    style={{ ...template?.element_styles?.h6, marginTop: '0.5rem', marginBottom: '0.5rem' }}
+                    style={{ 
+                      ...template?.element_styles?.h6,
+                      marginTop: template?.element_styles?.h6?.margin ? undefined : '0.5rem',
+                      marginBottom: template?.element_styles?.h6?.margin ? undefined : '0.5rem'
+                    }}
                     initial={{ opacity: 0, x: -2 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.8 }}
