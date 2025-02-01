@@ -41,10 +41,6 @@ type ElementType = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "list" | "
 interface Template {
   id: string
   name: string
-  color1?: string
-  color2?: string
-  color3?: string
-  color4?: string
   css: string
   elementStyles: Record<ElementType, ElementStyle>
   template_gsheets_id?: string
@@ -156,33 +152,10 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [customFonts, setCustomFonts] = useState<Template['custom_fonts']>([])
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
-  const [colors, setColors] = useState({
-    color1: "#000000",
-    color2: "#ffffff",
-    color3: "#cccccc",
-    color4: "#666666"
-  })
-  const [elementStyles, setElementStyles] = useState<Template["elementStyles"]>({
-    body: {},
-    h1: {},
-    h2: {},
-    h3: {},
-    h4: {},
-    h5: {},
-    h6: {},
-    p: {},
-    list: {},
-    specialParagraph: {},
-    header: {
-      showLogo: true,
-      logoWidth: '100px',
-      logoHeight: 'auto',
-      logoMargin: '1rem',
-      logoPosition: 'top-right',
-    },
-    footer: {},
-    main: {},
-    prose: {}
+  const [styles, setStyles] = useState<Template['styles']>({
+    bodyBackground: '#ffffff',
+    mainBackground: '#ffffff',
+    contentBackground: '#ffffff'
   })
   const [sidebarWidth, setSidebarWidth] = useState(200)
   const [openingPageContent, setOpeningPageContent] = useState("")
@@ -191,11 +164,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const [logoPath, setLogoPath] = useState<string | null>(null)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false)
-  const [styles, setStyles] = useState<Template['styles']>({
-    bodyBackground: '#ffffff',
-    mainBackground: '#ffffff',
-    contentBackground: '#ffffff'
-  })
   const [emailSubject, setEmailSubject] = useState("")
   const [emailBody, setEmailBody] = useState("")
   const [emailFrom, setEmailFrom] = useState("")
@@ -416,12 +384,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         setClosingPageContent("")
         setCustomContents([])  // Reset custom contents first
         setCustomFonts(template.custom_fonts || [])
-        setColors({
-          color1: template.color1 || "#000000",
-          color2: template.color2 || "#ffffff",
-          color3: template.color3 || "#cccccc",
-          color4: template.color4 || "#666666"
-        })
         
         if (template.element_styles) {
           setElementStyles(template.element_styles)
@@ -588,10 +550,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           name: templateName,
           css: generateCSS(elementStyles),
           template_gsheets_id: templateGsheetsId,
-          color1: colors.color1,
-          color2: colors.color2,
-          color3: colors.color3,
-          color4: colors.color4,
           element_styles: {
             ...elementStyles,
             body: { 
@@ -1237,30 +1195,12 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           />
         </div>
 
-        <div className="grid grid-cols-4 gap-4">
-          {Object.entries(colors).map(([key, value]) => (
-            <ColorPicker
-              key={key}
-              id={key}
-              label={key}
-              value={value}
-              onChange={(newValue) => setColors(prev => ({ ...prev, [key]: newValue || '#ffffff' }))}
-            />
-          ))}
-        </div>
-
         <div className="grid grid-cols-3 gap-4">
           <ColorPicker
             id="bodyBackground"
             label="צבע רקע כללי"
             value={styles?.bodyBackground}
             onChange={(value) => setStyles(prev => ({ ...prev, bodyBackground: value }))}
-          />
-          <ColorPicker
-            id="mainBackground"
-            label="צבע רקע אזור ראשי"
-            value={styles?.mainBackground}
-            onChange={(value) => setStyles(prev => ({ ...prev, mainBackground: value }))}
           />
           <ColorPicker
             id="contentBackground"
@@ -1460,7 +1400,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
               <StyleEditor 
                 style={elementStyles[activeElement]} 
                 onChange={handleStyleChange}
-                templateColors={colors}
                 customFonts={customFonts}
               />
             </div>

@@ -290,7 +290,8 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
             />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+
+        <div className="grid grid-cols-2 gap-4 mt-4">
           <div className="space-y-2">
             <Label htmlFor="margin">{TRANSLATIONS.margin}</Label>
             <Input
@@ -316,7 +317,7 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
         </div>
       </div>
       
-      <div>
+      <div className="mt-4">
         <label className="text-sm font-medium">{TRANSLATIONS.customCss}</label>
         <Textarea
           placeholder={TRANSLATIONS.enterCustomCss}

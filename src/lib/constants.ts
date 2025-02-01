@@ -104,14 +104,14 @@ export const CSS_PROPERTIES = {
   margin: 'margin',
   padding: 'padding',
   fontFamily: 'font-family',
-  textAlign: 'text-align'
+  textAlign: 'text-align',
+  margin: 'margin',
+  padding: 'padding'
 } as const;
 
 // Default body styles
 export const DEFAULT_BODY_STYLES = `
 body {
-  margin: 0;
-  padding: 2rem;
   font-family: 'Assistant', sans-serif;
   line-height: 1.5;
   max-width: 800px;
