@@ -70,7 +70,13 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
   }, []);
 
   const handleChange = (key: keyof ElementStyle) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const value = e.target.value.trim()
+    let value = e.target.value.trim()
+    
+    // Convert comma-separated values to space-separated for margin and padding
+    if ((key === 'margin' || key === 'padding') && value) {
+      value = value.replace(/,/g, ' ').replace(/\s+/g, ' ').replace(/;/g, '')
+    }
+    
     onChange({ 
       ...style, 
       [key]: value || undefined
