@@ -428,15 +428,17 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         }
         
         // Load media files
-        const { data: mediaList } = await supabase.storage
-          .from('storage')
-          .list(`media/${id}`)
+        const { data: mediaFiles } = await supabase
+          .from('media_files')
+          .select('file_path')
+          .eq('template_id', id)
+          .order('created_at', { ascending: false })
 
-        if (mediaList) {
-          const urls = mediaList.map(file => {
+        if (mediaFiles) {
+          const urls = mediaFiles.map(file => {
             const { data: { publicUrl } } = supabase.storage
               .from('storage')
-              .getPublicUrl(`media/${id}/${file.name}`)
+              .getPublicUrl(file.file_path)
             return publicUrl
           })
           setUploadedMediaUrls(urls)
@@ -1003,7 +1005,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     }
 
     setIsMediaUploading(true);
-    const urls: string[] = [];
+    const newUrls: string[] = [];
 
     try {
       for (let i = 0; i < mediaFiles.length; i++) {
@@ -1021,22 +1023,18 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           throw new Error(`Failed to upload ${file.name}`);
         }
 
-        const { filePath } = await response.json();
-        const publicUrl = supabase.storage
-          .from('storage')
-          .getPublicUrl(filePath)
-          .data.publicUrl;
-        
-        urls.push(publicUrl);
+        const { publicUrl } = await response.json();
+        newUrls.push(publicUrl);
       }
 
-      setUploadedMediaUrls(urls);
+      // Add new URLs to existing ones
+      setUploadedMediaUrls(prev => [...newUrls, ...prev]);
       setShowMediaInstructions(true);
       setIsMediaModalOpen(false);
       
       toast({
         title: "הצלחה",
-        description: `${urls.length} קבצים הועלו בהצלחה`
+        description: `${newUrls.length} קבצים הועלו בהצלחה`
       });
     } catch (error) {
       console.error('Error uploading media:', error);
@@ -1048,6 +1046,39 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     } finally {
       setIsMediaUploading(false);
       setMediaFiles(null);
+    }
+  };
+
+  const handleMediaDelete = async (url: string) => {
+    if (!templateId) return;
+
+    try {
+      // Get file path from URL
+      const filePath = url.split('/storage/')[1];
+      if (!filePath) throw new Error('Invalid file URL');
+
+      const response = await fetch(`/api/media?templateId=${templateId}&filePath=${filePath}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete media');
+      }
+
+      // Remove URL from state
+      setUploadedMediaUrls(prev => prev.filter(u => u !== url));
+
+      toast({
+        title: "הצלחה",
+        description: "הקובץ נמחק בהצלחה"
+      });
+    } catch (error) {
+      console.error('Error deleting media:', error);
+      toast({
+        variant: "destructive",
+        title: "שגיאה",
+        description: "שגיאה במחיקת הקובץ"
+      });
     }
   };
 
@@ -1704,8 +1735,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                         variant="destructive"
                         onClick={() => {
                           if (confirm('האם אתה בטוח שברצונך למחוק תמונה זו?')) {
-                            // TODO: Implement delete functionality
-                            // handleMediaDelete(url);
+                            handleMediaDelete(url);
                           }
                         }}
                       >

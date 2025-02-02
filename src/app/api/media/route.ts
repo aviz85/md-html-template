@@ -67,11 +67,77 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ filePath });
+    // Save to media_files table
+    const { error: dbError } = await supabaseAdmin
+      .from('media_files')
+      .insert([{
+        template_id: templateId,
+        file_path: filePath,
+        created_at: new Date().toISOString()
+      }]);
+
+    if (dbError) {
+      // If DB insert fails, try to clean up the uploaded file
+      await supabaseAdmin.storage
+        .from('storage')
+        .remove([filePath]);
+      throw dbError;
+    }
+
+    // Get the public URL
+    const { data: { publicUrl } } = supabaseAdmin.storage
+      .from('storage')
+      .getPublicUrl(filePath);
+
+    return NextResponse.json({ filePath, publicUrl });
   } catch (error) {
     console.error('Error in media upload:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const templateId = searchParams.get('templateId');
+    const filePath = searchParams.get('filePath');
+
+    if (!templateId || !filePath) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // Delete file from storage
+    const { error: storageError } = await supabaseAdmin.storage
+      .from('storage')
+      .remove([filePath]);
+
+    if (storageError) {
+      console.error('Error deleting media file:', storageError);
+      // Continue to delete DB record even if file delete fails
+    }
+
+    // Delete DB record
+    const { error: dbError } = await supabaseAdmin
+      .from('media_files')
+      .delete()
+      .eq('template_id', templateId)
+      .eq('file_path', filePath);
+
+    if (dbError) {
+      throw dbError;
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error handling media deletion:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete media' },
       { status: 500 }
     );
   }
