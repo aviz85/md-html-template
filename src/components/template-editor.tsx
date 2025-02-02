@@ -1267,6 +1267,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
               value={mdContent}
               onChange={(e) => setMdContent(e.target.value)}
               className="min-h-[300px]"
+              dir="ltr"
+              style={{ textAlign: 'left' }}
             />
             <Dialog>
               <DialogTrigger asChild>
