@@ -122,6 +122,13 @@ body {
   margin-right: auto;
 }
 
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 2em;
+  margin-bottom: 1em;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -258,7 +265,10 @@ export async function convertMarkdownToHtml(content: string, headerContent?: str
     breaks: true,
     gfm: true,
     headerIds: true,
-    mangle: false
+    mangle: false,
+    pedantic: false,
+    smartLists: true,
+    smartypants: true
   });
 
   // Parse markdown content first
