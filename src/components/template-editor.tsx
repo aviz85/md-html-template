@@ -1509,11 +1509,11 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             
             <div className="space-y-4">
               <div>
-                <Label>כתובת שולח המייל</Label>
+                <Label>כתובת למענה (Reply-To)</Label>
                 <Input
                   value={emailFrom}
                   onChange={(e) => setEmailFrom(e.target.value)}
-                  placeholder="noreply@yourdomain.com"
+                  placeholder="your@email.com"
                   dir="ltr"
                 />
               </div>
