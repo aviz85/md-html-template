@@ -1513,7 +1513,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                 <Input
                   value={emailFrom}
                   onChange={(e) => setEmailFrom(e.target.value)}
-                  placeholder="your.name@example.com"
+                  placeholder="השאר ריק כדי להשתמש בכתובת ברירת המחדל"
                   dir="ltr"
                 />
               </div>
