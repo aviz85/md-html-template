@@ -104,7 +104,12 @@ export const CSS_PROPERTIES = {
   fontFamily: 'font-family',
   textAlign: 'text-align',
   margin: 'margin',
-  padding: 'padding'
+  marginTop: 'margin-top',
+  marginBottom: 'margin-bottom',
+  padding: 'padding',
+  fontWeight: 'font-weight',
+  lineHeight: 'line-height',
+  direction: 'direction'
 } as const;
 
 // Default body styles
@@ -248,10 +253,12 @@ export async function convertMarkdownToHtml(content: string, headerContent?: str
     });
   }
 
-  // Configure marked for proper line breaks
+  // Configure marked for proper line breaks and header rendering
   marked.setOptions({
     breaks: true,
-    gfm: true
+    gfm: true,
+    headerIds: true,
+    mangle: false
   });
 
   // Parse markdown content first

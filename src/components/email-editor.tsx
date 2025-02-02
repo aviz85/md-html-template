@@ -39,7 +39,7 @@ export function EmailEditor({ value, onChange }: EmailEditorProps) {
             text-align: right !important;
           }
         `,
-        block_formats: 'פסקה=p; כותרת 1=h1; כותרת 2=h2; כותרת 3=h3',
+        block_formats: 'פסקה=p; כותרת 1=h1; כותרת 2=h2; כותרת 3=h3; כותרת 4=h4; כותרת 5=h5; כותרת 6=h6',
         branding: false,
         promotion: false,
         elementpath: false,
