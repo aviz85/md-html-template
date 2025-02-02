@@ -427,6 +427,21 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           setLogoPath(null)
         }
         
+        // Load media files
+        const { data: mediaList } = await supabase.storage
+          .from('storage')
+          .list(`media/${id}`)
+
+        if (mediaList) {
+          const urls = mediaList.map(file => {
+            const { data: { publicUrl } } = supabase.storage
+              .from('storage')
+              .getPublicUrl(`media/${id}/${file.name}`)
+            return publicUrl
+          })
+          setUploadedMediaUrls(urls)
+        }
+        
         // Load template contents
         const { data: contentsData, error: contentsError } = await supabase
           .from('template_contents')
