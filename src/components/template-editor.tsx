@@ -1513,9 +1513,12 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                 <Input
                   value={emailFrom}
                   onChange={(e) => setEmailFrom(e.target.value)}
-                  placeholder="your@email.com"
+                  placeholder="your.name@example.com"
                   dir="ltr"
                 />
+                <p className="text-sm text-muted-foreground mt-1">
+                  המייל יישלח מהכתובת "{templateName}" &lt;{process.env.NEXT_PUBLIC_EMAIL_FROM_ADDRESS}&gt;, אך תשובות יגיעו לכתובת זו
+                </p>
               </div>
               
               <div>
