@@ -428,13 +428,15 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         }
         
         // Load media files
-        const { data: mediaFiles } = await supabase
+        const { data: mediaFiles, error: mediaError } = await supabase
           .from('media_files')
           .select('file_path')
           .eq('template_id', id)
           .order('created_at', { ascending: false })
 
-        if (mediaFiles) {
+        if (mediaError) {
+          console.error('Error loading media files:', mediaError)
+        } else if (mediaFiles) {
           const urls = mediaFiles.map(file => {
             const { data: { publicUrl } } = supabase.storage
               .from('storage')
@@ -442,6 +444,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             return publicUrl
           })
           setUploadedMediaUrls(urls)
+        } else {
+          setUploadedMediaUrls([])
         }
         
         // Load template contents
@@ -1023,7 +1027,11 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           throw new Error(`Failed to upload ${file.name}`);
         }
 
-        const { publicUrl } = await response.json();
+        const { filePath, publicUrl } = await response.json();
+        if (!filePath || !publicUrl) {
+          throw new Error('Missing file path or public URL from response');
+        }
+
         newUrls.push(publicUrl);
       }
 
