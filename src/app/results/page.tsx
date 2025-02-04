@@ -64,7 +64,13 @@ type Template = {
 };
 
 // Extract shared components
-export const ImageRenderer = ({ node, ...props }: { node?: any } & React.ImgHTMLAttributes<HTMLImageElement>) => {
+export const ImageRenderer = ({ 
+  node, 
+  ...props 
+}: { 
+  node?: any; 
+  'data-original-styles'?: string 
+} & Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'data-original-styles'>) => {
   // Get original styles from data attribute
   const originalStyles = node?.properties?.['data-original-styles'] || props['data-original-styles'];
   console.log('ImageRenderer:', { originalStyles, props });
