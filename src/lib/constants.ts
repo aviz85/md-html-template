@@ -271,6 +271,20 @@ export async function convertMarkdownToHtml(content: string, headerContent?: str
     smartypants: true
   });
 
+  // Add custom image renderer
+  const renderer = new marked.Renderer();
+  renderer.image = (href: string, title: string | null, text: string) => {
+    // Check for height specification in the text (e.g. "[height=200px]")
+    const heightMatch = text.match(/\[height=([^\]]+)\]$/);
+    const height = heightMatch ? heightMatch[1] : null;
+    const alt = heightMatch ? text.replace(/\[height=[^\]]+\]$/, '') : text;
+    
+    const style = height ? ` style="height: ${height}; width: auto;"` : '';
+    return `<img src="${href}" alt="${alt}"${title ? ` title="${title}"` : ''}${style}>`;
+  };
+
+  marked.setOptions({ renderer });
+
   // Parse markdown content first
   const contentHtml = await marked.parse(processedContent);
   
