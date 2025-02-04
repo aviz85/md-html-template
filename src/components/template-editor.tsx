@@ -1753,7 +1753,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                         size="sm"
                         variant="secondary"
                         onClick={() => {
-                          navigator.clipboard.writeText(`![תמונה ${index + 1}](${url})`);
+                          navigator.clipboard.writeText(`![](${url})`);
                           toast({
                             title: "הצלחה",
                             description: "קוד Markdown הועתק ללוח",
@@ -1793,10 +1793,11 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             <div className="bg-muted p-4 rounded-lg">
               <p className="font-bold mb-2">דוגמאות לשימוש בגדלים:</p>
               <div className="space-y-2 font-mono text-sm">
-                <p>![תיאור התמונה](URL) - תמונה רגילה</p>
-                <p>![תיאור התמונה[height=200px]](URL) - גובה קבוע</p>
-                <p>![תיאור התמונה[width=300px]](URL) - רוחב קבוע</p>
-                <p>![תיאור התמונה[height=200px][width=300px]](URL) - גובה ורוחב קבועים</p>
+                <p>![](URL) - תמונה רגילה</p>
+                <p>![[height=200px]](URL) - גובה קבוע</p>
+                <p>![[width=300px]](URL) - רוחב קבוע</p>
+                <p>![[height=200px][width=300px]](URL) - גובה ורוחב קבועים</p>
+                <p className="text-sm text-muted-foreground mt-2">* אופציונלי: ניתן להוסיף תיאור לתמונה לפני הפרמטרים: ![תיאור כלשהו[height=200px]](URL)</p>
               </div>
             </div>
 

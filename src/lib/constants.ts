@@ -271,24 +271,22 @@ export async function convertMarkdownToHtml(content: string, headerContent?: str
   const renderer = new marked.Renderer();
   renderer.image = (href: string, title: string | null, text: string) => {
     // Extract dimensions and classes
-    const heightMatch = text.match(/\[height=(\d+(?:px|%|rem|em|vh|vw))\]/);
-    const widthMatch = text.match(/\[width=(\d+(?:px|%|rem|em|vh|vw))\]/);
-    const classMatch = text.match(/\[class=([\w-\s]+)\]/);
+    const heightMatch = text?.match(/\[height=(\d+(?:px|%|rem|em|vh|vw))\]/);
+    const widthMatch = text?.match(/\[width=(\d+(?:px|%|rem|em|vh|vw))\]/);
+    const classMatch = text?.match(/\[class=([\w-\s]+)\]/);
     
     // Get values if they exist
     const height = heightMatch ? heightMatch[1] : null;
     const width = widthMatch ? widthMatch[1] : null;
     const className = classMatch ? classMatch[1] : null;
     
-    // Clean the alt text
-    const cleanAlt = text.replace(/\[(height|width|class)=[^\]]+\]/g, '').trim();
+    // Clean the alt text - אם אין טקסט, זה יכול לגרום לשגיאה
+    const cleanAlt = text?.replace(/\[(height|width|class)=[^\]]+\]/g, '').trim() || '';
 
     // Build style attribute
     const styles = [];
     if (height) styles.push(`height: ${height}`);
     if (width) styles.push(`width: ${width}`);
-    // Add object-fit if both dimensions are specified
-    if (height && width) styles.push('object-fit: contain');
     const style = styles.length ? ` style="${styles.join('; ')}"` : '';
     
     // Build class attribute
