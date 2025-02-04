@@ -1114,6 +1114,36 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     gfm: true
   });
 
+  const handleColorChange = (color: string, index: number) => {
+    const colorKey = `color${index + 1}` as keyof Template;
+    setTemplate(prev => {
+      if (!prev) return prev;
+
+      // עדכון הצבעים בהתאם למיקום
+      const updatedStyles = { ...prev.element_styles };
+      
+      if (index === 0) {
+        // צבע ראשון משפיע על main
+        updatedStyles.main = {
+          ...updatedStyles.main,
+          backgroundColor: color
+        };
+      } else if (index === 1) {
+        // צבע שני משפיע על prose
+        updatedStyles.prose = {
+          ...updatedStyles.prose,
+          backgroundColor: color
+        };
+      }
+
+      return {
+        ...prev,
+        [colorKey]: color,
+        element_styles: updatedStyles
+      };
+    });
+  };
+
   return (
     <div className="space-y-6" dir="rtl">
       <div className="space-y-6">
