@@ -7,7 +7,6 @@ import rehypeRaw from 'rehype-raw';
 import { motion, AnimatePresence } from 'framer-motion';
 import { marked } from 'marked';
 import type { Components } from 'react-markdown';
-import { ImageRenderer } from '@/components/image-renderer';
 
 type CustomFont = {
   font_family: string;
