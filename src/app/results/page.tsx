@@ -367,7 +367,7 @@ export default function ResultsPage() {
 
     const markdownComponents: Components = {
       img: ImageRenderer,
-      h1: ({ node, ...props }) => (
+      h1: ({ node, children, ...props }) => (
         <motion.h1 
           style={{ 
             ...template?.element_styles?.h1,
@@ -377,10 +377,11 @@ export default function ResultsPage() {
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          {...props}
-        />
+        >
+          {children}
+        </motion.h1>
       ),
-      h2: ({ node, ...props }) => (
+      h2: ({ node, children, ...props }) => (
         <motion.h2 
           style={{ 
             ...template?.element_styles?.h2,
@@ -390,10 +391,11 @@ export default function ResultsPage() {
           initial={{ opacity: 0, x: -15 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
-          {...props}
-        />
+        >
+          {children}
+        </motion.h2>
       ),
-      h3: ({ node, ...props }) => (
+      h3: ({ node, children, ...props }) => (
         <motion.h3 
           style={{ 
             ...template?.element_styles?.h3,
@@ -403,10 +405,11 @@ export default function ResultsPage() {
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.5 }}
-          {...props}
-        />
+        >
+          {children}
+        </motion.h3>
       ),
-      h4: ({ node, ...props }) => (
+      h4: ({ node, children, ...props }) => (
         <motion.h4 
           style={{ 
             ...template?.element_styles?.h4,
@@ -416,10 +419,11 @@ export default function ResultsPage() {
           initial={{ opacity: 0, x: -5 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.6 }}
-          {...props}
-        />
+        >
+          {children}
+        </motion.h4>
       ),
-      h5: ({ node, ...props }) => (
+      h5: ({ node, children, ...props }) => (
         <motion.h5 
           style={{ 
             ...template?.element_styles?.h5,
@@ -429,10 +433,11 @@ export default function ResultsPage() {
           initial={{ opacity: 0, x: -3 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.7 }}
-          {...props}
-        />
+        >
+          {children}
+        </motion.h5>
       ),
-      h6: ({ node, ...props }) => (
+      h6: ({ node, children, ...props }) => (
         <motion.h6 
           style={{ 
             ...template?.element_styles?.h6,
@@ -442,37 +447,41 @@ export default function ResultsPage() {
           initial={{ opacity: 0, x: -2 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.8 }}
-          {...props}
-        />
+        >
+          {children}
+        </motion.h6>
       ),
-      p: ({ node, ...props }) => (
+      p: ({ node, children, ...props }) => (
         <motion.p 
           style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.6 }}
-          {...props}
-        />
+        >
+          {children}
+        </motion.p>
       ),
-      ul: ({ node, ...props }) => (
+      ul: ({ node, children, ...props }) => (
         <motion.ul 
           style={{ ...template?.element_styles?.list, marginLeft: '1.5rem', marginBottom: '1rem' }}
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.7 }}
-          {...props}
-        />
+        >
+          {children}
+        </motion.ul>
       ),
-      li: ({ node, ...props }) => (
+      li: ({ node, children, ...props }) => (
         <motion.li 
           style={{ marginBottom: '0.5rem' }}
           initial={{ opacity: 0, x: -5 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}
-          {...props}
-        />
+        >
+          {children}
+        </motion.li>
       ),
-      a: ({ node, href, ...props }) => (
+      a: ({ node, href, children, ...props }) => (
         <motion.a 
           href={href}
           className="text-blue-600 hover:text-blue-800 hover:underline"
@@ -481,8 +490,9 @@ export default function ResultsPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
-          {...props}
-        />
+        >
+          {children}
+        </motion.a>
       ),
     };
 
