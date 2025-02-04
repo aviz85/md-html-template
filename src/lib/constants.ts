@@ -250,25 +250,20 @@ export async function convertMarkdownToHtml(content: string, headerContent?: str
 
   let processedContent = content;
   
-  // Replace custom content placeholders
-  if (customContents) {
-    customContents.forEach(({ name, content }) => {
-      const cleanName = name.replace('custom_', '');
-      const upperPlaceholder = `[${cleanName.toUpperCase()}]`;
-      const lowerPlaceholder = `[${cleanName.toLowerCase()}]`;
-      processedContent = processedContent.replace(upperPlaceholder, content).replace(lowerPlaceholder, content);
-    });
-  }
-
-  // Configure marked for proper line breaks and header rendering
+  // Configure marked
   marked.setOptions({
     breaks: true,
     gfm: true,
     pedantic: false
   });
 
-  // Add custom image renderer
+  // Add custom renderer
   const renderer = new marked.Renderer();
+  
+  // שמירה על הrenderer המקורי של marked לפני שינויים
+  const originalRenderer = new marked.Renderer();
+
+  // Override image renderer only
   renderer.image = (href: string, title: string | null, text: string) => {
     // Extract dimensions and classes
     const heightMatch = text?.match(/\[height=(\d+(?:px|%|rem|em|vh|vw))\]/);
@@ -295,14 +290,33 @@ export async function convertMarkdownToHtml(content: string, headerContent?: str
     return `<img src="${href}" alt="${cleanAlt}"${title ? ` title="${title}"` : ''}${style}${classAttr}>`;
   };
 
+  // העתקת כל שאר המתודות מה-renderer המקורי
+  renderer.paragraph = originalRenderer.paragraph;
+  renderer.heading = originalRenderer.heading;
+  renderer.list = originalRenderer.list;
+  renderer.listitem = originalRenderer.listitem;
+  renderer.checkbox = originalRenderer.checkbox;
+  renderer.strong = originalRenderer.strong;
+  renderer.em = originalRenderer.em;
+  renderer.codespan = originalRenderer.codespan;
+  renderer.br = originalRenderer.br;
+  renderer.del = originalRenderer.del;
+  renderer.link = originalRenderer.link;
+  renderer.table = originalRenderer.table;
+  renderer.tablerow = originalRenderer.tablerow;
+  renderer.tablecell = originalRenderer.tablecell;
+  renderer.code = originalRenderer.code;
+  renderer.blockquote = originalRenderer.blockquote;
+  renderer.html = originalRenderer.html;
+  renderer.hr = originalRenderer.hr;
+
   marked.setOptions({ renderer });
 
-  // Parse markdown content first
+  // Parse markdown content
   const contentHtml = await marked.parse(processedContent);
   
   // Add header and footer if provided
   const footerHtml = footerContent ? `\n<div class="footer">${await marked.parse(footerContent)}</div>` : '';
   
-  // Return combined HTML with raw header content
   return `${headerContent || ''}${contentHtml}${footerHtml}`;
 } 
