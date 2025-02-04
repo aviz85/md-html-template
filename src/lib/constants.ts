@@ -1,5 +1,6 @@
 import { marked } from 'marked';
 import { createClient } from '@supabase/supabase-js';
+import type { Template } from '../types/index';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -136,12 +137,47 @@ h1, h2, h3, h4, h5, h6 {
 
 export const generateHtmlTemplate = (
   content: string,
-  css: string,
+  elementStyles: Template['elementStyles'],
   googleFontsUrl: string,
   customFontFaces: string
 ) => {
+  // המרת elementStyles ל-CSS
+  const generateCss = (styles: Template['elementStyles']) => {
+    let css = '';
+    
+    // Body styles
+    if (styles.body) {
+      css += `body {
+        ${Object.entries(styles.body).map(([key, value]) => `${toKebabCase(key)}: ${value};`).join('\n')}
+      }\n`;
+    }
+
+    // Heading styles
+    ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].forEach(tag => {
+      if (styles[tag as keyof typeof styles]) {
+        css += `${tag} {
+          ${Object.entries(styles[tag as keyof typeof styles] || {}).map(([key, value]) => `${toKebabCase(key)}: ${value};`).join('\n')}
+        }\n`;
+      }
+    });
+
+    // Other elements
+    ['p', 'list', 'specialParagraph', 'main', 'prose'].forEach(element => {
+      if (styles[element as keyof typeof styles]) {
+        const selector = element === 'specialParagraph' ? '.special-paragraph' : element;
+        css += `${selector} {
+          ${Object.entries(styles[element as keyof typeof styles] || {}).map(([key, value]) => `${toKebabCase(key)}: ${value};`).join('\n')}
+        }\n`;
+      }
+    });
+
+    return css;
+  };
+
+  const generatedCss = generateCss(elementStyles);
+
   // Extract font-family from css to override default body font if needed
-  const bodyFontMatch = css.match(/body\s*{[^}]*font-family:\s*([^;}]+)/);
+  const bodyFontMatch = generatedCss.match(/body\s*{[^}]*font-family:\s*([^;}]+)/);
   const bodyFont = bodyFontMatch ? bodyFontMatch[1].trim() : "'Assistant', sans-serif";
   
   // Get Supabase storage URL
@@ -181,7 +217,7 @@ export const generateHtmlTemplate = (
     }
 
     ${customFontFaces}
-    ${css}
+    ${generatedCss}
   </style>
 </head>
 <body>
