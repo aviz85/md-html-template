@@ -80,7 +80,13 @@ const ImageRenderer = ({ node, ...props }: { node?: any } & React.ImgHTMLAttribu
         })
     );
     
-    return <img {...props} style={parsedStyles} />;
+    // Override any existing style props with our parsed styles
+    const finalStyles = {
+      ...props.style,
+      ...parsedStyles
+    };
+    
+    return <img {...props} style={finalStyles} />;
   }
   
   // Default to responsive behavior
