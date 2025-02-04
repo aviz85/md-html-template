@@ -197,6 +197,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const [uploadedMediaUrls, setUploadedMediaUrls] = useState<string[]>([])
   const [isMediaUploading, setIsMediaUploading] = useState(false)
   const [showMediaInstructions, setShowMediaInstructions] = useState(false)
+  const [template, setTemplate] = useState<Template | null>(null)
 
   useEffect(() => {
     if (templateId) {
@@ -430,7 +431,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         setCustomContents([])  // Reset custom contents first
         setCustomFonts(template.custom_fonts || [])
         
-        setElementStyles(template.element_styles || {
+        setElementStyles(template.elementStyles || {
           body: {
             backgroundColor: template.styles?.bodyBackground || '#ffffff'
           },
@@ -524,9 +525,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
         setFormId(template.form_id || '')
         setStyles({
-          bodyBackground: template.element_styles?.body?.backgroundColor || '#ffffff',
-          mainBackground: template.element_styles?.main?.backgroundColor || '#ffffff',
-          contentBackground: template.element_styles?.prose?.backgroundColor || '#ffffff'
+          bodyBackground: template.elementStyles?.body?.backgroundColor || '#ffffff',
+          mainBackground: template.elementStyles?.main?.backgroundColor || '#ffffff',
+          contentBackground: template.elementStyles?.prose?.backgroundColor || '#ffffff'
         })
 
         setEmailSubject(template.email_subject || "")
@@ -1119,17 +1120,14 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     setTemplate(prev => {
       if (!prev) return prev;
 
-      // עדכון הצבעים בהתאם למיקום
-      const updatedStyles = { ...prev.element_styles };
+      const updatedStyles = { ...prev.elementStyles };
       
       if (index === 0) {
-        // צבע ראשון משפיע על main
         updatedStyles.main = {
           ...updatedStyles.main,
           backgroundColor: color
         };
       } else if (index === 1) {
-        // צבע שני משפיע על prose
         updatedStyles.prose = {
           ...updatedStyles.prose,
           backgroundColor: color
@@ -1139,7 +1137,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       return {
         ...prev,
         [colorKey]: color,
-        element_styles: updatedStyles
+        elementStyles: updatedStyles
       };
     });
   };
