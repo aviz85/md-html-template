@@ -64,9 +64,10 @@ type Template = {
 };
 
 // Extract shared components
-const ImageRenderer = ({ node, ...props }: { node?: any } & React.ImgHTMLAttributes<HTMLImageElement>) => {
+export const ImageRenderer = ({ node, ...props }: { node?: any } & React.ImgHTMLAttributes<HTMLImageElement>) => {
   // Get original styles from data attribute
-  const originalStyles = node?.properties?.['data-original-styles'];
+  const originalStyles = node?.properties?.['data-original-styles'] || props['data-original-styles'];
+  console.log('ImageRenderer:', { originalStyles, props });
   
   if (originalStyles) {
     // Parse the original styles into an object
@@ -74,20 +75,17 @@ const ImageRenderer = ({ node, ...props }: { node?: any } & React.ImgHTMLAttribu
       originalStyles.split(';')
         .map((s: string) => {
           const [key, value] = s.split(':').map(p => p.trim());
-          // Convert kebab-case to camelCase for React
-          const camelKey = key.replace(/-([a-z])/g, g => g[1].toUpperCase());
-          return [camelKey, value];
+          return [key, value];
         })
     );
     
-    // Override default styles with our parsed styles
-    const finalStyles = {
-      maxWidth: '100%',
-      ...props.style,
-      ...parsedStyles
-    };
+    console.log('Parsed styles:', parsedStyles);
     
-    return <img {...props} style={finalStyles} />;
+    // Remove data-original-styles from props
+    const { 'data-original-styles': _, ...cleanProps } = props;
+    
+    // Use the parsed styles directly
+    return <img {...cleanProps} style={parsedStyles} />;
   }
   
   // Default to responsive behavior
@@ -312,13 +310,18 @@ export default function ResultsPage() {
     const processContent = (content: string) => {
       let processedContent = content;
       
-      // Format 1: ![[style]](url) or ![alt [style]](url)
-      const imageRegex1 = /!\[(?:\[(.*?)\]|\s*([^\]]*?)\s*(?:\[(.*?)\]))\]\((.*?)\)/g;
-      const matches1 = Array.from(processedContent.matchAll(imageRegex1));
+      // Format: ![[style]](url)
+      const imageRegex = /!\[(\[.*?\])\]\((.*?)\)/g;
+      const matches = Array.from(processedContent.matchAll(imageRegex));
       
-      matches1.forEach(match => {
-        const [fullMatch, style1, alt = '', style2, src] = match;
-        const style = style1 || style2;
+      console.log('Image matches:', matches);
+      
+      matches.forEach(match => {
+        const [fullMatch, styleMatch, src] = match;
+        // Remove the outer brackets
+        const style = styleMatch.slice(1, -1);
+        console.log('Processing match:', { fullMatch, style, src });
+        
         if (style) {
           // Convert height=20px to height: 20px
           const cssStyle = style
@@ -329,28 +332,8 @@ export default function ResultsPage() {
             })
             .join(';');
             
-          const htmlImg = `<img src="${src}" alt="${alt}" data-original-styles="${cssStyle}" />`;
-          processedContent = processedContent.replace(fullMatch, htmlImg);
-        }
-      });
-      
-      // Format 2: ![alt](url)[style]
-      const imageRegex2 = /!\[(.*?)\]\((.*?)\)(?:\[(.*?)\])?/g;
-      const matches2 = Array.from(processedContent.matchAll(imageRegex2));
-      
-      matches2.forEach(match => {
-        const [fullMatch, alt = '', src, style] = match;
-        if (style) {
-          // Convert height=20px to height: 20px
-          const cssStyle = style
-            .split(',')
-            .map(s => {
-              const [key, value] = s.trim().split('=');
-              return `${key}: ${value}`;
-            })
-            .join(';');
-            
-          const htmlImg = `<img src="${src}" alt="${alt}" data-original-styles="${cssStyle}" />`;
+          console.log('Generated CSS style:', cssStyle);
+          const htmlImg = `<img src="${src}" alt="" data-original-styles="${cssStyle}" />`;
           processedContent = processedContent.replace(fullMatch, htmlImg);
         }
       });
