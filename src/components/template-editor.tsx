@@ -407,12 +407,30 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         setCustomContents([])  // Reset custom contents first
         setCustomFonts(template.custom_fonts || [])
         
-        if (template.element_styles) {
-          setElementStyles(template.element_styles)
-        } else {
-          const extractedStyles = parseCSS(template.css)
-          setElementStyles(extractedStyles)
-        }
+        setElementStyles(template.element_styles || {
+          body: {
+            backgroundColor: template.styles?.bodyBackground || '#ffffff'
+          },
+          h1: {},
+          h2: {},
+          h3: {},
+          h4: {},
+          h5: {},
+          h6: {},
+          list: {},
+          p: {},
+          specialParagraph: {},
+          header: {
+            showLogo: true,
+            logoWidth: '100px',
+            logoHeight: 'auto',
+            logoMargin: '1rem',
+            logoPosition: 'top-right',
+          },
+          footer: {},
+          main: {},
+          prose: {}
+        })
         
         // Load logo
         const { data: logoData } = await supabase
@@ -507,6 +525,14 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       ...prev,
       [activeElement]: style
     }))
+
+    // Sync bodyBackground with body backgroundColor when body is being edited
+    if (activeElement === "body" && style.backgroundColor !== undefined) {
+      setStyles(prev => ({
+        ...prev,
+        bodyBackground: style.backgroundColor
+      }))
+    }
   }
 
   const validateStyles = (styles: Template["elementStyles"]) => {
@@ -598,10 +624,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           template_gsheets_id: templateGsheetsId,
           element_styles: {
             ...elementStyles,
-            body: { 
-              ...elementStyles.body,
-              backgroundColor: styles?.bodyBackground || '#ffffff'
-            },
             main: {
               ...elementStyles.main,
               backgroundColor: styles?.mainBackground || '#ffffff'
@@ -1276,14 +1298,14 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
         <div className="grid grid-cols-3 gap-4">
           <ColorPicker
-            id="bodyBackground"
-            label="צבע רקע כללי"
-            value={styles?.bodyBackground}
-            onChange={(value) => setStyles(prev => ({ ...prev, bodyBackground: value }))}
+            id="mainBackground"
+            label="צבע רקע ראשי"
+            value={styles?.mainBackground}
+            onChange={(value) => setStyles(prev => ({ ...prev, mainBackground: value }))}
           />
           <ColorPicker
             id="contentBackground"
-            label="צבע רקע אזור תוכן"
+            label="צבע רקע תוכן"
             value={styles?.contentBackground}
             onChange={(value) => setStyles(prev => ({ ...prev, contentBackground: value }))}
           />
