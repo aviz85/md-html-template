@@ -64,16 +64,16 @@ type Template = {
 };
 
 // Extract shared components
-export const ImageRenderer = ({ 
-  node, 
-  ...props 
-}: { 
-  node?: any; 
-  'data-original-styles'?: string 
-} & Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'data-original-styles'>) => {
-  // Get original styles from data attribute
-  const originalStyles = node?.properties?.['data-original-styles'] || props['data-original-styles'];
-  console.log('ImageRenderer:', { originalStyles, props });
+export const ImageRenderer = ({ node, ...props }: { node?: any } & React.ImgHTMLAttributes<HTMLImageElement>) => {
+  // Get original styles from data attribute - React converts data-original-styles to dataOriginalStyles
+  const originalStyles = node?.properties?.dataOriginalStyles;
+  
+  console.log('ImageRenderer: Initial props and data:', {
+    originalStyles,
+    propsStyle: props.style,
+    nodeProperties: node?.properties,
+    allProps: props
+  });
   
   if (originalStyles) {
     // Parse the original styles into an object
@@ -81,27 +81,40 @@ export const ImageRenderer = ({
       originalStyles.split(';')
         .map((s: string) => {
           const [key, value] = s.split(':').map(p => p.trim());
-          return [key, value];
+          // Convert kebab-case to camelCase for React
+          const camelKey = key.replace(/-([a-z])/g, g => g[1].toUpperCase());
+          const cleanValue = value.replace(' !important', '');
+          console.log('ImageRenderer: Parsing style:', { key, value, camelKey, cleanValue });
+          return [camelKey, cleanValue];
         })
     );
     
-    console.log('Parsed styles:', parsedStyles);
+    console.log('ImageRenderer: Parsed styles:', parsedStyles);
     
-    // Remove data-original-styles from props
-    const { 'data-original-styles': _, ...cleanProps } = props;
+    // Override default styles with our parsed styles, ensuring they take precedence
+    const finalStyles = {
+      maxWidth: '100%',
+      height: 'auto',
+      ...props.style,
+      ...parsedStyles
+    };
     
-    // Use the parsed styles directly
-    return <img {...cleanProps} style={parsedStyles} />;
+    console.log('ImageRenderer: Final styles with original styles:', finalStyles);
+    
+    return <img {...props} style={finalStyles} />;
   }
   
-  // Default to responsive behavior
-  return <img {...props} style={{ maxWidth: '100%', height: 'auto' }} />;
+  // Default to responsive behavior only if no original styles
+  const defaultStyles = { maxWidth: '100%', height: 'auto', ...props.style };
+  console.log('ImageRenderer: Using default styles (no original styles):', defaultStyles);
+  return <img {...props} style={defaultStyles} />;
 };
 
 export default function ResultsPage() {
   const searchParams = useSearchParams();
   const submissionId = searchParams.get('s') || new URLSearchParams(window.location.search).get('submissionID');
   const isMounted = useRef(false);
+  const hasCompletedRef = useRef(false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState('loading');
@@ -184,7 +197,7 @@ export default function ResultsPage() {
     const pollStartTime = Date.now();
 
     const pollSubmission = async () => {
-      if (!isMounted.current) return;
+      if (!isMounted.current || hasCompletedRef.current) return;
       
       // Check if we've exceeded the maximum polling time
       if (Date.now() - pollStartTime > MAX_POLL_TIME) {
@@ -201,7 +214,8 @@ export default function ResultsPage() {
         shouldContinuePolling,
         hasTimeout: !!timeoutId,
         foundSubmission,
-        elapsedTime: Date.now() - pollStartTime
+        elapsedTime: Date.now() - pollStartTime,
+        hasCompleted: hasCompletedRef.current
       });
 
       if (!shouldContinuePolling) {
@@ -214,7 +228,7 @@ export default function ResultsPage() {
         const response = await fetch(`/api/submission?s=${submissionId}`);
         const data = await response.json();
 
-        if (!isMounted.current) return;
+        if (!isMounted.current || hasCompletedRef.current) return;
 
         if (!response.ok) {
           throw new Error(data.error || 'שגיאה בטעינת הנתונים');
@@ -232,8 +246,9 @@ export default function ResultsPage() {
           foundSubmission = true;
         }
 
-        if (submission?.status === 'completed') {
+        if (submission?.status === 'completed' && !hasCompletedRef.current) {
           console.log('Received completed status');
+          hasCompletedRef.current = true;
           setShouldContinuePolling(false);
           setProgress({ stage: 'success', message: submission.progress?.message || 'העיבוד הושלם בהצלחה' });
           setResult(submission.result);
@@ -247,6 +262,7 @@ export default function ResultsPage() {
           return;
         } else if (submission?.status === 'error') {
           console.log('Received error status');
+          hasCompletedRef.current = true;
           setShouldContinuePolling(false);
           setError('שגיאה בעיבוד הטופס: ' + (submission.result?.error || 'שגיאה לא ידועה'));
           setStatus('error');
@@ -262,14 +278,14 @@ export default function ResultsPage() {
         }
 
         // Schedule next poll with appropriate delay
-        if (shouldContinuePolling && isMounted.current) {
+        if (shouldContinuePolling && isMounted.current && !hasCompletedRef.current) {
           const nextDelay = foundSubmission ? POLL_INTERVAL : getBackoffTime(retryCount);
           console.log(`Scheduling next poll in ${nextDelay}ms`);
           timeoutId = setTimeout(pollSubmission, nextDelay);
         }
 
       } catch (error) {
-        if (!isMounted.current) return;
+        if (!isMounted.current || hasCompletedRef.current) return;
         
         console.log('Poll attempt error:', error);
         if (!foundSubmission) {
@@ -281,6 +297,7 @@ export default function ResultsPage() {
             timeoutId = setTimeout(pollSubmission, nextDelay);
           } else {
             console.log('Max retries reached after error');
+            hasCompletedRef.current = true;
             setShouldContinuePolling(false);
             setError(error instanceof Error ? error.message : 'שגיאה בטעינת הנתונים');
             setStatus('error');
@@ -288,7 +305,7 @@ export default function ResultsPage() {
           }
         } else {
           // Use regular interval even after errors if submission was found
-          if (shouldContinuePolling) {
+          if (shouldContinuePolling && !hasCompletedRef.current) {
             console.log('Scheduling next poll after error with regular interval');
             timeoutId = setTimeout(pollSubmission, POLL_INTERVAL);
           }
@@ -298,6 +315,7 @@ export default function ResultsPage() {
 
     console.log('Starting initial poll');
     setShouldContinuePolling(true);
+    hasCompletedRef.current = false;
     pollSubmission();
 
     return () => {
