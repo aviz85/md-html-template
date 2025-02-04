@@ -67,16 +67,18 @@ type Template = {
 const ImageRenderer = ({ node, ...props }: { node?: any } & React.ImgHTMLAttributes<HTMLImageElement>) => {
   // Get original styles from data attribute
   const originalStyles = node?.properties?.['data-original-styles'];
-  const style = originalStyles ? 
-    { ...Object.fromEntries(originalStyles.split(';').map((s: string) => s.split(':').map((p: string) => p.trim()))) } :
-    { maxWidth: '100%' };  // Default to responsive behavior only if no styles specified
   
-  // If height is specified in original styles, use it
-  if (style.height) {
-    return <img {...props} style={style} />;
+  if (originalStyles) {
+    // Parse the original styles into an object
+    const parsedStyles = Object.fromEntries(
+      originalStyles.split(';')
+        .map((s: string) => s.split(':').map((p: string) => p.trim()))
+    ) as React.CSSProperties;
+    
+    return <img {...props} style={parsedStyles} />;
   }
   
-  // Otherwise, use responsive behavior
+  // Default to responsive behavior
   return <img {...props} style={{ maxWidth: '100%', height: 'auto' }} />;
 };
 
