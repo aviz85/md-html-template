@@ -372,9 +372,16 @@ export default function ResultsPage() {
                     { ...Object.fromEntries(originalStyles.split(';').map((s: string) => s.split(':').map((p: string) => p.trim()))) } :
                     { maxWidth: 'none' };
                   
+                  // Extract only the props we need
+                  const { src, alt, title, width, height } = props;
+                  
                   return (
                     <motion.img 
-                      {...props}
+                      src={src}
+                      alt={alt}
+                      title={title}
+                      width={width}
+                      height={height}
                       style={style}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -559,9 +566,16 @@ export default function ResultsPage() {
                       { ...Object.fromEntries(originalStyles.split(';').map((s: string) => s.split(':').map((p: string) => p.trim()))) } :
                       { maxWidth: 'none' };
                     
+                    // Extract only the props we need
+                    const { src, alt, title, width, height } = props;
+                    
                     return (
                       <motion.img 
-                        {...props}
+                        src={src}
+                        alt={alt}
+                        title={title}
+                        width={width}
+                        height={height}
                         style={style}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -743,9 +757,16 @@ export default function ResultsPage() {
                     { ...Object.fromEntries(originalStyles.split(';').map((s: string) => s.split(':').map((p: string) => p.trim()))) } :
                     { maxWidth: 'none' };
                   
+                  // Extract only the props we need
+                  const { src, alt, title, width, height } = props;
+                  
                   return (
                     <motion.img 
-                      {...props}
+                      src={src}
+                      alt={alt}
+                      title={title}
+                      width={width}
+                      height={height}
                       style={style}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -905,9 +926,16 @@ export default function ResultsPage() {
                     { ...Object.fromEntries(originalStyles.split(';').map((s: string) => s.split(':').map((p: string) => p.trim()))) } :
                     { maxWidth: 'none' };
                   
+                  // Extract only the props we need
+                  const { src, alt, title, width, height } = props;
+                  
                   return (
                     <motion.img 
-                      {...props}
+                      src={src}
+                      alt={alt}
+                      title={title}
+                      width={width}
+                      height={height}
                       style={style}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
