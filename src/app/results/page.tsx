@@ -365,9 +365,9 @@ export default function ResultsPage() {
             <ReactMarkdown 
               rehypePlugins={[rehypeRaw]}
               components={{
-                img: ({ node, ...props }) => {
+                img: ({ node, ...props }: { node?: any } & React.ImgHTMLAttributes<HTMLImageElement>) => {
                   // Get original styles from data attribute
-                  const originalStyles = node.properties?.['data-original-styles'];
+                  const originalStyles = node?.properties?.['data-original-styles'];
                   const style = originalStyles ? 
                     { ...Object.fromEntries(originalStyles.split(';').map(s => s.split(':').map(p => p.trim()))) } :
                     { maxWidth: 'none' };
@@ -552,9 +552,9 @@ export default function ResultsPage() {
               <ReactMarkdown 
                 rehypePlugins={[rehypeRaw]}
                 components={{
-                  img: ({ node, ...props }) => {
+                  img: ({ node, ...props }: { node?: any } & React.ImgHTMLAttributes<HTMLImageElement>) => {
                     // Get original styles from data attribute
-                    const originalStyles = node.properties?.['data-original-styles'];
+                    const originalStyles = node?.properties?.['data-original-styles'];
                     const style = originalStyles ? 
                       { ...Object.fromEntries(originalStyles.split(';').map(s => s.split(':').map(p => p.trim()))) } :
                       { maxWidth: 'none' };
@@ -736,9 +736,9 @@ export default function ResultsPage() {
             <ReactMarkdown 
               rehypePlugins={[rehypeRaw]}
               components={{
-                img: ({ node, ...props }) => {
+                img: ({ node, ...props }: { node?: any } & React.ImgHTMLAttributes<HTMLImageElement>) => {
                   // Get original styles from data attribute
-                  const originalStyles = node.properties?.['data-original-styles'];
+                  const originalStyles = node?.properties?.['data-original-styles'];
                   const style = originalStyles ? 
                     { ...Object.fromEntries(originalStyles.split(';').map(s => s.split(':').map(p => p.trim()))) } :
                     { maxWidth: 'none' };
@@ -898,9 +898,9 @@ export default function ResultsPage() {
             <ReactMarkdown 
               rehypePlugins={[rehypeRaw]}
               components={{
-                img: ({ node, ...props }) => {
+                img: ({ node, ...props }: { node?: any } & React.ImgHTMLAttributes<HTMLImageElement>) => {
                   // Get original styles from data attribute
-                  const originalStyles = node.properties?.['data-original-styles'];
+                  const originalStyles = node?.properties?.['data-original-styles'];
                   const style = originalStyles ? 
                     { ...Object.fromEntries(originalStyles.split(';').map(s => s.split(':').map(p => p.trim()))) } :
                     { maxWidth: 'none' };
