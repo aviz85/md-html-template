@@ -1,6 +1,6 @@
 'use client';
 
-import { ImageRenderer } from '../results/page';
+import { ImageRenderer } from '@/components/image-renderer';
 
 export default function TestImage() {
   const mockNode = {
