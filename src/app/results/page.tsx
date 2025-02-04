@@ -72,8 +72,13 @@ const ImageRenderer = ({ node, ...props }: { node?: any } & React.ImgHTMLAttribu
     // Parse the original styles into an object
     const parsedStyles = Object.fromEntries(
       originalStyles.split(';')
-        .map((s: string) => s.split(':').map((p: string) => p.trim()))
-    ) as React.CSSProperties;
+        .map((s: string) => {
+          const [key, value] = s.split(':').map(p => p.trim());
+          // Convert kebab-case to camelCase for React
+          const camelKey = key.replace(/-([a-z])/g, g => g[1].toUpperCase());
+          return [camelKey, value];
+        })
+    );
     
     return <img {...props} style={parsedStyles} />;
   }
@@ -308,9 +313,13 @@ export default function ResultsPage() {
         const [fullMatch, style1, alt = '', style2, src] = match;
         const style = style1 || style2;
         if (style) {
+          // Convert height=20px to height: 20px
           const cssStyle = style
             .split(',')
-            .map(s => s.trim().replace('=', ': '))
+            .map(s => {
+              const [key, value] = s.trim().split('=');
+              return `${key}: ${value}`;
+            })
             .join(';');
             
           const htmlImg = `<img src="${src}" alt="${alt}" data-original-styles="${cssStyle}" />`;
@@ -325,9 +334,13 @@ export default function ResultsPage() {
       matches2.forEach(match => {
         const [fullMatch, alt = '', src, style] = match;
         if (style) {
+          // Convert height=20px to height: 20px
           const cssStyle = style
             .split(',')
-            .map(s => s.trim().replace('=', ': '))
+            .map(s => {
+              const [key, value] = s.trim().split('=');
+              return `${key}: ${value}`;
+            })
             .join(';');
             
           const htmlImg = `<img src="${src}" alt="${alt}" data-original-styles="${cssStyle}" />`;
