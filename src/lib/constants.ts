@@ -250,73 +250,43 @@ export async function convertMarkdownToHtml(content: string, headerContent?: str
 
   let processedContent = content;
   
-  // Configure marked
+  // Replace custom content placeholders
+  if (customContents) {
+    customContents.forEach(({ name, content }) => {
+      const cleanName = name.replace('custom_', '');
+      const upperPlaceholder = `[${cleanName.toUpperCase()}]`;
+      const lowerPlaceholder = `[${cleanName.toLowerCase()}]`;
+      processedContent = processedContent.replace(upperPlaceholder, content).replace(lowerPlaceholder, content);
+    });
+  }
+
+  // Configure marked for proper line breaks and header rendering
   marked.setOptions({
     breaks: true,
     gfm: true,
     pedantic: false
   });
 
-  // Add custom renderer
+  // Add custom image renderer
   const renderer = new marked.Renderer();
-  
-  // שמירה על הrenderer המקורי של marked לפני שינויים
-  const originalRenderer = new marked.Renderer();
-
-  // Override image renderer only
   renderer.image = (href: string, title: string | null, text: string) => {
-    // Extract dimensions and classes
-    const heightMatch = text?.match(/\[height=(\d+(?:px|%|rem|em|vh|vw))\]/);
-    const widthMatch = text?.match(/\[width=(\d+(?:px|%|rem|em|vh|vw))\]/);
-    const classMatch = text?.match(/\[class=([\w-\s]+)\]/);
-    
-    // Get values if they exist
+    // Check for height specification in the text (e.g. "[height=200px]")
+    const heightMatch = text.match(/\[height=([^\]]+)\]$/);
     const height = heightMatch ? heightMatch[1] : null;
-    const width = widthMatch ? widthMatch[1] : null;
-    const className = classMatch ? classMatch[1] : null;
+    const alt = heightMatch ? text.replace(/\[height=[^\]]+\]$/, '') : text;
     
-    // Clean the alt text - אם אין טקסט, זה יכול לגרום לשגיאה
-    const cleanAlt = text?.replace(/\[(height|width|class)=[^\]]+\]/g, '').trim() || '';
-
-    // Build style attribute
-    const styles = [];
-    if (height) styles.push(`height: ${height}`);
-    if (width) styles.push(`width: ${width}`);
-    const style = styles.length ? ` style="${styles.join('; ')}"` : '';
-    
-    // Build class attribute
-    const classAttr = className ? ` class="${className}"` : '';
-
-    return `<img src="${href}" alt="${cleanAlt}"${title ? ` title="${title}"` : ''}${style}${classAttr}>`;
+    const style = height ? ` style="height: ${height}; width: auto;"` : '';
+    return `<img src="${href}" alt="${alt}"${title ? ` title="${title}"` : ''}${style}>`;
   };
-
-  // העתקת כל שאר המתודות מה-renderer המקורי
-  renderer.paragraph = originalRenderer.paragraph;
-  renderer.heading = originalRenderer.heading;
-  renderer.list = originalRenderer.list;
-  renderer.listitem = originalRenderer.listitem;
-  renderer.checkbox = originalRenderer.checkbox;
-  renderer.strong = originalRenderer.strong;
-  renderer.em = originalRenderer.em;
-  renderer.codespan = originalRenderer.codespan;
-  renderer.br = originalRenderer.br;
-  renderer.del = originalRenderer.del;
-  renderer.link = originalRenderer.link;
-  renderer.table = originalRenderer.table;
-  renderer.tablerow = originalRenderer.tablerow;
-  renderer.tablecell = originalRenderer.tablecell;
-  renderer.code = originalRenderer.code;
-  renderer.blockquote = originalRenderer.blockquote;
-  renderer.html = originalRenderer.html;
-  renderer.hr = originalRenderer.hr;
 
   marked.setOptions({ renderer });
 
-  // Parse markdown content
+  // Parse markdown content first
   const contentHtml = await marked.parse(processedContent);
   
   // Add header and footer if provided
   const footerHtml = footerContent ? `\n<div class="footer">${await marked.parse(footerContent)}</div>` : '';
   
+  // Return combined HTML with raw header content
   return `${headerContent || ''}${contentHtml}${footerHtml}`;
 } 
