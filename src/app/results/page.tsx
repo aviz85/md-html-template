@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import { motion, AnimatePresence } from 'framer-motion';
 import { marked } from 'marked';
+import type { Components } from 'react-markdown';
 
 type CustomFont = {
   font_family: string;
@@ -70,12 +71,13 @@ const ImageRenderer = ({ node, ...props }: { node?: any } & React.ImgHTMLAttribu
     { ...Object.fromEntries(originalStyles.split(';').map((s: string) => s.split(':').map((p: string) => p.trim()))) } :
     { maxWidth: '100%' };  // Default to responsive behavior only if no styles specified
   
-  return (
-    <img 
-      {...props}
-      style={style}
-    />
-  );
+  // If height is specified in original styles, use it
+  if (style.height) {
+    return <img {...props} style={style} />;
+  }
+  
+  // Otherwise, use responsive behavior
+  return <img {...props} style={{ maxWidth: '100%', height: 'auto' }} />;
 };
 
 export default function ResultsPage() {
@@ -296,6 +298,27 @@ export default function ResultsPage() {
     const processContent = (content: string) => {
       let processedContent = content;
       
+      // Extract image styles before any replacements
+      const imageStyleRegex = /!\[.*?\]\(.*?\)\{.*?\}/g;
+      const imageMatches = processedContent.match(imageStyleRegex) || [];
+      const imageStyles = imageMatches.map(match => {
+        const styleMatch = match.match(/\{(.*?)\}/);
+        return styleMatch ? styleMatch[1] : '';
+      });
+      
+      // Replace image markdown with HTML that includes data-original-styles
+      imageMatches.forEach((match, index) => {
+        const style = imageStyles[index];
+        if (style) {
+          const imgMatch = match.match(/!\[(.*?)\]\((.*?)\)/);
+          if (imgMatch) {
+            const [_, alt, src] = imgMatch;
+            const htmlImg = `<img src="${src}" alt="${alt}" data-original-styles="${style}" />`;
+            processedContent = processedContent.replace(match, htmlImg);
+          }
+        }
+      });
+      
       if (template?.custom_contents) {
         // Configure marked for proper line breaks
         marked.setOptions({
@@ -333,16 +356,16 @@ export default function ResultsPage() {
         opacity: 1,
         y: 0,
         transition: {
-          delay: i * 0.2,
+          delay: i * 0.1,
           duration: 0.5,
           ease: "easeOut"
         }
       })
     };
 
-    const markdownComponents = {
+    const markdownComponents: Components = {
       img: ImageRenderer,
-      h1: ({ children }: { children: React.ReactNode }) => (
+      h1: ({ node, ...props }) => (
         <motion.h1 
           style={{ 
             ...template?.element_styles?.h1,
@@ -352,11 +375,10 @@ export default function ResultsPage() {
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
-        >
-          {children}
-        </motion.h1>
+          {...props}
+        />
       ),
-      h2: ({ children }: { children: React.ReactNode }) => (
+      h2: ({ node, ...props }) => (
         <motion.h2 
           style={{ 
             ...template?.element_styles?.h2,
@@ -366,11 +388,10 @@ export default function ResultsPage() {
           initial={{ opacity: 0, x: -15 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
-        >
-          {children}
-        </motion.h2>
+          {...props}
+        />
       ),
-      h3: ({ children }: { children: React.ReactNode }) => (
+      h3: ({ node, ...props }) => (
         <motion.h3 
           style={{ 
             ...template?.element_styles?.h3,
@@ -380,11 +401,10 @@ export default function ResultsPage() {
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.5 }}
-        >
-          {children}
-        </motion.h3>
+          {...props}
+        />
       ),
-      h4: ({ children }: { children: React.ReactNode }) => (
+      h4: ({ node, ...props }) => (
         <motion.h4 
           style={{ 
             ...template?.element_styles?.h4,
@@ -394,11 +414,10 @@ export default function ResultsPage() {
           initial={{ opacity: 0, x: -5 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.6 }}
-        >
-          {children}
-        </motion.h4>
+          {...props}
+        />
       ),
-      h5: ({ children }: { children: React.ReactNode }) => (
+      h5: ({ node, ...props }) => (
         <motion.h5 
           style={{ 
             ...template?.element_styles?.h5,
@@ -408,11 +427,10 @@ export default function ResultsPage() {
           initial={{ opacity: 0, x: -3 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.7 }}
-        >
-          {children}
-        </motion.h5>
+          {...props}
+        />
       ),
-      h6: ({ children }: { children: React.ReactNode }) => (
+      h6: ({ node, ...props }) => (
         <motion.h6 
           style={{ 
             ...template?.element_styles?.h6,
@@ -422,41 +440,37 @@ export default function ResultsPage() {
           initial={{ opacity: 0, x: -2 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.8 }}
-        >
-          {children}
-        </motion.h6>
+          {...props}
+        />
       ),
-      p: ({ children }: { children: React.ReactNode }) => (
+      p: ({ node, ...props }) => (
         <motion.p 
           style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.6 }}
-        >
-          {children}
-        </motion.p>
+          {...props}
+        />
       ),
-      ul: ({ children }: { children: React.ReactNode }) => (
+      ul: ({ node, ...props }) => (
         <motion.ul 
           style={{ ...template?.element_styles?.list, marginLeft: '1.5rem', marginBottom: '1rem' }}
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.7 }}
-        >
-          {children}
-        </motion.ul>
+          {...props}
+        />
       ),
-      li: ({ children }: { children: React.ReactNode }) => (
+      li: ({ node, ...props }) => (
         <motion.li 
           style={{ marginBottom: '0.5rem' }}
           initial={{ opacity: 0, x: -5 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}
-        >
-          {children}
-        </motion.li>
+          {...props}
+        />
       ),
-      a: ({ children, href }: { children: React.ReactNode, href?: string }) => (
+      a: ({ node, href, ...props }) => (
         <motion.a 
           href={href}
           className="text-blue-600 hover:text-blue-800 hover:underline"
@@ -465,9 +479,8 @@ export default function ResultsPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
-        >
-          {children}
-        </motion.a>
+          {...props}
+        />
       ),
     };
 
