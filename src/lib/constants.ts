@@ -141,7 +141,7 @@ export const generateHtmlTemplate = (
   googleFontsUrl: string,
   customFontFaces: string
 ) => {
-  // המרת elementStyles ל-CSS
+  // Generate CSS directly from elementStyles
   const generateCss = (styles: Template['elementStyles']) => {
     let css = '';
     
