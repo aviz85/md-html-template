@@ -204,6 +204,29 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     }
   }, [templateId])
 
+  useEffect(() => {
+    if (templateId) {
+      const loadMedia = async () => {
+        const { data, error } = await supabase
+          .from('media_files')
+          .select('file_path')
+          .eq('template_id', templateId);
+        
+        if (!error && data) {
+          const urls = data.map(file => {
+            const { data: { publicUrl } } = supabase.storage
+              .from('storage')
+              .getPublicUrl(file.file_path);
+            return publicUrl;
+          });
+          setUploadedMediaUrls(urls);
+        }
+      };
+      
+      loadMedia();
+    }
+  }, [templateId]);
+
   const parseCSS = (css: string) => {
     const styles: Template["elementStyles"] = {
       body: {},
@@ -1054,10 +1077,20 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           throw new Error('Missing file path or public URL from response');
         }
 
+        // Save to database
+        const { error } = await supabase
+          .from('template_media')
+          .insert({
+            template_id: templateId,
+            file_path: filePath,
+            public_url: publicUrl
+          });
+
+        if (error) throw error;
+
         newUrls.push(publicUrl);
       }
 
-      // Add new URLs to existing ones
       setUploadedMediaUrls(prev => [...newUrls, ...prev]);
       setShowMediaInstructions(true);
       setIsMediaModalOpen(false);
@@ -1083,7 +1116,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     if (!templateId) return;
 
     try {
-      // Get file path from URL
       const filePath = url.split('/storage/')[1];
       if (!filePath) throw new Error('Invalid file URL');
 
@@ -1095,7 +1127,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         throw new Error('Failed to delete media');
       }
 
-      // Remove URL from state
+      // הסרה מהמצב המקומי רק אם המחיקה הצליחה
       setUploadedMediaUrls(prev => prev.filter(u => u !== url));
 
       toast({
