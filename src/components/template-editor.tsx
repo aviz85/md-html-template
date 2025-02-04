@@ -1112,6 +1112,11 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     }
   };
 
+  marked.setOptions({
+    breaks: true,
+    gfm: true
+  });
+
   return (
     <div className="space-y-6" dir="rtl">
       <div className="space-y-6">
