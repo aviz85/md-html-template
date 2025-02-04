@@ -300,24 +300,38 @@ export default function ResultsPage() {
     const processContent = (content: string) => {
       let processedContent = content;
       
-      // Extract image styles before any replacements
-      const imageStyleRegex = /!\[.*?\]\(.*?\)\{.*?\}/g;
-      const imageMatches = processedContent.match(imageStyleRegex) || [];
-      const imageStyles = imageMatches.map(match => {
-        const styleMatch = match.match(/\{(.*?)\}/);
-        return styleMatch ? styleMatch[1] : '';
+      // Format 1: ![[style]](url) or ![alt [style]](url)
+      const imageRegex1 = /!\[(?:\[(.*?)\]|\s*([^\]]*?)\s*(?:\[(.*?)\]))\]\((.*?)\)/g;
+      const matches1 = Array.from(processedContent.matchAll(imageRegex1));
+      
+      matches1.forEach(match => {
+        const [fullMatch, style1, alt = '', style2, src] = match;
+        const style = style1 || style2;
+        if (style) {
+          const cssStyle = style
+            .split(',')
+            .map(s => s.trim().replace('=', ': '))
+            .join(';');
+            
+          const htmlImg = `<img src="${src}" alt="${alt}" data-original-styles="${cssStyle}" />`;
+          processedContent = processedContent.replace(fullMatch, htmlImg);
+        }
       });
       
-      // Replace image markdown with HTML that includes data-original-styles
-      imageMatches.forEach((match, index) => {
-        const style = imageStyles[index];
+      // Format 2: ![alt](url)[style]
+      const imageRegex2 = /!\[(.*?)\]\((.*?)\)(?:\[(.*?)\])?/g;
+      const matches2 = Array.from(processedContent.matchAll(imageRegex2));
+      
+      matches2.forEach(match => {
+        const [fullMatch, alt = '', src, style] = match;
         if (style) {
-          const imgMatch = match.match(/!\[(.*?)\]\((.*?)\)/);
-          if (imgMatch) {
-            const [_, alt, src] = imgMatch;
-            const htmlImg = `<img src="${src}" alt="${alt}" data-original-styles="${style}" />`;
-            processedContent = processedContent.replace(match, htmlImg);
-          }
+          const cssStyle = style
+            .split(',')
+            .map(s => s.trim().replace('=', ': '))
+            .join(';');
+            
+          const htmlImg = `<img src="${src}" alt="${alt}" data-original-styles="${cssStyle}" />`;
+          processedContent = processedContent.replace(fullMatch, htmlImg);
         }
       });
       
