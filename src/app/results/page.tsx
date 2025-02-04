@@ -84,6 +84,24 @@ const ImageRenderer = ({ node, ...props }: { node?: any } & React.ImgHTMLAttribu
           // Convert kebab-case to camelCase for React
           const camelKey = key.replace(/-([a-z])/g, g => g[1].toUpperCase());
           const cleanValue = value.replace(' !important', '');
+
+          // Handle special parameters
+          if (key === 'align') {
+            return ['textAlign', cleanValue];
+          }
+          if (key === 'float') {
+            return ['float', cleanValue];
+          }
+          if (key === 'margin-block') {
+            return ['marginBlock', cleanValue];
+          }
+          if (key === 'display') {
+            return ['display', cleanValue === 'center' ? 'block' : cleanValue];
+          }
+          if (key === 'margin') {
+            return ['margin', cleanValue === 'center' ? '0 auto' : cleanValue];
+          }
+
           console.log('ImageRenderer: Parsing style:', { key, value, camelKey, cleanValue });
           return [camelKey, cleanValue];
         })
@@ -98,6 +116,12 @@ const ImageRenderer = ({ node, ...props }: { node?: any } & React.ImgHTMLAttribu
       ...props.style,
       ...parsedStyles
     };
+    
+    // Handle special case for center alignment
+    if (parsedStyles.textAlign === 'center') {
+      finalStyles.display = 'block';
+      finalStyles.margin = '0 auto';
+    }
     
     console.log('ImageRenderer: Final styles with original styles:', finalStyles);
     
