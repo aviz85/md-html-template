@@ -7,6 +7,7 @@ import rehypeRaw from 'rehype-raw';
 import { motion, AnimatePresence } from 'framer-motion';
 import { marked } from 'marked';
 import type { Components } from 'react-markdown';
+import { ImageRenderer } from '@/components/image-renderer';
 
 type CustomFont = {
   font_family: string;
@@ -61,53 +62,6 @@ type Template = {
   custom_contents?: Record<string, string>;
   opening_page_content?: string;
   closing_page_content?: string;
-};
-
-// Extract shared components
-export const ImageRenderer = ({ node, ...props }: { node?: any } & React.ImgHTMLAttributes<HTMLImageElement>) => {
-  // Get original styles from data attribute - React converts data-original-styles to dataOriginalStyles
-  const originalStyles = node?.properties?.dataOriginalStyles;
-  
-  console.log('ImageRenderer: Initial props and data:', {
-    originalStyles,
-    propsStyle: props.style,
-    nodeProperties: node?.properties,
-    allProps: props
-  });
-  
-  if (originalStyles) {
-    // Parse the original styles into an object
-    const parsedStyles = Object.fromEntries(
-      originalStyles.split(';')
-        .map((s: string) => {
-          const [key, value] = s.split(':').map(p => p.trim());
-          // Convert kebab-case to camelCase for React
-          const camelKey = key.replace(/-([a-z])/g, g => g[1].toUpperCase());
-          const cleanValue = value.replace(' !important', '');
-          console.log('ImageRenderer: Parsing style:', { key, value, camelKey, cleanValue });
-          return [camelKey, cleanValue];
-        })
-    );
-    
-    console.log('ImageRenderer: Parsed styles:', parsedStyles);
-    
-    // Override default styles with our parsed styles, ensuring they take precedence
-    const finalStyles = {
-      maxWidth: '100%',
-      height: 'auto',
-      ...props.style,
-      ...parsedStyles
-    };
-    
-    console.log('ImageRenderer: Final styles with original styles:', finalStyles);
-    
-    return <img {...props} style={finalStyles} />;
-  }
-  
-  // Default to responsive behavior only if no original styles
-  const defaultStyles = { maxWidth: '100%', height: 'auto', ...props.style };
-  console.log('ImageRenderer: Using default styles (no original styles):', defaultStyles);
-  return <img {...props} style={defaultStyles} />;
 };
 
 export default function ResultsPage() {
