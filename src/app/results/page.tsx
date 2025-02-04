@@ -67,8 +67,22 @@ const ImageRenderer = ({ node, ...props }: { node?: any } & React.ImgHTMLAttribu
   // Get original styles from data attribute
   const originalStyles = node?.properties?.['data-original-styles'];
   const style = originalStyles ? 
-    { ...Object.fromEntries(originalStyles.split(';').map((s: string) => s.split(':').map((p: string) => p.trim()))) } :
-    { maxWidth: '100%' }; // Default to responsive behavior
+    { 
+      ...Object.fromEntries(originalStyles.split(';').map((s: string) => s.split(':').map((p: string) => p.trim()))),
+      maxWidth: '100%',  // Always respect container width
+      height: 'auto',    // Maintain aspect ratio by default
+      objectFit: 'contain'  // Ensure image is fully visible
+    } :
+    { maxWidth: '100%', height: 'auto', objectFit: 'contain' };
+  
+  // If height is specified in original styles, override the auto height
+  if (originalStyles?.includes('height:')) {
+    const heightMatch = originalStyles.match(/height:\s*([^;]+)/);
+    if (heightMatch) {
+      style.height = heightMatch[1];
+      style.objectFit = 'cover';  // Use cover when height is specified
+    }
+  }
   
   return (
     <img 
