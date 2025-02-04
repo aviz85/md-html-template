@@ -369,7 +369,7 @@ export default function ResultsPage() {
                   // Get original styles from data attribute
                   const originalStyles = node?.properties?.['data-original-styles'];
                   const style = originalStyles ? 
-                    { ...Object.fromEntries(originalStyles.split(';').map(s => s.split(':').map(p => p.trim()))) } :
+                    { ...Object.fromEntries(originalStyles.split(';').map((s: string) => s.split(':').map((p: string) => p.trim()))) } :
                     { maxWidth: 'none' };
                   
                   return (
@@ -556,7 +556,7 @@ export default function ResultsPage() {
                     // Get original styles from data attribute
                     const originalStyles = node?.properties?.['data-original-styles'];
                     const style = originalStyles ? 
-                      { ...Object.fromEntries(originalStyles.split(';').map(s => s.split(':').map(p => p.trim()))) } :
+                      { ...Object.fromEntries(originalStyles.split(';').map((s: string) => s.split(':').map((p: string) => p.trim()))) } :
                       { maxWidth: 'none' };
                     
                     return (
@@ -740,7 +740,7 @@ export default function ResultsPage() {
                   // Get original styles from data attribute
                   const originalStyles = node?.properties?.['data-original-styles'];
                   const style = originalStyles ? 
-                    { ...Object.fromEntries(originalStyles.split(';').map(s => s.split(':').map(p => p.trim()))) } :
+                    { ...Object.fromEntries(originalStyles.split(';').map((s: string) => s.split(':').map((p: string) => p.trim()))) } :
                     { maxWidth: 'none' };
                   
                   return (
@@ -902,7 +902,7 @@ export default function ResultsPage() {
                   // Get original styles from data attribute
                   const originalStyles = node?.properties?.['data-original-styles'];
                   const style = originalStyles ? 
-                    { ...Object.fromEntries(originalStyles.split(';').map(s => s.split(':').map(p => p.trim()))) } :
+                    { ...Object.fromEntries(originalStyles.split(';').map((s: string) => s.split(':').map((p: string) => p.trim()))) } :
                     { maxWidth: 'none' };
                   
                   return (
