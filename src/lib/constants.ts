@@ -264,11 +264,7 @@ export async function convertMarkdownToHtml(content: string, headerContent?: str
   marked.setOptions({
     breaks: true,
     gfm: true,
-    headerIds: true,
-    mangle: false,
-    pedantic: false,
-    smartLists: true,
-    smartypants: true
+    pedantic: false
   });
 
   // Add custom image renderer
