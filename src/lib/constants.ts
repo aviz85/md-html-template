@@ -270,13 +270,31 @@ export async function convertMarkdownToHtml(content: string, headerContent?: str
   // Add custom image renderer
   const renderer = new marked.Renderer();
   renderer.image = (href: string, title: string | null, text: string) => {
-    // Check for height specification in the text (e.g. "[height=200px]")
-    const heightMatch = text.match(/\[height=([^\]]+)\]$/);
-    const height = heightMatch ? heightMatch[1] : null;
-    const alt = heightMatch ? text.replace(/\[height=[^\]]+\]$/, '') : text;
+    // Extract dimensions and classes
+    const heightMatch = text.match(/\[height=(\d+(?:px|%|rem|em|vh|vw))\]/);
+    const widthMatch = text.match(/\[width=(\d+(?:px|%|rem|em|vh|vw))\]/);
+    const classMatch = text.match(/\[class=([\w-\s]+)\]/);
     
-    const style = height ? ` style="height: ${height}; width: auto;"` : '';
-    return `<img src="${href}" alt="${alt}"${title ? ` title="${title}"` : ''}${style}>`;
+    // Get values if they exist
+    const height = heightMatch ? heightMatch[1] : null;
+    const width = widthMatch ? widthMatch[1] : null;
+    const className = classMatch ? classMatch[1] : null;
+    
+    // Clean the alt text
+    const cleanAlt = text.replace(/\[(height|width|class)=[^\]]+\]/g, '').trim();
+
+    // Build style attribute
+    const styles = [];
+    if (height) styles.push(`height: ${height}`);
+    if (width) styles.push(`width: ${width}`);
+    // Add object-fit if both dimensions are specified
+    if (height && width) styles.push('object-fit: contain');
+    const style = styles.length ? ` style="${styles.join('; ')}"` : '';
+    
+    // Build class attribute
+    const classAttr = className ? ` class="${className}"` : '';
+
+    return `<img src="${href}" alt="${cleanAlt}"${title ? ` title="${title}"` : ''}${style}${classAttr}>`;
   };
 
   marked.setOptions({ renderer });

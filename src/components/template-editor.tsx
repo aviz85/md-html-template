@@ -1786,125 +1786,47 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       </Dialog>
 
       <Dialog open={showMediaInstructions} onOpenChange={setShowMediaInstructions}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>הקבצים הועלו בהצלחה!</DialogTitle>
-            <DialogDescription>כך תוכל להשתמש בקבצים בתוכן:</DialogDescription>
+            <DialogDescription>להלן דוגמאות לשימוש בתמונות עם גדלים שונים:</DialogDescription>
           </DialogHeader>
+          
           <div className="space-y-4 mt-4">
             <div className="bg-muted p-4 rounded-lg">
-              <p className="font-bold mb-2">הוראות שימוש:</p>
-              <p>להוספת תמונה לתוכן, העתק את אחת מהאפשרויות הבאות והדבק במקום הרצוי:</p>
-              <div className="mt-4 space-y-6">
+              <p className="font-bold mb-2">דוגמאות לשימוש בגדלים:</p>
+              <div className="space-y-2 font-mono text-sm">
+                <p>![תיאור התמונה](URL) - תמונה רגילה</p>
+                <p>![תיאור התמונה[height=200px]](URL) - גובה קבוע</p>
+                <p>![תיאור התמונה[width=300px]](URL) - רוחב קבוע</p>
+                <p>![תיאור התמונה[height=200px][width=300px]](URL) - גובה ורוחב קבועים</p>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <p className="font-bold mb-2">קישורי התמונות שהועלו:</p>
+              <div className="grid grid-cols-1 gap-4">
                 {uploadedMediaUrls.map((url, index) => (
-                  <div key={index} className="space-y-4">
-                    <p className="font-bold text-sm">קובץ {index + 1}:</p>
-                    
-                    <div>
-                      <p className="text-sm font-medium mb-1">Markdown:</p>
-                      <div className="relative">
-                        <Input 
-                          value={`![תמונה ${index + 1}](${url})`}
-                          readOnly
-                          className="pr-20 font-mono text-sm"
-                        />
-                        <Button
-                          className="absolute right-1 top-1 h-6"
-                          size="sm"
-                          onClick={() => {
-                            navigator.clipboard.writeText(`![תמונה ${index + 1}](${url})`);
-                            toast({
-                              title: "הצלחה",
-                              description: "הקוד הועתק ללוח",
-                            });
-                          }}
-                        >
-                          העתק
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium mb-1">HTML (בסיסי):</p>
-                      <div className="relative">
-                        <Input 
-                          value={`<img src="${url}" alt="תמונה ${index + 1}" />`}
-                          readOnly
-                          className="pr-20 font-mono text-sm"
-                        />
-                        <Button
-                          className="absolute right-1 top-1 h-6"
-                          size="sm"
-                          onClick={() => {
-                            navigator.clipboard.writeText(`<img src="${url}" alt="תמונה ${index + 1}" />`);
-                            toast({
-                              title: "הצלחה",
-                              description: "הקוד הועתק ללוח",
-                            });
-                          }}
-                        >
-                          העתק
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium mb-1">HTML (עם סגנון):</p>
-                      <div className="relative">
-                        <Input 
-                          value={`<img src="${url}" alt="תמונה ${index + 1}" style="width: 300px; height: auto; border-radius: 8px; margin: 1rem 0;" />`}
-                          readOnly
-                          className="pr-20 font-mono text-sm"
-                        />
-                        <Button
-                          className="absolute right-1 top-1 h-6"
-                          size="sm"
-                          onClick={() => {
-                            navigator.clipboard.writeText(`<img src="${url}" alt="תמונה ${index + 1}" style="width: 300px; height: auto; border-radius: 8px; margin: 1rem 0;" />`);
-                            toast({
-                              title: "הצלחה",
-                              description: "הקוד הועתק ללוח",
-                            });
-                          }}
-                        >
-                          העתק
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium mb-1">HTML (מותאם למובייל):</p>
-                      <div className="relative">
-                        <Input 
-                          value={`<img src="${url}" alt="תמונה ${index + 1}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 1rem 0;" />`}
-                          readOnly
-                          className="pr-20 font-mono text-sm"
-                        />
-                        <Button
-                          className="absolute right-1 top-1 h-6"
-                          size="sm"
-                          onClick={() => {
-                            navigator.clipboard.writeText(`<img src="${url}" alt="תמונה ${index + 1}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 1rem 0;" />`);
-                            toast({
-                              title: "הצלחה",
-                              description: "הקוד הועתק ללוח",
-                            });
-                          }}
-                        >
-                          העתק
-                        </Button>
-                      </div>
-                    </div>
+                  <div key={index} className="flex items-center gap-2 bg-muted p-2 rounded">
+                    <Input 
+                      value={url}
+                      readOnly
+                      className="font-mono text-sm"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(url);
+                        toast({
+                          title: "הצלחה",
+                          description: "הקישור הועתק ללוח",
+                        });
+                      }}
+                    >
+                      העתק
+                    </Button>
                   </div>
                 ))}
-              </div>
-              <div className="mt-6 space-y-2">
-                <p className="text-sm text-muted-foreground">טיפים:</p>
-                <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
-                  <li>שנה את הטקסט "תמונה {uploadedMediaUrls.length}" לתיאור משמעותי</li>
-                  <li>התאם את הרוחב (width) והגובה (height) לפי הצורך</li>
-                  <li>הוסף סגנונות נוספים כמו border, box-shadow, או margin לפי העיצוב הרצוי</li>
-                </ul>
               </div>
             </div>
           </div>
