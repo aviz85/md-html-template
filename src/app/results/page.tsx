@@ -300,13 +300,11 @@ export default function ResultsPage() {
           const lowerPattern = new RegExp(`\\[${cleanTag.toLowerCase()}\\]`, 'g');
           const originalPattern = new RegExp(`\\[${cleanTag}\\]`, 'g');
           
-          // First process any markdown in the custom content
-          const processedCustomContent = marked.parse(content).toString();
-          
+          // Don't parse markdown here since it will be parsed later by the main markdown processor
           processedContent = processedContent
-            .replace(upperPattern, processedCustomContent)
-            .replace(lowerPattern, processedCustomContent)
-            .replace(originalPattern, processedCustomContent);
+            .replace(upperPattern, content)
+            .replace(lowerPattern, content)
+            .replace(originalPattern, content);
         });
       }
       
@@ -367,6 +365,23 @@ export default function ResultsPage() {
             <ReactMarkdown 
               rehypePlugins={[rehypeRaw]}
               components={{
+                img: ({ node, ...props }) => {
+                  // Get original styles from data attribute
+                  const originalStyles = node.properties?.['data-original-styles'];
+                  const style = originalStyles ? 
+                    { ...Object.fromEntries(originalStyles.split(';').map(s => s.split(':').map(p => p.trim()))) } :
+                    { maxWidth: 'none' };
+                  
+                  return (
+                    <motion.img 
+                      {...props}
+                      style={style}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  );
+                },
                 h1: ({ children }) => (
                   <motion.h1 
                     style={{ 
@@ -537,6 +552,23 @@ export default function ResultsPage() {
               <ReactMarkdown 
                 rehypePlugins={[rehypeRaw]}
                 components={{
+                  img: ({ node, ...props }) => {
+                    // Get original styles from data attribute
+                    const originalStyles = node.properties?.['data-original-styles'];
+                    const style = originalStyles ? 
+                      { ...Object.fromEntries(originalStyles.split(';').map(s => s.split(':').map(p => p.trim()))) } :
+                      { maxWidth: 'none' };
+                    
+                    return (
+                      <motion.img 
+                        {...props}
+                        style={style}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                      />
+                    );
+                  },
                   h1: ({ children }) => (
                     <motion.h1 
                       style={{ 
@@ -704,6 +736,23 @@ export default function ResultsPage() {
             <ReactMarkdown 
               rehypePlugins={[rehypeRaw]}
               components={{
+                img: ({ node, ...props }) => {
+                  // Get original styles from data attribute
+                  const originalStyles = node.properties?.['data-original-styles'];
+                  const style = originalStyles ? 
+                    { ...Object.fromEntries(originalStyles.split(';').map(s => s.split(':').map(p => p.trim()))) } :
+                    { maxWidth: 'none' };
+                  
+                  return (
+                    <motion.img 
+                      {...props}
+                      style={style}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  );
+                },
                 h1: ({ children }) => (
                   <motion.h1 
                     style={{ 
@@ -849,6 +898,23 @@ export default function ResultsPage() {
             <ReactMarkdown 
               rehypePlugins={[rehypeRaw]}
               components={{
+                img: ({ node, ...props }) => {
+                  // Get original styles from data attribute
+                  const originalStyles = node.properties?.['data-original-styles'];
+                  const style = originalStyles ? 
+                    { ...Object.fromEntries(originalStyles.split(';').map(s => s.split(':').map(p => p.trim()))) } :
+                    { maxWidth: 'none' };
+                  
+                  return (
+                    <motion.img 
+                      {...props}
+                      style={style}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  );
+                },
                 h1: ({ children }) => (
                   <motion.h1 
                     style={{ 

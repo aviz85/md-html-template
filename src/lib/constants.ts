@@ -345,17 +345,19 @@ export async function convertMarkdownToHtml(content: string, headerContent?: str
       if (prop && value && prop in ALLOWED_IMG_PROPS) {
         // Sanitize value to prevent XSS
         const sanitizedValue = value.replace(/[<>"]/g, '');
-        styles.push(`${prop}: ${sanitizedValue}`);
+        // Add !important to override responsive styles
+        styles.push(`${prop}: ${sanitizedValue} !important`);
       }
     });
 
     // Clean up alt text (trim and handle empty case)
     alt = alt.trim();
     
-    // Build style attribute
+    // Build style attribute and data attribute to pass original styles
     const style = styles.length > 0 ? ` style="${styles.join('; ')}"` : '';
+    const dataStyles = styles.length > 0 ? ` data-original-styles="${styles.join('; ')}"` : '';
     
-    return `<img src="${href}"${alt ? ` alt="${alt}"` : ''}${title ? ` title="${title}"` : ''}${style}>`;
+    return `<img src="${href}"${alt ? ` alt="${alt}"` : ''}${title ? ` title="${title}"` : ''}${style}${dataStyles}>`;
   };
 
   marked.setOptions({ renderer });
