@@ -27,21 +27,18 @@ import {
   DialogTrigger,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { Upload } from "lucide-react"
+import { Upload, Trash2, ImageIcon, HelpCircle } from "lucide-react"
 import { Label } from "@/components/ui/label"
-import { Trash2 } from "lucide-react"
-import { ImageIcon } from "lucide-react"
-import { ElementStyle, LogoPosition } from "@/types"
 import { ColorPicker } from "@/components/ui/color-picker"
 import { format } from 'date-fns'
 import { EmailEditor } from './email-editor'
+import { ElementStyle, LogoPosition } from "@/types"
 
 type ElementType = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "list" | "p" | "specialParagraph" | "header" | "footer" | "main" | "prose"
 
 interface Template {
   id: string
   name: string
-  css: string
   elementStyles: Record<ElementType, ElementStyle>
   template_gsheets_id?: string
   header_content?: string
@@ -431,7 +428,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         setCustomContents([])  // Reset custom contents first
         setCustomFonts(template.custom_fonts || [])
         
-        setElementStyles(template.elementStyles || {
+        setElementStyles(template.element_styles || {
           body: {
             backgroundColor: template.styles?.bodyBackground || '#ffffff'
           },
@@ -525,9 +522,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
         setFormId(template.form_id || '')
         setStyles({
-          bodyBackground: template.elementStyles?.body?.backgroundColor || '#ffffff',
-          mainBackground: template.elementStyles?.main?.backgroundColor || '#ffffff',
-          contentBackground: template.elementStyles?.prose?.backgroundColor || '#ffffff'
+          bodyBackground: template.element_styles?.body?.backgroundColor || '#ffffff',
+          mainBackground: template.element_styles?.main?.backgroundColor || '#ffffff',
+          contentBackground: template.element_styles?.prose?.backgroundColor || '#ffffff'
         })
 
         setEmailSubject(template.email_subject || "")
@@ -644,7 +641,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         .upsert({
           id: templateId,
           name: templateName,
-          css: generateCSS(elementStyles),
           template_gsheets_id: templateGsheetsId,
           element_styles: {
             ...elementStyles,
@@ -1745,15 +1741,23 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             <DialogDescription>בחר תמונות להעלאה</DialogDescription>
           </DialogHeader>
           <div className="space-y-6 mt-4">
-            <div>
+            <div className="flex justify-between items-center">
               <Label>קבצי מדיה</Label>
-              <Input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(e) => setMediaFiles(e.target.files)}
-              />
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowMediaInstructions(true)}
+              >
+                <HelpCircle className="w-4 h-4 ml-2" />
+                הדרכה על שליטה בגודל תמונות
+              </Button>
             </div>
+            <Input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => setMediaFiles(e.target.files)}
+            />
             <div className="flex justify-end">
               <Button 
                 onClick={handleMediaUpload}
@@ -1813,46 +1817,97 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       <Dialog open={showMediaInstructions} onOpenChange={setShowMediaInstructions}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>הקבצים הועלו בהצלחה!</DialogTitle>
-            <DialogDescription>להלן דוגמאות לשימוש בתמונות עם גדלים שונים:</DialogDescription>
+            <DialogTitle>שליטה בגודל ומראה התמונות</DialogTitle>
+            <DialogDescription>ניתן לשלוט בגודל ומראה התמונות באמצעות פרמטרים מיוחדים</DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 mt-4">
+          <div className="space-y-6 mt-4">
+            {/* Basic Examples */}
             <div className="bg-muted p-4 rounded-lg">
-              <p className="font-bold mb-2">דוגמאות לשימוש בגדלים:</p>
+              <h3 className="font-bold mb-2">דוגמאות בסיסיות:</h3>
               <div className="space-y-2 font-mono text-sm">
                 <p>![](URL) - תמונה רגילה</p>
                 <p>![[height=200px]](URL) - גובה קבוע</p>
                 <p>![[width=300px]](URL) - רוחב קבוע</p>
-                <p>![[height=200px][width=300px]](URL) - גובה ורוחב קבועים</p>
-                <p className="text-sm text-muted-foreground mt-2">* אופציונלי: ניתן להוסיף תיאור לתמונה לפני הפרמטרים: ![תיאור כלשהו[height=200px]](URL)</p>
+                <p>![[width=100%]](URL) - רוחב מלא</p>
               </div>
             </div>
 
-            <div className="mt-6">
-              <p className="font-bold mb-2">קישורי התמונות שהועלו:</p>
-              <div className="grid grid-cols-1 gap-4">
-                {uploadedMediaUrls.map((url, index) => (
-                  <div key={index} className="flex items-center gap-2 bg-muted p-2 rounded">
-                    <Input 
-                      value={url}
-                      readOnly
-                      className="font-mono text-sm"
-                    />
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        navigator.clipboard.writeText(url);
-                        toast({
-                          title: "הצלחה",
-                          description: "הקישור הועתק ללוח",
-                        });
-                      }}
-                    >
-                      העתק
-                    </Button>
-                  </div>
-                ))}
+            {/* Advanced Examples */}
+            <div className="bg-muted p-4 rounded-lg">
+              <h3 className="font-bold mb-2">שימושים מתקדמים:</h3>
+              <div className="space-y-2">
+                <div>
+                  <p className="font-bold text-sm">התאמה חכמה לקונטיינר:</p>
+                  <code className="text-sm">![[height=300px][object-fit=cover]](URL)</code>
+                </div>
+                <div>
+                  <p className="font-bold text-sm">הגבלת גודל מקסימלי:</p>
+                  <code className="text-sm">![[max-width=500px][max-height=400px]](URL)</code>
+                </div>
+                <div>
+                  <p className="font-bold text-sm">עיצוב מתקדם:</p>
+                  <code className="text-sm">![[border-radius=8px][opacity=0.9]](URL)</code>
+                </div>
+              </div>
+            </div>
+
+            {/* All Available Parameters */}
+            <div>
+              <h3 className="font-bold mb-2">כל הפרמטרים הזמינים:</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="font-bold text-sm">מידות:</p>
+                  <ul className="text-sm list-disc list-inside">
+                    <li>width</li>
+                    <li>height</li>
+                    <li>max-width</li>
+                    <li>max-height</li>
+                    <li>min-width</li>
+                    <li>min-height</li>
+                  </ul>
+                </div>
+                <div className="space-y-1">
+                  <p className="font-bold text-sm">עיצוב:</p>
+                  <ul className="text-sm list-disc list-inside">
+                    <li>object-fit</li>
+                    <li>object-position</li>
+                    <li>opacity</li>
+                    <li>border-radius</li>
+                    <li>margin</li>
+                    <li>display</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Tips */}
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h3 className="font-bold mb-2">טיפים:</h3>
+              <ul className="text-sm list-disc list-inside space-y-1">
+                <li>ניתן לשלב כמה פרמטרים יחד</li>
+                <li>סדר הפרמטרים לא משנה</li>
+                <li>ניתן להשתמש ביחידות שונות (px, %, rem, וכו׳)</li>
+                <li>אפשר להשתמש בפרמטרים גם בלי טקסט אלטרנטיבי</li>
+              </ul>
+            </div>
+
+            {/* Common Use Cases */}
+            <div className="bg-muted p-4 rounded-lg">
+              <h3 className="font-bold mb-2">דוגמאות שימושיות:</h3>
+              <div className="space-y-2">
+                <div>
+                  <p className="font-bold text-sm">תמונת רקע מלאה:</p>
+                  <code className="text-sm">![[width=100%][height=300px][object-fit=cover]](URL)</code>
+                </div>
+                <div>
+                  <p className="font-bold text-sm">תמונה עגולה (אווטאר):</p>
+                  <code className="text-sm">![[width=100px][height=100px][border-radius=50%][object-fit=cover]](URL)</code>
+                </div>
+                <div>
+                  <p className="font-bold text-sm">תמונה רספונסיבית:</p>
+                  <code className="text-sm">![[width=100%][max-width=800px][height=auto]](URL)</code>
+                </div>
               </div>
             </div>
           </div>

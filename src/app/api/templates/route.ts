@@ -19,7 +19,7 @@ export async function POST(req: Request) {
         header_content: template.header_content,
         footer_content: template.footer_content,
         custom_fonts: template.custom_fonts,
-        css: template.css,
+        element_styles: template.element_styles,
         color1: template.color1,
         color2: template.color2,
         color3: template.color3,

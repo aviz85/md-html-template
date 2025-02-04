@@ -1,6 +1,7 @@
 import { marked } from 'marked';
 import { createClient } from '@supabase/supabase-js';
 import type { Template } from '../types/index';
+import { ElementStyle } from "@/types"
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -137,44 +138,49 @@ h1, h2, h3, h4, h5, h6 {
 
 export const generateHtmlTemplate = (
   content: string,
-  elementStyles: Template['elementStyles'],
+  elementStyles: Record<string, ElementStyle>,
   googleFontsUrl: string,
   customFontFaces: string
 ) => {
   // Generate CSS directly from elementStyles
-  const generateCss = (styles: Template['elementStyles']) => {
-    let css = '';
+  const generateCSS = (styles: Record<string, ElementStyle>) => {
+    let css = ''
     
-    // Body styles
-    if (styles.body) {
-      css += `body {
-        ${Object.entries(styles.body).map(([key, value]) => `${toKebabCase(key)}: ${value};`).join('\n')}
-      }\n`;
-    }
+    // Add styles for each element
+    Object.entries(styles).forEach(([element, styles]) => {
+      if (Object.keys(styles).length === 0) return
 
-    // Heading styles
-    ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].forEach(tag => {
-      if (styles[tag as keyof typeof styles]) {
-        css += `${tag} {
-          ${Object.entries(styles[tag as keyof typeof styles] || {}).map(([key, value]) => `${toKebabCase(key)}: ${value};`).join('\n')}
-        }\n`;
+      // Convert element name to CSS selector
+      const selector = element === 'specialParagraph' ? '.special-paragraph' :
+                      element === 'header' ? '.header' :
+                      element === 'footer' ? '.footer' :
+                      element
+
+      css += `${selector} {\n`
+      
+      // Add standard properties first
+      Object.entries(styles).forEach(([property, value]) => {
+        if (!value || property === 'customCss') return // Skip empty values and customCss
+        
+        // Check if this is a valid CSS property
+        const cssProperty = CSS_PROPERTIES[property as keyof typeof CSS_PROPERTIES]
+        if (cssProperty) {
+          css += `  ${cssProperty}: ${value};\n`
+        }
+      })
+
+      // Add custom CSS last (so it can override standard properties)
+      if (styles.customCss) {
+        css += `  ${styles.customCss}\n`
       }
-    });
-
-    // Other elements
-    ['p', 'list', 'specialParagraph', 'main', 'prose'].forEach(element => {
-      if (styles[element as keyof typeof styles]) {
-        const selector = element === 'specialParagraph' ? '.special-paragraph' : element;
-        css += `${selector} {
-          ${Object.entries(styles[element as keyof typeof styles] || {}).map(([key, value]) => `${toKebabCase(key)}: ${value};`).join('\n')}
-        }\n`;
-      }
-    });
-
-    return css;
+      
+      css += '}\n\n'
+    })
+    
+    return css
   };
 
-  const generatedCss = generateCss(elementStyles);
+  const generatedCss = generateCSS(elementStyles);
 
   // Extract font-family from css to override default body font if needed
   const bodyFontMatch = generatedCss.match(/body\s*{[^}]*font-family:\s*([^;}]+)/);
@@ -305,14 +311,51 @@ export async function convertMarkdownToHtml(content: string, headerContent?: str
 
   // Add custom image renderer
   const renderer = new marked.Renderer();
+
+  // Define allowed image style properties
+  const ALLOWED_IMG_PROPS = {
+    'width': true,
+    'height': true,
+    'max-width': true,
+    'max-height': true,
+    'min-width': true,
+    'min-height': true,
+    'object-fit': true,
+    'object-position': true,
+    'opacity': true,
+    'border-radius': true,
+    'margin': true,
+    'display': true,
+  } as const;
+
   renderer.image = (href: string, title: string | null, text: string) => {
-    // Check for height specification in the text (e.g. "[height=200px]")
-    const heightMatch = text.match(/\[height=([^\]]+)\]$/);
-    const height = heightMatch ? heightMatch[1] : null;
-    const alt = heightMatch ? text.replace(/\[height=[^\]]+\]$/, '') : text;
+    // Extract all style parameters (e.g. "[height=200px]", "[width=300px]", "[object-fit=cover]")
+    const styleMatches = text.match(/\[([a-zA-Z-]+)=([^\]]+)\]/g) || [];
     
-    const style = height ? ` style="height: ${height}; width: auto;"` : '';
-    return `<img src="${href}" alt="${alt}"${title ? ` title="${title}"` : ''}${style}>`;
+    // Remove all style parameters from text to get clean alt
+    let alt = text;
+    const styles: string[] = [];
+
+    styleMatches.forEach(match => {
+      // Remove the style parameter from alt text
+      alt = alt.replace(match, '');
+      
+      // Extract property and value
+      const [_, prop, value] = match.match(/\[([a-zA-Z-]+)=([^\]]+)\]/) || [];
+      if (prop && value && prop in ALLOWED_IMG_PROPS) {
+        // Sanitize value to prevent XSS
+        const sanitizedValue = value.replace(/[<>"]/g, '');
+        styles.push(`${prop}: ${sanitizedValue}`);
+      }
+    });
+
+    // Clean up alt text (trim and handle empty case)
+    alt = alt.trim();
+    
+    // Build style attribute
+    const style = styles.length > 0 ? ` style="${styles.join('; ')}"` : '';
+    
+    return `<img src="${href}"${alt ? ` alt="${alt}"` : ''}${title ? ` title="${title}"` : ''}${style}>`;
   };
 
   marked.setOptions({ renderer });
