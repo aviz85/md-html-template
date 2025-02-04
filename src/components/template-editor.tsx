@@ -1072,21 +1072,10 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           throw new Error(`Failed to upload ${file.name}`);
         }
 
-        const { filePath, publicUrl } = await response.json();
-        if (!filePath || !publicUrl) {
-          throw new Error('Missing file path or public URL from response');
+        const { publicUrl } = await response.json();
+        if (!publicUrl) {
+          throw new Error('Missing public URL from response');
         }
-
-        // Save to database
-        const { error } = await supabase
-          .from('template_media')
-          .insert({
-            template_id: templateId,
-            file_path: filePath,
-            public_url: publicUrl
-          });
-
-        if (error) throw error;
 
         newUrls.push(publicUrl);
       }
@@ -1113,35 +1102,11 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   };
 
   const handleMediaDelete = async (url: string) => {
-    if (!templateId) return;
-
-    try {
-      const filePath = url.split('/storage/')[1];
-      if (!filePath) throw new Error('Invalid file URL');
-
-      const response = await fetch(`/api/media?templateId=${templateId}&filePath=${filePath}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete media');
-      }
-
-      // הסרה מהמצב המקומי רק אם המחיקה הצליחה
-      setUploadedMediaUrls(prev => prev.filter(u => u !== url));
-
-      toast({
-        title: "הצלחה",
-        description: "הקובץ נמחק בהצלחה"
-      });
-    } catch (error) {
-      console.error('Error deleting media:', error);
-      toast({
-        variant: "destructive",
-        title: "שגיאה",
-        description: "שגיאה במחיקת הקובץ"
-      });
-    }
+    const filePath = url.split('/storage/')[1];
+    await fetch(`/api/media?templateId=${templateId}&filePath=${filePath}`, {
+      method: 'DELETE',
+    });
+    setUploadedMediaUrls(prev => prev.filter(u => u !== url));
   };
 
   marked.setOptions({
@@ -1746,7 +1711,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       </Dialog>
 
       <Dialog open={isMediaModalOpen} onOpenChange={setIsMediaModalOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>העלאת מדיה</DialogTitle>
             <DialogDescription>בחר תמונות להעלאה</DialogDescription>
@@ -1771,7 +1736,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             </div>
 
             {/* Gallery Grid */}
-            <div>
+            <div className="overflow-y-auto">
               <h3 className="text-sm font-medium mb-3">תמונות קיימות בתבנית</h3>
               <div className="grid grid-cols-2 gap-4">
                 {uploadedMediaUrls.map((url, index) => (
