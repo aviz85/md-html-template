@@ -62,6 +62,22 @@ type Template = {
   closing_page_content?: string;
 };
 
+// Extract shared components
+const ImageRenderer = ({ node, ...props }: { node?: any } & React.ImgHTMLAttributes<HTMLImageElement>) => {
+  // Get original styles from data attribute
+  const originalStyles = node?.properties?.['data-original-styles'];
+  const style = originalStyles ? 
+    { ...Object.fromEntries(originalStyles.split(';').map((s: string) => s.split(':').map((p: string) => p.trim()))) } :
+    { maxWidth: '100%' }; // Default to responsive behavior
+  
+  return (
+    <img 
+      {...props}
+      style={style}
+    />
+  );
+};
+
 export default function ResultsPage() {
   const searchParams = useSearchParams();
   const submissionId = searchParams.get('s') || new URLSearchParams(window.location.search).get('submissionID');
@@ -324,6 +340,137 @@ export default function ResultsPage() {
       })
     };
 
+    const markdownComponents = {
+      img: ImageRenderer,
+      h1: ({ children }: { children: React.ReactNode }) => (
+        <motion.h1 
+          style={{ 
+            ...template?.element_styles?.h1,
+            marginTop: template?.element_styles?.h1?.margin ? undefined : '2rem',
+            marginBottom: template?.element_styles?.h1?.margin ? undefined : '1rem'
+          }}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+        >
+          {children}
+        </motion.h1>
+      ),
+      h2: ({ children }: { children: React.ReactNode }) => (
+        <motion.h2 
+          style={{ 
+            ...template?.element_styles?.h2,
+            marginTop: template?.element_styles?.h2?.margin ? undefined : '1.5rem',
+            marginBottom: template?.element_styles?.h2?.margin ? undefined : '0.75rem'
+          }}
+          initial={{ opacity: 0, x: -15 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+        >
+          {children}
+        </motion.h2>
+      ),
+      h3: ({ children }: { children: React.ReactNode }) => (
+        <motion.h3 
+          style={{ 
+            ...template?.element_styles?.h3,
+            marginTop: template?.element_styles?.h3?.margin ? undefined : '1.25rem',
+            marginBottom: template?.element_styles?.h3?.margin ? undefined : '0.5rem'
+          }}
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.5 }}
+        >
+          {children}
+        </motion.h3>
+      ),
+      h4: ({ children }: { children: React.ReactNode }) => (
+        <motion.h4 
+          style={{ 
+            ...template?.element_styles?.h4,
+            marginTop: template?.element_styles?.h4?.margin ? undefined : '1rem',
+            marginBottom: template?.element_styles?.h4?.margin ? undefined : '0.5rem'
+          }}
+          initial={{ opacity: 0, x: -5 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.6 }}
+        >
+          {children}
+        </motion.h4>
+      ),
+      h5: ({ children }: { children: React.ReactNode }) => (
+        <motion.h5 
+          style={{ 
+            ...template?.element_styles?.h5,
+            marginTop: template?.element_styles?.h5?.margin ? undefined : '0.75rem',
+            marginBottom: template?.element_styles?.h5?.margin ? undefined : '0.5rem'
+          }}
+          initial={{ opacity: 0, x: -3 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.7 }}
+        >
+          {children}
+        </motion.h5>
+      ),
+      h6: ({ children }: { children: React.ReactNode }) => (
+        <motion.h6 
+          style={{ 
+            ...template?.element_styles?.h6,
+            marginTop: template?.element_styles?.h6?.margin ? undefined : '0.5rem',
+            marginBottom: template?.element_styles?.h6?.margin ? undefined : '0.5rem'
+          }}
+          initial={{ opacity: 0, x: -2 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.8 }}
+        >
+          {children}
+        </motion.h6>
+      ),
+      p: ({ children }: { children: React.ReactNode }) => (
+        <motion.p 
+          style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.6 }}
+        >
+          {children}
+        </motion.p>
+      ),
+      ul: ({ children }: { children: React.ReactNode }) => (
+        <motion.ul 
+          style={{ ...template?.element_styles?.list, marginLeft: '1.5rem', marginBottom: '1rem' }}
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.7 }}
+        >
+          {children}
+        </motion.ul>
+      ),
+      li: ({ children }: { children: React.ReactNode }) => (
+        <motion.li 
+          style={{ marginBottom: '0.5rem' }}
+          initial={{ opacity: 0, x: -5 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          {children}
+        </motion.li>
+      ),
+      a: ({ children, href }: { children: React.ReactNode, href?: string }) => (
+        <motion.a 
+          href={href}
+          className="text-blue-600 hover:text-blue-800 hover:underline"
+          target="_blank"
+          rel="noopener noreferrer"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          {children}
+        </motion.a>
+      ),
+    };
+
     return (
       <motion.div 
         className="my-8 fade-in"
@@ -364,159 +511,7 @@ export default function ResultsPage() {
             )}
             <ReactMarkdown 
               rehypePlugins={[rehypeRaw]}
-              components={{
-                img: ({ node, ...props }: { node?: any } & React.ImgHTMLAttributes<HTMLImageElement>) => {
-                  // Get original styles from data attribute
-                  const originalStyles = node?.properties?.['data-original-styles'];
-                  const style = originalStyles ? 
-                    { ...Object.fromEntries(originalStyles.split(';').map((s: string) => s.split(':').map((p: string) => p.trim()))) } :
-                    { maxWidth: 'none' };
-                  
-                  // Extract only the props we need
-                  const { src, alt, title, width, height } = props;
-                  
-                  return (
-                    <motion.img 
-                      src={src}
-                      alt={alt}
-                      title={title}
-                      width={width}
-                      height={height}
-                      style={style}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.3 }}
-                    />
-                  );
-                },
-                h1: ({ children }) => (
-                  <motion.h1 
-                    style={{ 
-                      ...template?.element_styles?.h1,
-                      marginTop: template?.element_styles?.h1?.margin ? undefined : '2rem',
-                      marginBottom: template?.element_styles?.h1?.margin ? undefined : '1rem'
-                    }}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.3 }}
-                  >
-                    {children}
-                  </motion.h1>
-                ),
-                h2: ({ children }) => (
-                  <motion.h2 
-                    style={{ 
-                      ...template?.element_styles?.h2,
-                      marginTop: template?.element_styles?.h2?.margin ? undefined : '1.5rem',
-                      marginBottom: template?.element_styles?.h2?.margin ? undefined : '0.75rem'
-                    }}
-                    initial={{ opacity: 0, x: -15 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.4 }}
-                  >
-                    {children}
-                  </motion.h2>
-                ),
-                h3: ({ children }) => (
-                  <motion.h3 
-                    style={{ 
-                      ...template?.element_styles?.h3,
-                      marginTop: template?.element_styles?.h3?.margin ? undefined : '1.25rem',
-                      marginBottom: template?.element_styles?.h3?.margin ? undefined : '0.5rem'
-                    }}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.5 }}
-                  >
-                    {children}
-                  </motion.h3>
-                ),
-                h4: ({ children }) => (
-                  <motion.h4 
-                    style={{ 
-                      ...template?.element_styles?.h4,
-                      marginTop: template?.element_styles?.h4?.margin ? undefined : '1rem',
-                      marginBottom: template?.element_styles?.h4?.margin ? undefined : '0.5rem'
-                    }}
-                    initial={{ opacity: 0, x: -5 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.6 }}
-                  >
-                    {children}
-                  </motion.h4>
-                ),
-                h5: ({ children }) => (
-                  <motion.h5 
-                    style={{ 
-                      ...template?.element_styles?.h5,
-                      marginTop: template?.element_styles?.h5?.margin ? undefined : '0.75rem',
-                      marginBottom: template?.element_styles?.h5?.margin ? undefined : '0.5rem'
-                    }}
-                    initial={{ opacity: 0, x: -3 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.7 }}
-                  >
-                    {children}
-                  </motion.h5>
-                ),
-                h6: ({ children }) => (
-                  <motion.h6 
-                    style={{ 
-                      ...template?.element_styles?.h6,
-                      marginTop: template?.element_styles?.h6?.margin ? undefined : '0.5rem',
-                      marginBottom: template?.element_styles?.h6?.margin ? undefined : '0.5rem'
-                    }}
-                    initial={{ opacity: 0, x: -2 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.8 }}
-                  >
-                    {children}
-                  </motion.h6>
-                ),
-                p: ({ children }) => (
-                  <motion.p 
-                    style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 0.6 }}
-                  >
-                    {children}
-                  </motion.p>
-                ),
-                ul: ({ children }) => (
-                  <motion.ul 
-                    style={{ ...template?.element_styles?.list, marginLeft: '1.5rem', marginBottom: '1rem' }}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.7 }}
-                  >
-                    {children}
-                  </motion.ul>
-                ),
-                li: ({ children }) => (
-                  <motion.li 
-                    style={{ marginBottom: '0.5rem' }}
-                    initial={{ opacity: 0, x: -5 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {children}
-                  </motion.li>
-                ),
-                a: ({ children, href }) => (
-                  <motion.a 
-                    href={href}
-                    className="text-blue-600 hover:text-blue-800 hover:underline"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {children}
-                  </motion.a>
-                ),
-              }}
+              components={markdownComponents}
             >
               {processContent(template.opening_page_content)}
             </ReactMarkdown>
@@ -558,159 +553,7 @@ export default function ResultsPage() {
               )}
               <ReactMarkdown 
                 rehypePlugins={[rehypeRaw]}
-                components={{
-                  img: ({ node, ...props }: { node?: any } & React.ImgHTMLAttributes<HTMLImageElement>) => {
-                    // Get original styles from data attribute
-                    const originalStyles = node?.properties?.['data-original-styles'];
-                    const style = originalStyles ? 
-                      { ...Object.fromEntries(originalStyles.split(';').map((s: string) => s.split(':').map((p: string) => p.trim()))) } :
-                      { maxWidth: 'none' };
-                    
-                    // Extract only the props we need
-                    const { src, alt, title, width, height } = props;
-                    
-                    return (
-                      <motion.img 
-                        src={src}
-                        alt={alt}
-                        title={title}
-                        width={width}
-                        height={height}
-                        style={style}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.3 }}
-                      />
-                    );
-                  },
-                  h1: ({ children }) => (
-                    <motion.h1 
-                      style={{ 
-                        ...template?.element_styles?.h1,
-                        marginTop: template?.element_styles?.h1?.margin ? undefined : '2rem',
-                        marginBottom: template?.element_styles?.h1?.margin ? undefined : '1rem'
-                      }}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.5, delay: 0.3 }}
-                    >
-                      {children}
-                    </motion.h1>
-                  ),
-                  h2: ({ children }) => (
-                    <motion.h2 
-                      style={{ 
-                        ...template?.element_styles?.h2,
-                        marginTop: template?.element_styles?.h2?.margin ? undefined : '1.5rem',
-                        marginBottom: template?.element_styles?.h2?.margin ? undefined : '0.75rem'
-                      }}
-                      initial={{ opacity: 0, x: -15 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.5, delay: 0.4 }}
-                    >
-                      {children}
-                    </motion.h2>
-                  ),
-                  h3: ({ children }) => (
-                    <motion.h3 
-                      style={{ 
-                        ...template?.element_styles?.h3,
-                        marginTop: template?.element_styles?.h3?.margin ? undefined : '1.25rem',
-                        marginBottom: template?.element_styles?.h3?.margin ? undefined : '0.5rem'
-                      }}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.5, delay: 0.5 }}
-                    >
-                      {children}
-                    </motion.h3>
-                  ),
-                  h4: ({ children }) => (
-                    <motion.h4 
-                      style={{ 
-                        ...template?.element_styles?.h4,
-                        marginTop: template?.element_styles?.h4?.margin ? undefined : '1rem',
-                        marginBottom: template?.element_styles?.h4?.margin ? undefined : '0.5rem'
-                      }}
-                      initial={{ opacity: 0, x: -5 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.5, delay: 0.6 }}
-                    >
-                      {children}
-                    </motion.h4>
-                  ),
-                  h5: ({ children }) => (
-                    <motion.h5 
-                      style={{ 
-                        ...template?.element_styles?.h5,
-                        marginTop: template?.element_styles?.h5?.margin ? undefined : '0.75rem',
-                        marginBottom: template?.element_styles?.h5?.margin ? undefined : '0.5rem'
-                      }}
-                      initial={{ opacity: 0, x: -3 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.5, delay: 0.7 }}
-                    >
-                      {children}
-                    </motion.h5>
-                  ),
-                  h6: ({ children }) => (
-                    <motion.h6 
-                      style={{ 
-                        ...template?.element_styles?.h6,
-                        marginTop: template?.element_styles?.h6?.margin ? undefined : '0.5rem',
-                        marginBottom: template?.element_styles?.h6?.margin ? undefined : '0.5rem'
-                      }}
-                      initial={{ opacity: 0, x: -2 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.5, delay: 0.8 }}
-                    >
-                      {children}
-                    </motion.h6>
-                  ),
-                  p: ({ children }) => (
-                    <motion.p 
-                      style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.5, delay: 0.6 }}
-                    >
-                      {children}
-                    </motion.p>
-                  ),
-                  ul: ({ children }) => (
-                    <motion.ul 
-                      style={{ ...template?.element_styles?.list, marginLeft: '1.5rem', marginBottom: '1rem' }}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.5, delay: 0.7 }}
-                    >
-                      {children}
-                    </motion.ul>
-                  ),
-                  li: ({ children }) => (
-                    <motion.li 
-                      style={{ marginBottom: '0.5rem' }}
-                      initial={{ opacity: 0, x: -5 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      {children}
-                    </motion.li>
-                  ),
-                  a: ({ children, href }) => (
-                    <motion.a 
-                      href={href}
-                      className="text-blue-600 hover:text-blue-800 hover:underline"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      {children}
-                    </motion.a>
-                  ),
-                }}
+                components={markdownComponents}
               >
                 {processContent(content)}
               </ReactMarkdown>
@@ -749,159 +592,7 @@ export default function ResultsPage() {
             )}
             <ReactMarkdown 
               rehypePlugins={[rehypeRaw]}
-              components={{
-                img: ({ node, ...props }: { node?: any } & React.ImgHTMLAttributes<HTMLImageElement>) => {
-                  // Get original styles from data attribute
-                  const originalStyles = node?.properties?.['data-original-styles'];
-                  const style = originalStyles ? 
-                    { ...Object.fromEntries(originalStyles.split(';').map((s: string) => s.split(':').map((p: string) => p.trim()))) } :
-                    { maxWidth: 'none' };
-                  
-                  // Extract only the props we need
-                  const { src, alt, title, width, height } = props;
-                  
-                  return (
-                    <motion.img 
-                      src={src}
-                      alt={alt}
-                      title={title}
-                      width={width}
-                      height={height}
-                      style={style}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.3 }}
-                    />
-                  );
-                },
-                h1: ({ children }) => (
-                  <motion.h1 
-                    style={{ 
-                      ...template?.element_styles?.h1,
-                      marginTop: template?.element_styles?.h1?.margin ? undefined : '2rem',
-                      marginBottom: template?.element_styles?.h1?.margin ? undefined : '1rem'
-                    }}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.3 }}
-                  >
-                    {children}
-                  </motion.h1>
-                ),
-                h2: ({ children }) => (
-                  <motion.h2 
-                    style={{ 
-                      ...template?.element_styles?.h2,
-                      marginTop: template?.element_styles?.h2?.margin ? undefined : '1.5rem',
-                      marginBottom: template?.element_styles?.h2?.margin ? undefined : '0.75rem'
-                    }}
-                    initial={{ opacity: 0, x: -15 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.4 }}
-                  >
-                    {children}
-                  </motion.h2>
-                ),
-                h3: ({ children }) => (
-                  <motion.h3 
-                    style={{ 
-                      ...template?.element_styles?.h3,
-                      marginTop: template?.element_styles?.h3?.margin ? undefined : '1.25rem',
-                      marginBottom: template?.element_styles?.h3?.margin ? undefined : '0.5rem'
-                    }}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.5 }}
-                  >
-                    {children}
-                  </motion.h3>
-                ),
-                h4: ({ children }) => (
-                  <motion.h4 
-                    style={{ 
-                      ...template?.element_styles?.h4,
-                      marginTop: template?.element_styles?.h4?.margin ? undefined : '1rem',
-                      marginBottom: template?.element_styles?.h4?.margin ? undefined : '0.5rem'
-                    }}
-                    initial={{ opacity: 0, x: -5 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.6 }}
-                  >
-                    {children}
-                  </motion.h4>
-                ),
-                h5: ({ children }) => (
-                  <motion.h5 
-                    style={{ 
-                      ...template?.element_styles?.h5,
-                      marginTop: template?.element_styles?.h5?.margin ? undefined : '0.75rem',
-                      marginBottom: template?.element_styles?.h5?.margin ? undefined : '0.5rem'
-                    }}
-                    initial={{ opacity: 0, x: -3 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.7 }}
-                  >
-                    {children}
-                  </motion.h5>
-                ),
-                h6: ({ children }) => (
-                  <motion.h6 
-                    style={{ 
-                      ...template?.element_styles?.h6,
-                      marginTop: template?.element_styles?.h6?.margin ? undefined : '0.5rem',
-                      marginBottom: template?.element_styles?.h6?.margin ? undefined : '0.5rem'
-                    }}
-                    initial={{ opacity: 0, x: -2 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.8 }}
-                  >
-                    {children}
-                  </motion.h6>
-                ),
-                p: ({ children }) => (
-                  <motion.p 
-                    style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 0.6 }}
-                  >
-                    {children}
-                  </motion.p>
-                ),
-                ul: ({ children }) => (
-                  <motion.ul 
-                    style={{ ...template?.element_styles?.list, marginLeft: '1.5rem', marginBottom: '1rem' }}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.7 }}
-                  >
-                    {children}
-                  </motion.ul>
-                ),
-                li: ({ children }) => (
-                  <motion.li 
-                    style={{ marginBottom: '0.5rem' }}
-                    initial={{ opacity: 0, x: -5 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {children}
-                  </motion.li>
-                ),
-                a: ({ children, href }) => (
-                  <motion.a 
-                    href={href}
-                    className="text-blue-600 hover:text-blue-800 hover:underline"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {children}
-                  </motion.a>
-                ),
-              }}
+              components={markdownComponents}
             >
               {processContent(result.finalResponse)}
             </ReactMarkdown>
@@ -918,159 +609,7 @@ export default function ResultsPage() {
           >
             <ReactMarkdown 
               rehypePlugins={[rehypeRaw]}
-              components={{
-                img: ({ node, ...props }: { node?: any } & React.ImgHTMLAttributes<HTMLImageElement>) => {
-                  // Get original styles from data attribute
-                  const originalStyles = node?.properties?.['data-original-styles'];
-                  const style = originalStyles ? 
-                    { ...Object.fromEntries(originalStyles.split(';').map((s: string) => s.split(':').map((p: string) => p.trim()))) } :
-                    { maxWidth: 'none' };
-                  
-                  // Extract only the props we need
-                  const { src, alt, title, width, height } = props;
-                  
-                  return (
-                    <motion.img 
-                      src={src}
-                      alt={alt}
-                      title={title}
-                      width={width}
-                      height={height}
-                      style={style}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.3 }}
-                    />
-                  );
-                },
-                h1: ({ children }) => (
-                  <motion.h1 
-                    style={{ 
-                      ...template?.element_styles?.h1,
-                      marginTop: template?.element_styles?.h1?.margin ? undefined : '2rem',
-                      marginBottom: template?.element_styles?.h1?.margin ? undefined : '1rem'
-                    }}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.3 }}
-                  >
-                    {children}
-                  </motion.h1>
-                ),
-                h2: ({ children }) => (
-                  <motion.h2 
-                    style={{ 
-                      ...template?.element_styles?.h2,
-                      marginTop: template?.element_styles?.h2?.margin ? undefined : '1.5rem',
-                      marginBottom: template?.element_styles?.h2?.margin ? undefined : '0.75rem'
-                    }}
-                    initial={{ opacity: 0, x: -15 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.4 }}
-                  >
-                    {children}
-                  </motion.h2>
-                ),
-                h3: ({ children }) => (
-                  <motion.h3 
-                    style={{ 
-                      ...template?.element_styles?.h3,
-                      marginTop: template?.element_styles?.h3?.margin ? undefined : '1.25rem',
-                      marginBottom: template?.element_styles?.h3?.margin ? undefined : '0.5rem'
-                    }}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.5 }}
-                  >
-                    {children}
-                  </motion.h3>
-                ),
-                h4: ({ children }) => (
-                  <motion.h4 
-                    style={{ 
-                      ...template?.element_styles?.h4,
-                      marginTop: template?.element_styles?.h4?.margin ? undefined : '1rem',
-                      marginBottom: template?.element_styles?.h4?.margin ? undefined : '0.5rem'
-                    }}
-                    initial={{ opacity: 0, x: -5 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.6 }}
-                  >
-                    {children}
-                  </motion.h4>
-                ),
-                h5: ({ children }) => (
-                  <motion.h5 
-                    style={{ 
-                      ...template?.element_styles?.h5,
-                      marginTop: template?.element_styles?.h5?.margin ? undefined : '0.75rem',
-                      marginBottom: template?.element_styles?.h5?.margin ? undefined : '0.5rem'
-                    }}
-                    initial={{ opacity: 0, x: -3 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.7 }}
-                  >
-                    {children}
-                  </motion.h5>
-                ),
-                h6: ({ children }) => (
-                  <motion.h6 
-                    style={{ 
-                      ...template?.element_styles?.h6,
-                      marginTop: template?.element_styles?.h6?.margin ? undefined : '0.5rem',
-                      marginBottom: template?.element_styles?.h6?.margin ? undefined : '0.5rem'
-                    }}
-                    initial={{ opacity: 0, x: -2 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.8 }}
-                  >
-                    {children}
-                  </motion.h6>
-                ),
-                p: ({ children }) => (
-                  <motion.p 
-                    style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 0.6 }}
-                  >
-                    {children}
-                  </motion.p>
-                ),
-                ul: ({ children }) => (
-                  <motion.ul 
-                    style={{ ...template?.element_styles?.list, marginLeft: '1.5rem', marginBottom: '1rem' }}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.7 }}
-                  >
-                    {children}
-                  </motion.ul>
-                ),
-                li: ({ children }) => (
-                  <motion.li 
-                    style={{ marginBottom: '0.5rem' }}
-                    initial={{ opacity: 0, x: -5 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {children}
-                  </motion.li>
-                ),
-                a: ({ children, href }) => (
-                  <motion.a 
-                    href={href}
-                    className="text-blue-600 hover:text-blue-800 hover:underline"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {children}
-                  </motion.a>
-                ),
-              }}
+              components={markdownComponents}
             >
               {processContent(template.closing_page_content)}
             </ReactMarkdown>
