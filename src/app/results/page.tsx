@@ -80,8 +80,9 @@ const ImageRenderer = ({ node, ...props }: { node?: any } & React.ImgHTMLAttribu
         })
     );
     
-    // Override any existing style props with our parsed styles
+    // Override default styles with our parsed styles
     const finalStyles = {
+      maxWidth: '100%',
       ...props.style,
       ...parsedStyles
     };
