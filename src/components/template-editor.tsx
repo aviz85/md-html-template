@@ -624,14 +624,132 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     return css
   }
 
+  const validateFormId = (id: string): { isValid: boolean; error?: string } => {
+    if (!id) return { isValid: true }; // Optional field
+    
+    // Check if it's a valid number
+    if (!/^\d+$/.test(id)) {
+      return {
+        isValid: false,
+        error: 'מזהה טופס חייב להכיל רק ספרות'
+      };
+    }
+    
+    // Check length (usually JotForm IDs are long numbers)
+    if (id.length < 8 || id.length > 20) {
+      return {
+        isValid: false,
+        error: 'אורך מזהה טופס לא תקין (צריך להיות בין 8 ל-20 ספרות)'
+      };
+    }
+    
+    return { isValid: true };
+  };
+
+  const validateGSheetsId = (id: string): { isValid: boolean; error?: string } => {
+    if (!id) return { isValid: true }; // Optional field
+    
+    // Google Sheets ID format: alphanumeric with dashes and underscores
+    if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+      return {
+        isValid: false,
+        error: 'מזהה Google Sheets יכול להכיל רק אותיות באנגלית, ספרות, מקף ותחתון'
+      };
+    }
+    
+    // Check minimum length
+    if (id.length < 5) {
+      return {
+        isValid: false,
+        error: 'מזהה Google Sheets קצר מדי'
+      };
+    }
+    
+    return { isValid: true };
+  };
+
+  const validateTemplateName = (name: string): { isValid: boolean; error?: string } => {
+    if (!name) {
+      return {
+        isValid: false,
+        error: 'שם תבנית הוא שדה חובה'
+      };
+    }
+    
+    if (name.length < 2) {
+      return {
+        isValid: false,
+        error: 'שם תבנית חייב להכיל לפחות 2 תווים'
+      };
+    }
+    
+    if (name.length > 100) {
+      return {
+        isValid: false,
+        error: 'שם תבנית ארוך מדי (מקסימום 100 תווים)'
+      };
+    }
+    
+    return { isValid: true };
+  };
+
+  const validateEmailAddress = (email: string): { isValid: boolean; error?: string } => {
+    if (!email) return { isValid: true }; // Optional field
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return {
+        isValid: false,
+        error: 'כתובת אימייל לא תקינה'
+      };
+    }
+    
+    return { isValid: true };
+  };
+
   const handleSave = async () => {
-    if (!templateName) {
+    // Validate template name
+    const templateNameValidation = validateTemplateName(templateName);
+    if (!templateNameValidation.isValid) {
       toast({
         variant: "destructive",
         title: TRANSLATIONS.error,
-        description: TRANSLATIONS.pleaseEnterTemplateName
-      })
-      return
+        description: templateNameValidation.error
+      });
+      return;
+    }
+
+    // Validate form ID if provided
+    const formIdValidation = validateFormId(formId);
+    if (!formIdValidation.isValid) {
+      toast({
+        variant: "destructive",
+        title: TRANSLATIONS.error,
+        description: formIdValidation.error
+      });
+      return;
+    }
+
+    // Validate Google Sheets ID if provided
+    const gsheetsIdValidation = validateGSheetsId(templateGsheetsId);
+    if (!gsheetsIdValidation.isValid) {
+      toast({
+        variant: "destructive",
+        title: TRANSLATIONS.error,
+        description: gsheetsIdValidation.error
+      });
+      return;
+    }
+
+    // Validate email if provided
+    const emailValidation = validateEmailAddress(emailFrom);
+    if (!emailValidation.isValid) {
+      toast({
+        variant: "destructive",
+        title: TRANSLATIONS.error,
+        description: emailValidation.error
+      });
+      return;
     }
 
     try {
@@ -1189,7 +1307,17 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           <Input
             placeholder="Template Name"
             value={templateName}
-            onChange={(e) => setTemplateName(e.target.value)}
+            onChange={(e) => {
+              setTemplateName(e.target.value);
+              const validation = validateTemplateName(e.target.value);
+              if (!validation.isValid) {
+                toast({
+                  variant: "destructive",
+                  title: TRANSLATIONS.error,
+                  description: validation.error
+                });
+              }
+            }}
           />
         </div>
 
@@ -1350,8 +1478,23 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           <Input
             placeholder="Template Google Sheets ID"
             value={templateGsheetsId}
-            onChange={(e) => setTemplateGsheetsId(e.target.value)}
-            className="mt-2"
+            onChange={(e) => {
+              const newValue = e.target.value;
+              // Allow only valid characters
+              if (newValue && !/^[a-zA-Z0-9_-]*$/.test(newValue)) {
+                return;
+              }
+              setTemplateGsheetsId(newValue);
+              const validation = validateGSheetsId(newValue);
+              if (!validation.isValid) {
+                toast({
+                  variant: "destructive",
+                  title: TRANSLATIONS.error,
+                  description: validation.error
+                });
+              }
+            }}
+            className="mt-2 font-mono" // Use monospace font for better ID readability
           />
         </div>
 
@@ -1360,8 +1503,23 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           <Input
             placeholder="JotForm Form ID"
             value={formId}
-            onChange={(e) => setFormId(e.target.value)}
-            className="mt-2"
+            onChange={(e) => {
+              const newValue = e.target.value;
+              // Allow only numbers
+              if (newValue && !/^\d*$/.test(newValue)) {
+                return;
+              }
+              setFormId(newValue);
+              const validation = validateFormId(newValue);
+              if (!validation.isValid) {
+                toast({
+                  variant: "destructive",
+                  title: TRANSLATIONS.error,
+                  description: validation.error
+                });
+              }
+            }}
+            className="mt-2 font-mono" // Use monospace font for better number readability
           />
         </div>
 
@@ -1603,7 +1761,17 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                 <Label>כתובת למענה (Reply-To)</Label>
                 <Input
                   value={emailFrom}
-                  onChange={(e) => setEmailFrom(e.target.value)}
+                  onChange={(e) => {
+                    setEmailFrom(e.target.value);
+                    const validation = validateEmailAddress(e.target.value);
+                    if (!validation.isValid) {
+                      toast({
+                        variant: "destructive",
+                        title: TRANSLATIONS.error,
+                        description: validation.error
+                      });
+                    }
+                  }}
                   placeholder="השאר ריק כדי להשתמש בכתובת ברירת המחדל"
                   dir="ltr"
                 />
