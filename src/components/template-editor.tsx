@@ -664,7 +664,13 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         .select()
         .single()
 
-      if (templateError) throw templateError
+      if (templateError) {
+        // Check for unique constraint violation on form_id
+        if (templateError.code === '23505' && templateError.message?.includes('form_id')) {
+          throw new Error('מזהה הטופס כבר משויך לתבנית אחרת. נא להשתמש במזהה טופס אחר.');
+        }
+        throw templateError;
+      }
 
       // Delete all existing contents first
       const { error: deleteError } = await supabase
@@ -744,7 +750,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       toast({
         variant: "destructive",
         title: TRANSLATIONS.error,
-        description: TRANSLATIONS.failedToSaveTemplate
+        description: error instanceof Error ? error.message : TRANSLATIONS.failedToSaveTemplate
       })
     }
   }
@@ -1835,7 +1841,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
             {/* Advanced Examples */}
             <div className="bg-muted p-4 rounded-lg">
-              <h3 className="font-bold mb-2">שימושים מתקדמים:</h3>
+              <h3 className="font-bold mb-2">שימושים מתקדם:</h3>
               <div className="space-y-2">
                 <div>
                   <p className="font-bold text-sm">התאמה חכמה לקונטיינר:</p>
