@@ -635,11 +635,11 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       };
     }
     
-    // Check length (usually JotForm IDs are long numbers)
-    if (id.length < 8 || id.length > 20) {
+    // Check length (JotForm IDs are usually 15 digits)
+    if (id.length < 12 || id.length > 16) {
       return {
         isValid: false,
-        error: 'אורך מזהה טופס לא תקין (צריך להיות בין 8 ל-20 ספרות)'
+        error: 'אורך מזהה טופס לא תקין (צריך להיות בין 12 ל-16 ספרות)'
       };
     }
     
