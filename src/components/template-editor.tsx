@@ -665,11 +665,48 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         .single()
 
       if (templateError) {
-        // Check for unique constraint violation on form_id
+        // שגיאת מזהה טופס כפול
         if (templateError.code === '23505' && templateError.message?.includes('form_id')) {
           throw new Error('מזהה הטופס כבר משויך לתבנית אחרת. נא להשתמש במזהה טופס אחר.');
         }
-        throw templateError;
+        
+        // שגיאת מזהה תבנית כפול
+        if (templateError.code === '23505' && templateError.message?.includes('templates_pkey')) {
+          throw new Error('מזהה התבנית כבר קיים במערכת. נא לנסות שוב.');
+        }
+        
+        // שגיאת שם תבנית כפול
+        if (templateError.code === '23505' && templateError.message?.includes('templates_name_key')) {
+          throw new Error('שם התבנית כבר קיים במערכת. נא לבחור שם אחר.');
+        }
+        
+        // שגיאת מזהה Google Sheets כפול
+        if (templateError.code === '23505' && templateError.message?.includes('template_gsheets_id')) {
+          throw new Error('מזהה Google Sheets כבר משויך לתבנית אחרת. נא להשתמש במזהה אחר.');
+        }
+        
+        // שגיאת הרשאות
+        if (templateError.code === '42501') {
+          throw new Error('אין לך הרשאות מתאימות לביצוע פעולה זו.');
+        }
+        
+        // שגיאת חיבור לDB
+        if (templateError.code === '57P01') {
+          throw new Error('בעיית התחברות לשרת. נא לנסות שוב מאוחר יותר.');
+        }
+        
+        // שגיאת תוכן לא תקין
+        if (templateError.code === '23502') {
+          throw new Error('חסרים שדות חובה בתבנית. נא למלא את כל השדות הנדרשים.');
+        }
+        
+        // שגיאת אורך חריג
+        if (templateError.code === '22001') {
+          throw new Error('אחד השדות חורג מהאורך המקסימלי המותר.');
+        }
+        
+        // שגיאה כללית
+        throw new Error('שגיאה בשמירת התבנית: ' + templateError.message);
       }
 
       // Delete all existing contents first
