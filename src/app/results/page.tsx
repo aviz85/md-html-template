@@ -387,7 +387,7 @@ export default function ResultsPage() {
       };
 
       // Helper function to parse style parameters - works for both images and YouTube
-      const parseStyleParams = (style: string, isYouTube = false) => {
+      const parseStyleParams = (style: string, isYouTube = false): { aspectRatio: string; additionalStyles: string; } | string => {
         try {
           const params = style.split(',').reduce((acc: any, param) => {
             const [key, value] = param.trim().split('=').map(p => p.trim());
@@ -443,8 +443,13 @@ export default function ResultsPage() {
           const style = styleMatch.slice(1, -1);
           console.log('Processing YouTube markdown match:', { match, style, url, videoId });
           
-          const { aspectRatio, additionalStyles } = parseStyleParams(style, true);
-          return createYouTubeEmbed(videoId, aspectRatio, additionalStyles);
+          const result = parseStyleParams(style, true);
+          if (typeof result === 'string') {
+            // This should never happen because isYouTube is true
+            return createYouTubeEmbed(videoId);
+          }
+          
+          return createYouTubeEmbed(videoId, result.aspectRatio, result.additionalStyles);
         } catch (error) {
           console.error('Error processing YouTube markdown:', error);
           return match;
