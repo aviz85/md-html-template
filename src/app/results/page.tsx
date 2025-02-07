@@ -358,8 +358,8 @@ export default function ResultsPage() {
     const processContent = (content: string) => {
       let processedContent = content;
       
-      // Convert YouTube links to embeds first - now supports links inside headers
-      const youtubeRegex = /(?:^|[^!])((?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]+)(?:\S*))/g;
+      // Convert YouTube links to embeds - updated regex to support shorts
+      const youtubeRegex = /(?:^|[^!])((?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]+)(?:\S*))/g;
       processedContent = processedContent.replace(youtubeRegex, (match, fullUrl, videoId) => {
         // If the match starts with #, it's inside a header
         const isInHeader = match.trim().startsWith('#');
