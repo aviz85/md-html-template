@@ -358,42 +358,149 @@ export default function ResultsPage() {
     const processContent = (content: string) => {
       let processedContent = content;
       
-      // Convert YouTube links to embeds - updated regex to support shorts
-      const youtubeRegex = /(?:^|[^!])((?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]+)(?:\S*))/g;
-      processedContent = processedContent.replace(youtubeRegex, (match, fullUrl, videoId) => {
-        // If the match starts with #, it's inside a header
-        const isInHeader = match.trim().startsWith('#');
-        // Create a div component for the YouTube embed
-        const embedHtml = `<div class="youtube-embed" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; margin: 2rem 0;"><iframe style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
-        
-        return `${match[0]}${isInHeader ? match.split(fullUrl)[0] : ''}${embedHtml}${isInHeader ? match.split(fullUrl)[1] : ''}`;
+      // Helper function to extract video ID from URL
+      const extractVideoId = (url: string): string | null => {
+        try {
+          const patterns = [
+            /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i,
+            /(?:youtube\.com\/shorts\/)([^"&?\/\s]{11})/i
+          ];
+          
+          for (const pattern of patterns) {
+            const match = url.match(pattern);
+            if (match && match[1]) return match[1];
+          }
+          return null;
+        } catch (error) {
+          console.error('Error extracting video ID:', error);
+          return null;
+        }
+      };
+
+      // Helper function to create YouTube embed HTML
+      const createYouTubeEmbed = (videoId: string, aspectRatio = '56.25%', additionalStyles = '') => {
+        if (!videoId?.match(/^[a-zA-Z0-9_-]{11}$/)) {
+          console.warn('Invalid YouTube video ID:', videoId);
+          return `<div class="error">Invalid YouTube video ID</div>`;
+        }
+        return `<div class="youtube-embed" style="position: relative; padding-bottom: ${aspectRatio}; height: 0; overflow: hidden; max-width: 100%; margin: 2rem 0; ${additionalStyles}"><iframe style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+      };
+
+      // Helper function to parse style parameters - works for both images and YouTube
+      const parseStyleParams = (style: string, isYouTube = false) => {
+        try {
+          const params = style.split(',').reduce((acc: any, param) => {
+            const [key, value] = param.trim().split('=').map(p => p.trim());
+            acc[key] = value;
+            return acc;
+          }, {});
+
+          if (isYouTube) {
+            let aspectRatio = '56.25%'; // Default 16:9
+            let additionalStyles = '';
+
+            if (params.aspect) {
+              switch (params.aspect) {
+                case '9:16':
+                  aspectRatio = '177.78%';
+                  break;
+                case '16:9':
+                  aspectRatio = '56.25%';
+                  break;
+                default:
+                  console.warn('Invalid aspect ratio:', params.aspect);
+              }
+            }
+
+            if (params.width) additionalStyles += `max-width: ${params.width};`;
+            if (params.margin) additionalStyles += `margin: ${params.margin};`;
+
+            return { aspectRatio, additionalStyles };
+          } else {
+            // For images
+            return Object.entries(params)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join(';');
+          }
+        } catch (error) {
+          console.error('Error parsing style parameters:', error);
+          return isYouTube ? 
+            { aspectRatio: '56.25%', additionalStyles: '' } : 
+            '';
+        }
+      };
+
+      // First handle markdown-style YouTube links
+      const youtubeMarkdownRegex = /!\[(\[.*?\])\]\(((?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/).+?)\)/g;
+      processedContent = processedContent.replace(youtubeMarkdownRegex, (match, styleMatch, url) => {
+        try {
+          const videoId = extractVideoId(url);
+          if (!videoId) {
+            console.warn('Could not extract video ID from URL:', url);
+            return match;
+          }
+
+          const style = styleMatch.slice(1, -1);
+          console.log('Processing YouTube markdown match:', { match, style, url, videoId });
+          
+          const { aspectRatio, additionalStyles } = parseStyleParams(style, true);
+          return createYouTubeEmbed(videoId, aspectRatio, additionalStyles);
+        } catch (error) {
+          console.error('Error processing YouTube markdown:', error);
+          return match;
+        }
+      });
+
+      // Then handle regular YouTube links (excluding those already processed)
+      const youtubeRegex = /(?<!!\[.*?)(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/).+?(?=\s|$)/g;
+      processedContent = processedContent.replace(youtubeRegex, (match) => {
+        try {
+          const videoId = extractVideoId(match);
+          if (!videoId) {
+            console.warn('Could not extract video ID from URL:', match);
+            return match;
+          }
+
+          // If the match starts with #, it's inside a header
+          const isInHeader = match.trim().startsWith('#');
+          const embedHtml = createYouTubeEmbed(videoId);
+          
+          if (isInHeader) {
+            const urlIndex = match.indexOf('http');
+            if (urlIndex === -1) return match;
+            
+            const beforeUrl = match.substring(0, urlIndex);
+            const afterUrl = match.substring(urlIndex + match.substring(urlIndex).indexOf(' '));
+            return `${beforeUrl}${embedHtml}${afterUrl}`;
+          }
+          
+          return embedHtml;
+        } catch (error) {
+          console.error('Error processing YouTube link:', error);
+          return match;
+        }
       });
       
-      // Format: ![[style]](url)
-      const imageRegex = /!\[(\[.*?\])\]\((.*?)\)/g;
+      // Format: ![[style]](url) - but skip if it's a YouTube URL
+      const imageRegex = /!\[(\[.*?\])\]\(((?!(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)).*?)\)/g;
       const matches = Array.from(processedContent.matchAll(imageRegex));
       
       console.log('Image matches:', matches);
       
       matches.forEach(match => {
-        const [fullMatch, styleMatch, src] = match;
-        // Remove the outer brackets
-        const style = styleMatch.slice(1, -1);
-        console.log('Processing match:', { fullMatch, style, src });
-        
-        if (style) {
-          // Convert height=20px to height: 20px
-          const cssStyle = style
-            .split(',')
-            .map(s => {
-              const [key, value] = s.trim().split('=');
-              return `${key}: ${value}`;
-            })
-            .join(';');
-            
-          console.log('Generated CSS style:', cssStyle);
-          const htmlImg = `<img src="${src}" alt="" data-original-styles="${cssStyle}" />`;
-          processedContent = processedContent.replace(fullMatch, htmlImg);
+        try {
+          const [fullMatch, styleMatch, src] = match;
+          const style = styleMatch.slice(1, -1);
+          console.log('Processing match:', { fullMatch, style, src });
+          
+          if (style) {
+            const cssStyle = parseStyleParams(style, false);
+            console.log('Generated CSS style:', cssStyle);
+            const htmlImg = `<img src="${src}" alt="" data-original-styles="${cssStyle}" />`;
+            processedContent = processedContent.replace(fullMatch, htmlImg);
+          }
+        } catch (error) {
+          console.error('Error processing image:', error);
         }
       });
       
