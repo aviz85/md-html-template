@@ -363,16 +363,10 @@ export default function ResultsPage() {
       processedContent = processedContent.replace(youtubeRegex, (match, fullUrl, videoId) => {
         // If the match starts with #, it's inside a header
         const isInHeader = match.trim().startsWith('#');
-        // If in header, wrap with header tags to preserve the header
-        return `${match[0]}${isInHeader ? match.split(fullUrl)[0] : ''}<div class="youtube-embed" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; margin: 2rem 0;">
-          <iframe 
-            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" 
-            src="https://www.youtube.com/embed/${videoId}" 
-            frameborder="0" 
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-            allowfullscreen>
-          </iframe>
-        </div>${isInHeader ? match.split(fullUrl)[1] : ''}`;
+        // Create a div component for the YouTube embed
+        const embedHtml = `<div class="youtube-embed" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; margin: 2rem 0;"><iframe style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+        
+        return `${match[0]}${isInHeader ? match.split(fullUrl)[0] : ''}${embedHtml}${isInHeader ? match.split(fullUrl)[1] : ''}`;
       });
       
       // Format: ![[style]](url)
