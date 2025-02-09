@@ -360,8 +360,8 @@ export default function ResultsPage() {
       
       // Helper function to create YouTube embed HTML
       const createYouTubeEmbed = (videoId: string, aspectRatio = '56.25%', additionalStyles = '') => {
-        // Instead of creating a div with an iframe inside, we'll create just the iframe and handle the container in the component
-        return `<div class="youtube-embed" data-video-id="${videoId}" data-aspect-ratio="${aspectRatio}" data-styles="${additionalStyles}"></div>`;
+        // Pass the information through the class name
+        return `<div class="youtube-embed:${videoId}:${aspectRatio}:${additionalStyles}"></div>`;
       };
 
       // Helper function to extract video ID from URL
@@ -564,10 +564,8 @@ export default function ResultsPage() {
       img: ImageRenderer,
       // Add custom component for divs to handle YouTube embeds
       div: ({ node, className, ...props }) => {
-        if (className === 'youtube-embed') {
-          const videoId = (node as any)?.properties?.['data-video-id'];
-          const aspectRatio = (node as any)?.properties?.['data-aspect-ratio'] || '56.25%';
-          const additionalStyles = (node as any)?.properties?.['data-styles'] || '';
+        if (className?.startsWith('youtube-embed:')) {
+          const [_, videoId, aspectRatio, additionalStyles] = className.split(':');
           
           console.log('YouTube div component - Props:', { videoId, aspectRatio, additionalStyles });
           
@@ -577,7 +575,7 @@ export default function ResultsPage() {
           
           const style = {
             position: 'relative' as const,
-            paddingBottom: aspectRatio,
+            paddingBottom: aspectRatio || '56.25%',
             height: 0,
             overflow: 'hidden' as const,
             maxWidth: '100%',
@@ -586,7 +584,7 @@ export default function ResultsPage() {
             ...(props.style || {})
           };
           
-          return <div className={className} style={style} dangerouslySetInnerHTML={{ __html: iframe }} />;
+          return <div style={style} dangerouslySetInnerHTML={{ __html: iframe }} />;
         }
         return <div className={className} {...props} />;
       },
