@@ -360,11 +360,6 @@ export default function ResultsPage() {
       
       // Helper function to create YouTube embed HTML
       const createYouTubeEmbed = (videoId: string, aspectRatio = '56.25%', additionalStyles = '') => {
-        if (!videoId?.match(/^[a-zA-Z0-9_-]{11}$/)) {
-          console.warn('Invalid YouTube video ID:', videoId);
-          return `<div class="error">Invalid YouTube video ID</div>`;
-        }
-        
         // Create clean HTML with all styles on the container div
         return `<div class="youtube-embed" style="position: relative; padding-bottom: ${aspectRatio}; height: 0; overflow: hidden; max-width: 100%; margin: 2rem 0; ${additionalStyles}"><iframe src="https://www.youtube.com/embed/${videoId}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
       };
@@ -451,13 +446,11 @@ export default function ResultsPage() {
         try {
           const videoId = extractVideoId(url);
           if (!videoId) {
-            console.warn('Could not extract video ID from URL:', url);
+            console.log('Could not extract video ID from URL:', url);
             return match;
           }
 
           const style = styleMatch.slice(1, -1);
-          console.log('Processing YouTube markdown match:', { match, style, url, videoId });
-          
           const result = parseStyleParams(style, true);
           if (typeof result === 'string') {
             return createYouTubeEmbed(videoId);
