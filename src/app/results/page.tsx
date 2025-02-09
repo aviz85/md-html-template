@@ -370,7 +370,14 @@ export default function ResultsPage() {
       // Helper function to extract video ID from URL
       const extractVideoId = (url: string): string | null => {
         try {
-          // Clean the URL first - remove any query parameters except v=
+          // First try to extract from shorts URL
+          const shortsMatch = url.match(/youtube\.com\/shorts\/([^"&?\/\s]{11})/i);
+          if (shortsMatch && shortsMatch[1]) {
+            console.log('Extracted shorts video ID:', shortsMatch[1], 'from URL:', url);
+            return shortsMatch[1];
+          }
+
+          // For regular videos, clean the URL and keep only v= parameter
           const cleanUrl = url.split('?').map((part, index) => {
             if (index === 0) return part;
             return part.split('&')
@@ -378,18 +385,13 @@ export default function ResultsPage() {
               .join('&');
           }).join('?');
 
-          const patterns = [
-            /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i,
-            /(?:youtube\.com\/shorts\/)([^"&?\/\s]{11})/i
-          ];
-          
-          for (const pattern of patterns) {
-            const match = cleanUrl.match(pattern);
-            if (match && match[1]) {
-              console.log('Extracted video ID:', match[1], 'from URL:', url);
-              return match[1];
-            }
+          // Then try regular video patterns
+          const regularMatch = cleanUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+          if (regularMatch && regularMatch[1]) {
+            console.log('Extracted regular video ID:', regularMatch[1], 'from URL:', url);
+            return regularMatch[1];
           }
+
           return null;
         } catch (error) {
           console.error('Error extracting video ID:', error);
@@ -442,7 +444,7 @@ export default function ResultsPage() {
       };
 
       // First handle markdown-style YouTube links
-      const youtubeMarkdownRegex = /!\[(\[.*?\])\]\(((?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([^)\s]+))\)/g;
+      const youtubeMarkdownRegex = /!\[(\[.*?\])\]\(((?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)[^)]+)\)/g;
       processedContent = processedContent.replace(youtubeMarkdownRegex, (match, styleMatch, url) => {
         try {
           const videoId = extractVideoId(url);
