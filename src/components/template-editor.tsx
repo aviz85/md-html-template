@@ -423,17 +423,60 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       console.log('Template form_id:', template.form_id)
       
       if (template) {
+        // Set basic template info
         setTemplateName(template.name)
         setTemplateGsheetsId(template.template_gsheets_id || '')
         setFormId(template.form_id || '')
+        
+        // Set email and webhook settings
+        setEmailSubject(template.email_subject || '')
+        setEmailBody(template.email_body || '')
+        setEmailFrom(template.email_from || '')
+        setSendEmail(template.send_email !== false)  // Default to true if not set
+        setWebhookUrl(template.webhook_url || '')
+        
+        // Load template contents BEFORE setting them
+        const { data: contentsData, error: contentsError } = await supabase
+          .from('template_contents')
+          .select('content_name, md_content')
+          .eq('template_id', id)
+
+        // Reset contents only after we have the new data
         setHeaderContent('')
         setFooterContent('')
         setOpeningPageContent('')
         setClosingPageContent('')
-        setCustomContents([])  // Reset custom contents first
-        setCustomFonts(template.custom_fonts || [])
-        
-        // Set element styles with defaults
+        setCustomContents([])
+
+        if (!contentsError && contentsData) {
+          // Create a Map to store unique contents
+          const customContentMap = new Map()
+          
+          contentsData.forEach(content => {
+            if (content.content_name === 'header') {
+              setHeaderContent(content.md_content || '')
+            } else if (content.content_name === 'footer') {
+              setFooterContent(content.md_content || '')
+            } else if (content.content_name === 'opening_page') {
+              setOpeningPageContent(content.md_content || '')
+            } else if (content.content_name === 'closing_page') {
+              setClosingPageContent(content.md_content || '')
+            } else if (content.content_name.startsWith('custom_')) {
+              const name = content.content_name.replace('custom_', '')
+              customContentMap.set(name, {
+                name,
+                content: content.md_content
+              })
+            }
+          })
+          
+          // Convert Map values to array and set state
+          setCustomContents(Array.from(customContentMap.values()))
+        } else if (contentsError) {
+          console.error('Error loading template contents:', contentsError)
+        }
+
+        // Set element styles with all required fields
         setElementStyles(template.element_styles || {
           body: {
             backgroundColor: template.styles?.bodyBackground || '#ffffff'
@@ -463,6 +506,16 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             backgroundColor: template.styles?.contentBackground || '#ffffff'
           }
         })
+
+        // Set styles
+        setStyles({
+          bodyBackground: template.element_styles?.body?.backgroundColor || '#ffffff',
+          mainBackground: template.element_styles?.main?.backgroundColor || '#ffffff',
+          contentBackground: template.element_styles?.prose?.backgroundColor || '#ffffff'
+        })
+
+        // Set custom fonts
+        setCustomFonts(template.custom_fonts || [])
         
         // Load logo
         const { data: logoData } = await supabase
@@ -497,53 +550,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         } else {
           setUploadedMediaUrls([])
         }
-        
-        // Load template contents
-        const { data: contentsData, error: contentsError } = await supabase
-          .from('template_contents')
-          .select('content_name, md_content')
-          .eq('template_id', id)
-
-        if (!contentsError && contentsData) {
-          // Create a Map to store unique contents
-          const customContentMap = new Map()
-          
-          contentsData.forEach(content => {
-            if (content.content_name === 'header') {
-              setHeaderContent(content.md_content)
-            } else if (content.content_name === 'footer') {
-              setFooterContent(content.md_content)
-            } else if (content.content_name === 'opening_page') {
-              setOpeningPageContent(content.md_content)
-            } else if (content.content_name === 'closing_page') {
-              setClosingPageContent(content.md_content)
-            } else if (content.content_name.startsWith('custom_')) {
-              const name = content.content_name.replace('custom_', '')
-              // Use Map to ensure uniqueness
-              customContentMap.set(name, {
-                name,
-                content: content.md_content
-              })
-            }
-          })
-          
-          // Convert Map values to array and set state
-          setCustomContents(Array.from(customContentMap.values()))
-        }
-
-        // Set styles
-        setStyles({
-          bodyBackground: template.element_styles?.body?.backgroundColor || '#ffffff',
-          mainBackground: template.element_styles?.main?.backgroundColor || '#ffffff',
-          contentBackground: template.element_styles?.prose?.backgroundColor || '#ffffff'
-        })
-
-        // Set email related fields
-        setEmailSubject(template.email_subject || '')
-        setEmailBody(template.email_body || '')
-        setEmailFrom(template.email_from || '')
-        setSendEmail(template.send_email !== false)  // Default to true if not set
-        setWebhookUrl(template.webhook_url || '')
       }
     } catch (error) {
       console.error('Error loading template:', error)
