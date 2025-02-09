@@ -355,6 +355,38 @@ export default function ResultsPage() {
   const renderChat = (result: any) => {
     if (!result?.finalResponse) return null;
     
+    // Helper function to extract video ID from URL - moved outside processContent
+    const extractVideoId = (url: string): string | null => {
+      try {
+        // First try to extract from shorts URL
+        const shortsMatch = url.match(/youtube\.com\/shorts\/([^"&?\/\s]{11})/i);
+        if (shortsMatch && shortsMatch[1]) {
+          console.log('Extracted shorts video ID:', shortsMatch[1], 'from URL:', url);
+          return shortsMatch[1];
+        }
+
+        // For regular videos, clean the URL and keep only v= parameter
+        const cleanUrl = url.split('?').map((part, index) => {
+          if (index === 0) return part;
+          return part.split('&')
+            .filter(param => param.startsWith('v='))
+            .join('&');
+        }).join('?');
+
+        // Then try regular video patterns
+        const regularMatch = cleanUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+        if (regularMatch && regularMatch[1]) {
+          console.log('Extracted regular video ID:', regularMatch[1], 'from URL:', url);
+          return regularMatch[1];
+        }
+
+        return null;
+      } catch (error) {
+        console.error('Error extracting video ID:', error);
+        return null;
+      }
+    };
+    
     const processContent = (content: string) => {
       let processedContent = content;
       
@@ -362,38 +394,6 @@ export default function ResultsPage() {
       const createYouTubeEmbed = (videoId: string, aspectRatio = '56.25%', additionalStyles = '') => {
         // Pass the information through the class name
         return `<div class="youtube-embed:${videoId}:${aspectRatio}:${additionalStyles}"></div>`;
-      };
-
-      // Helper function to extract video ID from URL
-      const extractVideoId = (url: string): string | null => {
-        try {
-          // First try to extract from shorts URL
-          const shortsMatch = url.match(/youtube\.com\/shorts\/([^"&?\/\s]{11})/i);
-          if (shortsMatch && shortsMatch[1]) {
-            console.log('Extracted shorts video ID:', shortsMatch[1], 'from URL:', url);
-            return shortsMatch[1];
-          }
-
-          // For regular videos, clean the URL and keep only v= parameter
-          const cleanUrl = url.split('?').map((part, index) => {
-            if (index === 0) return part;
-            return part.split('&')
-              .filter(param => param.startsWith('v='))
-              .join('&');
-          }).join('?');
-
-          // Then try regular video patterns
-          const regularMatch = cleanUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
-          if (regularMatch && regularMatch[1]) {
-            console.log('Extracted regular video ID:', regularMatch[1], 'from URL:', url);
-            return regularMatch[1];
-          }
-
-          return null;
-        } catch (error) {
-          console.error('Error extracting video ID:', error);
-          return null;
-        }
       };
 
       // Helper function to parse style parameters - works for both images and YouTube
@@ -702,19 +702,42 @@ export default function ResultsPage() {
           {children}
         </motion.li>
       ),
-      a: ({ node, href, children, ...props }) => (
-        <motion.a 
-          href={href}
-          className="text-blue-600 hover:text-blue-800 hover:underline"
-          target="_blank"
-          rel="noopener noreferrer"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-        >
-          {children}
-        </motion.a>
-      ),
+      a: ({ node, href, children, ...props }) => {
+        if (href) {
+          // Check if it's a YouTube link
+          const videoId = extractVideoId(href);
+          if (videoId) {
+            console.log('Found YouTube link in <a> tag:', href);
+            const iframe = `<iframe src="https://www.youtube.com/embed/${videoId}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+            
+            const style = {
+              position: 'relative' as const,
+              paddingBottom: '56.25%',
+              height: 0,
+              overflow: 'hidden' as const,
+              maxWidth: '100%',
+              margin: '2rem 0'
+            };
+            
+            return <div style={style} dangerouslySetInnerHTML={{ __html: iframe }} />;
+          }
+        }
+
+        // Regular link
+        return (
+          <motion.a 
+            href={href}
+            className="text-blue-600 hover:text-blue-800 hover:underline"
+            target="_blank"
+            rel="noopener noreferrer"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            {children || href}
+          </motion.a>
+        );
+      },
     };
 
     return (
