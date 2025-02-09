@@ -360,8 +360,9 @@ export default function ResultsPage() {
       
       // Helper function to create YouTube embed HTML
       const createYouTubeEmbed = (videoId: string, aspectRatio = '56.25%', additionalStyles = '') => {
-        // Create clean HTML with all styles on the container div
-        return `<div class="youtube-embed" style="position: relative; padding-bottom: ${aspectRatio}; height: 0; overflow: hidden; max-width: 100%; margin: 2rem 0; ${additionalStyles}"><iframe src="https://www.youtube.com/embed/${videoId}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+        const html = `<div class="youtube-embed" style="position: relative; padding-bottom: ${aspectRatio}; height: 0; overflow: hidden; max-width: 100%; margin: 2rem 0; ${additionalStyles}"><iframe src="https://www.youtube.com/embed/${videoId}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+        console.log('Generated YouTube HTML:', html);
+        return html;
       };
 
       // Helper function to extract video ID from URL
@@ -567,14 +568,23 @@ export default function ResultsPage() {
         if (className === 'youtube-embed') {
           // Get the raw HTML content and extract both the container styles and iframe
           const rawHtml = (node as any)?.children?.[0]?.value || '';
+          console.log('YouTube div component - Raw HTML:', rawHtml);
           
           // Extract the style from the container div
           const styleMatch = rawHtml.match(/style="([^"]*)"/) || [];
           const containerStyle = styleMatch[1] || '';
+          console.log('YouTube div component - Container style:', containerStyle);
           
-          // Extract the iframe
+          // Extract the iframe, clean up any unwanted attributes
           const iframeMatch = rawHtml.match(/<iframe[^>]*>.*?<\/iframe>/i);
-          const iframe = iframeMatch ? iframeMatch[0] : '';
+          console.log('YouTube div component - iframe match:', iframeMatch);
+          
+          const iframe = iframeMatch ? 
+            iframeMatch[0]
+              .replace(/\s+bis_skin_checked="[^"]*"/g, '')
+              .replace(/\s*==\s*\$0\s*/, '') : 
+            '';
+          console.log('YouTube div component - Final iframe HTML:', iframe);
           
           // Combine styles
           const style = {
