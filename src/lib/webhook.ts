@@ -128,32 +128,67 @@ function findCustomerDetails(formData: any): WebhookPayload['customer'] {
 
 export async function sendWebhook(submissionId: string): Promise<void> {
   try {
+    console.log('Starting webhook process for submission:', submissionId);
+    
     // Fetch submission and template data
-    const { data: submission } = await supabaseAdmin
+    const { data: submission, error } = await supabaseAdmin
       .from('form_submissions')
       .select('*, templates!inner(*)')
       .eq('submission_id', submissionId)
       .single();
+
+    if (error) {
+      console.error('Error fetching submission:', error);
+      throw error;
+    }
+
+    if (!submission) {
+      console.error('No submission found for ID:', submissionId);
+      throw new Error('Submission not found');
+    }
 
     if (!submission?.templates?.webhook_url) {
       console.log('No webhook URL configured for template');
       return;
     }
 
+    // Verify submission ID matches
+    if (submission.submission_id !== submissionId) {
+      console.error('Submission ID mismatch:', { 
+        expected: submissionId, 
+        found: submission.submission_id 
+      });
+      throw new Error('Submission ID mismatch');
+    }
+
     const webhookUrl = submission.templates.webhook_url;
     const formData = submission.content?.form_data || submission.content || {};
     const customer = findCustomerDetails(formData);
 
+    // Build results URL
+    const resultsUrl = new URL('/results', 'https://md-html-template.vercel.app');
+    resultsUrl.searchParams.set('s', submissionId);
+
+    console.log('Generated results URL:', resultsUrl.toString());
+
     const payload: WebhookPayload = {
       form: {
         id: submission.form_id,
-        submission_id: submission.submission_id,
-        results_url: `https://md-html-template.vercel.app/results?s=${submission.submission_id}`
+        submission_id: submissionId, // Use the original submissionId
+        results_url: resultsUrl.toString()
       },
       customer,
       form_data: formData,
       result: submission.result
     };
+
+    console.log('Prepared webhook payload:', {
+      url: webhookUrl,
+      form_id: payload.form.id,
+      submission_id: payload.form.submission_id,
+      results_url: payload.form.results_url,
+      customer: payload.customer
+    });
 
     // Update status to sending
     await supabaseAdmin
@@ -174,8 +209,16 @@ export async function sendWebhook(submissionId: string): Promise<void> {
     });
 
     if (!response.ok) {
-      throw new Error(`Webhook failed with status ${response.status}`);
+      const responseText = await response.text();
+      console.error('Webhook failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        response: responseText
+      });
+      throw new Error(`Webhook failed with status ${response.status}: ${responseText}`);
     }
+
+    console.log('Webhook sent successfully');
 
     // Update status to sent
     await supabaseAdmin
