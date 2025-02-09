@@ -360,9 +360,8 @@ export default function ResultsPage() {
       
       // Helper function to create YouTube embed HTML
       const createYouTubeEmbed = (videoId: string, aspectRatio = '56.25%', additionalStyles = '') => {
-        const html = `<div class="youtube-embed" style="position: relative; padding-bottom: ${aspectRatio}; height: 0; overflow: hidden; max-width: 100%; margin: 2rem 0; ${additionalStyles}"><iframe src="https://www.youtube.com/embed/${videoId}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
-        console.log('Generated YouTube HTML:', html);
-        return html;
+        // Instead of creating a div with an iframe inside, we'll create just the iframe and handle the container in the component
+        return `<div class="youtube-embed" data-video-id="${videoId}" data-aspect-ratio="${aspectRatio}" data-styles="${additionalStyles}"></div>`;
       };
 
       // Helper function to extract video ID from URL
@@ -566,34 +565,24 @@ export default function ResultsPage() {
       // Add custom component for divs to handle YouTube embeds
       div: ({ node, className, ...props }) => {
         if (className === 'youtube-embed') {
-          // Get the raw HTML content and extract both the container styles and iframe
-          const rawHtml = (node as any)?.children?.[0]?.value || '';
-          console.log('YouTube div component - Raw HTML:', rawHtml);
+          const videoId = (node as any)?.properties?.['data-video-id'];
+          const aspectRatio = (node as any)?.properties?.['data-aspect-ratio'] || '56.25%';
+          const additionalStyles = (node as any)?.properties?.['data-styles'] || '';
           
-          // Extract the style from the container div
-          const styleMatch = rawHtml.match(/style="([^"]*)"/) || [];
-          const containerStyle = styleMatch[1] || '';
-          console.log('YouTube div component - Container style:', containerStyle);
+          console.log('YouTube div component - Props:', { videoId, aspectRatio, additionalStyles });
           
-          // Extract the iframe, clean up any unwanted attributes
-          const iframeMatch = rawHtml.match(/<iframe[^>]*>.*?<\/iframe>/i);
-          console.log('YouTube div component - iframe match:', iframeMatch);
+          if (!videoId) return null;
           
-          const iframe = iframeMatch ? 
-            iframeMatch[0]
-              .replace(/\s+bis_skin_checked="[^"]*"/g, '')
-              .replace(/\s*==\s*\$0\s*/, '') : 
-            '';
-          console.log('YouTube div component - Final iframe HTML:', iframe);
+          const iframe = `<iframe src="https://www.youtube.com/embed/${videoId}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
           
-          // Combine styles
           const style = {
             position: 'relative' as const,
-            paddingBottom: containerStyle.match(/padding-bottom:\s*([\d.]+%)/)?.[1] || '56.25%',
+            paddingBottom: aspectRatio,
             height: 0,
             overflow: 'hidden' as const,
             maxWidth: '100%',
             margin: '2rem 0',
+            ...(additionalStyles ? JSON.parse(additionalStyles) : {}),
             ...(props.style || {})
           };
           
