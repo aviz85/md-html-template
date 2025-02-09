@@ -33,7 +33,8 @@ function findCustomerDetails(formData: any): WebhookPayload['customer'] {
     email: [
       /^(email|mail|אימייל|מייל)$/i,
       /(^|_)(email|mail)($|_)/i,
-      /דואר.*אלקטרוני/i
+      /דואר.*אלקטרוני/i,
+      /^JJ$/i  // Special case for our forms
     ],
     phone: [
       /^(phone|mobile|tel|טלפון|נייד)$/i,
@@ -43,22 +44,85 @@ function findCustomerDetails(formData: any): WebhookPayload['customer'] {
     ]
   };
 
-  // Search through form data for matching fields
+  // Helper function to check if a string looks like a full name (2+ words)
+  const isFullName = (str: string): boolean => {
+    const words = str.trim().split(/\s+/);
+    return words.length >= 2 && words.every(word => /^[\u0590-\u05FFa-zA-Z]+$/.test(word));
+  };
+
+  // Helper function to check if a string is a valid phone number
+  const isPhoneNumber = (str: string): boolean => {
+    return /^[\d\-+() ]{9,}$/.test(str.trim());
+  };
+
+  // Helper function to check if a string is a valid email
+  const isEmail = (str: string): boolean => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str.trim());
+  };
+
+  // First pass: Find fields by patterns
   Object.entries(formData).forEach(([key, value]) => {
-    // Skip if value is not a string or is empty
     if (typeof value !== 'string' || !value.trim()) return;
 
-    // Check each pattern type
     Object.entries(patterns).forEach(([field, fieldPatterns]) => {
-      if (!customer[field as keyof typeof customer]) { // Only set if not already found
+      if (!customer[field as keyof typeof customer]) {
         const matches = fieldPatterns.some(pattern => pattern.test(key));
         if (matches) {
-          customer[field as keyof typeof customer] = value.trim();
+          // Validate value based on field type
+          if (field === 'email' && isEmail(value) ||
+              field === 'phone' && isPhoneNumber(value) ||
+              field === 'name' && isFullName(value)) {
+            customer[field as keyof typeof customer] = value.trim();
+          }
         }
       }
     });
   });
 
+  // Second pass: Find by value format and proximity
+  if (!customer.name || !customer.email || !customer.phone) {
+    // Convert form data to array of entries for easier proximity analysis
+    const entries = Object.entries(formData);
+    
+    entries.forEach(([key, value], index) => {
+      if (typeof value !== 'string' || !value.trim()) return;
+      const valueStr = value.trim();
+
+      // Find email by format if not found
+      if (!customer.email && isEmail(valueStr)) {
+        customer.email = valueStr;
+        
+        // Look for name in adjacent fields (before and after)
+        for (let i = Math.max(0, index - 2); i <= Math.min(entries.length - 1, index + 2); i++) {
+          const [_, adjacentValue] = entries[i];
+          if (typeof adjacentValue === 'string' && isFullName(adjacentValue)) {
+            customer.name = adjacentValue.trim();
+            break;
+          }
+        }
+      }
+
+      // Find phone by format if not found
+      if (!customer.phone && isPhoneNumber(valueStr)) {
+        customer.phone = valueStr;
+      }
+
+      // Find name by format if not found
+      if (!customer.name && isFullName(valueStr)) {
+        customer.name = valueStr;
+      }
+    });
+  }
+
+  // Clean up phone number format
+  if (customer.phone) {
+    customer.phone = customer.phone.replace(/[^\d+]/g, '');
+    if (customer.phone.startsWith('972')) {
+      customer.phone = '0' + customer.phone.slice(3);
+    }
+  }
+
+  console.log('Found customer details:', customer);
   return customer;
 }
 
