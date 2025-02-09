@@ -365,8 +365,7 @@ export default function ResultsPage() {
           return `<div class="error">Invalid YouTube video ID</div>`;
         }
         
-        // Compact, single-line HTML to avoid any whitespace issues
-        return `<div class="youtube-embed" style="position: relative; padding-bottom: ${aspectRatio}; height: 0; overflow: hidden; max-width: 100%; margin: 2rem 0; ${additionalStyles}"><iframe src="https://www.youtube.com/embed/${videoId}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+        return `<div class="youtube-embed" style="position: relative; padding-bottom: ${aspectRatio}; height: 0; overflow: hidden; max-width: 100%; margin: 2rem 0; ${additionalStyles}"><iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
       };
 
       // Helper function to extract video ID from URL
@@ -572,10 +571,21 @@ export default function ResultsPage() {
       // Add custom component for divs to handle YouTube embeds
       div: ({ node, className, ...props }) => {
         if (className === 'youtube-embed') {
-          // Get the raw HTML content
-          const html = (node as any)?.children?.[0]?.value || 
-                      (node as any)?.children?.[0]?.children?.[0]?.value || '';
-          return <div className={className} {...props} dangerouslySetInnerHTML={{ __html: html }} />;
+          const rawHtml = (node as any)?.children?.[0]?.value || '';
+          const iframeMatch = rawHtml.match(/<iframe[^>]*>.*?<\/iframe>/i);
+          const html = iframeMatch ? iframeMatch[0] : rawHtml;
+          
+          const style = {
+            position: 'relative' as const,
+            paddingBottom: props.style?.paddingBottom || '56.25%',
+            height: 0,
+            overflow: 'hidden' as const,
+            maxWidth: '100%',
+            margin: '2rem 0',
+            ...(props.style || {})
+          };
+          
+          return <div className={className} style={style} dangerouslySetInnerHTML={{ __html: html }} />;
         }
         return <div className={className} {...props} />;
       },
