@@ -450,6 +450,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           
           contentsData.forEach(content => {
             switch(content.content_name) {
+              case 'main':
+                setMdContent(content.md_content || '')
+                break
               case 'header':
                 setHeaderContent(content.md_content || '')
                 break
@@ -875,6 +878,15 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
       // Prepare contents to insert
       const contents = []
+
+      // Add main content if exists
+      if (mdContent) {
+        contents.push({
+          template_id: template.id,
+          content_name: 'main',
+          md_content: mdContent
+        })
+      }
 
       // Add header and footer if they exist
       if (headerContent) {
