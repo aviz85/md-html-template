@@ -417,7 +417,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         .from('templates')
         .select('*')
         .eq('id', id)
-        .single()
+        .single();
 
       if (error) throw error;
 
@@ -492,29 +492,42 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           setUploadedMediaUrls([])
         }
         
-        // Load template contents
-        console.log('🔄 Fetching template contents...');
+        // Load template contents with more detailed logging
+        console.log('🔄 Fetching template contents for template ID:', id);
         const { data: contentsData, error: contentsError } = await supabase
           .from('template_contents')
-          .select('content_name, md_content')
-          .eq('template_id', id)
+          .select('*') // שיניתי ל-* כדי לראות את כל השדות
+          .eq('template_id', id);
 
         if (contentsError) {
           console.error('❌ Error loading template contents:', contentsError);
           throw contentsError;
         }
 
-        console.log('📦 Raw template contents data:', contentsData);
+        console.log('📦 Raw template contents query:', {
+          table: 'template_contents',
+          templateId: id,
+          resultCount: contentsData?.length || 0,
+          fullResult: contentsData
+        });
+
+        // בדיקה האם יש נתונים בכלל
+        if (!contentsData || contentsData.length === 0) {
+          console.warn('⚠️ No contents found for template ID:', id);
+        }
 
         if (!contentsError && contentsData) {
           // Create a Map to store unique contents
-          const customContentMap = new Map()
+          const customContentMap = new Map();
           
           console.log('🔄 Processing template contents...');
           contentsData.forEach(content => {
-            console.log(`📄 Processing content: ${content.content_name}`, {
+            console.log(`📄 Processing content:`, {
+              name: content.content_name,
+              id: content.id,
               contentLength: content.md_content?.length || 0,
-              firstChars: content.md_content?.substring(0, 50)
+              firstChars: content.md_content?.substring(0, 50),
+              created_at: content.created_at
             });
 
             if (content.content_name === 'header') {
