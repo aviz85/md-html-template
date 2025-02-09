@@ -65,8 +65,6 @@ interface Template {
   email_subject?: string
   email_body?: string
   email_from?: string
-  webhook_url?: string
-  send_email?: boolean
 }
 
 interface SubmissionStatus {
@@ -197,8 +195,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const [isMediaUploading, setIsMediaUploading] = useState(false)
   const [showMediaInstructions, setShowMediaInstructions] = useState(false)
   const [template, setTemplate] = useState<Template | null>(null)
-  const [sendEmail, setSendEmail] = useState(false)
-  const [webhookUrl, setWebhookUrl] = useState("")
 
   useEffect(() => {
     if (templateId) {
@@ -411,77 +407,28 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
   const loadTemplate = async (id: string) => {
     try {
-      // Fetch template data
       const { data: template, error } = await supabase
         .from('templates')
         .select('*')
         .eq('id', id)
         .single()
 
-      if (error) throw error
+      if (error) throw error;
 
-      console.log('Loaded template:', template)
-      console.log('Template form_id:', template.form_id)
+      console.log('Loaded template:', template);
+      console.log('Template form_id:', template.form_id);
       
       if (template) {
-        // Set basic template info
-        setTemplateName(template.name || '')
-        setTemplateGsheetsId(template.template_gsheets_id || '')
-        setFormId(template.form_id || '')
+        setTemplateName(template.name)
+        setTemplateGsheetsId(template.template_gsheets_id || "")
+        setHeaderContent("")
+        setFooterContent("")
+        setOpeningPageContent("")
+        setClosingPageContent("")
+        setCustomContents([])  // Reset custom contents first
+        setCustomFonts(template.custom_fonts || [])
         
-        // Set email and webhook settings
-        setEmailSubject(template.email_subject || '')
-        setEmailBody(template.email_body || '')
-        setEmailFrom(template.email_from || '')
-        setSendEmail(template.send_email !== false)  // Default to true if not set
-        setWebhookUrl(template.webhook_url || '')
-
-        // Load template contents BEFORE resetting states
-        const { data: contentsData, error: contentsError } = await supabase
-          .from('template_contents')
-          .select('content_name, md_content')
-          .eq('template_id', id)
-
-        if (contentsError) {
-          console.error('Error loading template contents:', contentsError)
-        } else if (contentsData) {
-          // Create a Map to store unique contents
-          const customContentMap = new Map()
-          
-          contentsData.forEach(content => {
-            switch(content.content_name) {
-              case 'main':
-                setMdContent(content.md_content || '')
-                break
-              case 'header':
-                setHeaderContent(content.md_content || '')
-                break
-              case 'footer':
-                setFooterContent(content.md_content || '')
-                break
-              case 'opening_page':
-                setOpeningPageContent(content.md_content || '')
-                break
-              case 'closing_page':
-                setClosingPageContent(content.md_content || '')
-                break
-              default:
-                if (content.content_name.startsWith('custom_')) {
-                  const name = content.content_name.replace('custom_', '')
-                  customContentMap.set(name, {
-                    name,
-                    content: content.md_content || ''
-                  })
-                }
-            }
-          })
-          
-          // Convert Map values to array and set state
-          setCustomContents(Array.from(customContentMap.values()))
-        }
-
-        // Set element styles with all required fields
-        const defaultStyles = {
+        setElementStyles(template.element_styles || {
           body: {
             backgroundColor: template.styles?.bodyBackground || '#ffffff'
           },
@@ -495,36 +442,16 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           p: {},
           specialParagraph: {},
           header: {
-            showLogo: template.show_logo !== false,
-            showLogoOnAllPages: template.show_logo_on_all_pages !== false,
-            logoPosition: template.logo_position || 'top-right',
+            showLogo: true,
             logoWidth: '100px',
             logoHeight: 'auto',
-            logoMargin: '1rem'
+            logoMargin: '1rem',
+            logoPosition: 'top-right',
           },
           footer: {},
-          main: {
-            backgroundColor: template.styles?.mainBackground || '#ffffff'
-          },
-          prose: {
-            backgroundColor: template.styles?.contentBackground || '#ffffff'
-          }
-        }
-
-        setElementStyles({
-          ...defaultStyles,
-          ...template.element_styles
+          main: {},
+          prose: {}
         })
-
-        // Set styles
-        setStyles({
-          bodyBackground: template.element_styles?.body?.backgroundColor || '#ffffff',
-          mainBackground: template.element_styles?.main?.backgroundColor || '#ffffff',
-          contentBackground: template.element_styles?.prose?.backgroundColor || '#ffffff'
-        })
-
-        // Set custom fonts
-        setCustomFonts(template.custom_fonts || [])
         
         // Load logo
         const { data: logoData } = await supabase
@@ -559,6 +486,50 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         } else {
           setUploadedMediaUrls([])
         }
+        
+        // Load template contents
+        const { data: contentsData, error: contentsError } = await supabase
+          .from('template_contents')
+          .select('content_name, md_content')
+          .eq('template_id', id)
+
+        if (!contentsError && contentsData) {
+          // Create a Map to store unique contents
+          const customContentMap = new Map()
+          
+          contentsData.forEach(content => {
+            if (content.content_name === 'header') {
+              setHeaderContent(content.md_content)
+            } else if (content.content_name === 'footer') {
+              setFooterContent(content.md_content)
+            } else if (content.content_name === 'opening_page') {
+              setOpeningPageContent(content.md_content)
+            } else if (content.content_name === 'closing_page') {
+              setClosingPageContent(content.md_content)
+            } else if (content.content_name.startsWith('custom_')) {
+              const name = content.content_name.replace('custom_', '')
+              // Use Map to ensure uniqueness
+              customContentMap.set(name, {
+                name,
+                content: content.md_content
+              })
+            }
+          })
+          
+          // Convert Map values to array and set state
+          setCustomContents(Array.from(customContentMap.values()))
+        }
+
+        setFormId(template.form_id || '')
+        setStyles({
+          bodyBackground: template.element_styles?.body?.backgroundColor || '#ffffff',
+          mainBackground: template.element_styles?.main?.backgroundColor || '#ffffff',
+          contentBackground: template.element_styles?.prose?.backgroundColor || '#ffffff'
+        })
+
+        setEmailSubject(template.email_subject || "")
+        setEmailBody(template.email_body || "")
+        setEmailFrom(template.email_from || "")
       }
     } catch (error) {
       console.error('Error loading template:', error)
@@ -781,16 +752,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       return;
     }
 
-    // Validate webhook URL if provided
-    if (webhookUrl && !validateWebhookUrl(webhookUrl)) {
-      toast({
-        variant: "destructive",
-        title: TRANSLATIONS.error,
-        description: "כתובת Webhook לא תקינה"
-      });
-      return;
-    }
-
     try {
       // Save template
       const { data: template, error: templateError } = await supabase
@@ -817,8 +778,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           email_subject: emailSubject,
           email_body: emailBody,
           email_from: emailFrom,
-          webhook_url: webhookUrl,
-          send_email: sendEmail,
         })
         .select()
         .single()
@@ -878,15 +837,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
       // Prepare contents to insert
       const contents = []
-
-      // Add main content if exists
-      if (mdContent) {
-        contents.push({
-          template_id: template.id,
-          content_name: 'main',
-          md_content: mdContent
-        })
-      }
 
       // Add header and footer if they exist
       if (headerContent) {
@@ -1349,17 +1299,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     });
   };
 
-  // Add URL validation function
-  const validateWebhookUrl = (url: string): boolean => {
-    if (!url) return true; // Optional field
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
   return (
     <div className="space-y-6" dir="rtl">
       <div className="space-y-6">
@@ -1582,35 +1521,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             }}
             className="mt-2 font-mono" // Use monospace font for better number readability
           />
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">שליחת מייל</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={sendEmail}
-                onChange={(e) => setSendEmail(e.target.checked)}
-                className="w-4 h-4"
-              />
-              <span className="text-sm">שלח מייל בסיום התהליך</span>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">כתובת Webhook</label>
-            <input
-              type="text"
-              value={webhookUrl}
-              onChange={(e) => setWebhookUrl(e.target.value)}
-              className="w-full p-2 border rounded-md"
-              dir="ltr"
-              placeholder="https://your-webhook-url.com"
-            />
-            <p className="text-sm text-muted-foreground mt-1">
-              אם תוזן כתובת, יישלח POST request עם כל המידע בסיום התהליך
-            </p>
-          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4">
