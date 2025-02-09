@@ -365,7 +365,8 @@ export default function ResultsPage() {
           return `<div class="error">Invalid YouTube video ID</div>`;
         }
         
-        return `<div class="youtube-embed" style="position: relative; padding-bottom: ${aspectRatio}; height: 0; overflow: hidden; max-width: 100%; margin: 2rem 0; ${additionalStyles}"><iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+        // Create clean HTML with all styles on the container div
+        return `<div class="youtube-embed" style="position: relative; padding-bottom: ${aspectRatio}; height: 0; overflow: hidden; max-width: 100%; margin: 2rem 0; ${additionalStyles}"><iframe src="https://www.youtube.com/embed/${videoId}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
       };
 
       // Helper function to extract video ID from URL
@@ -571,13 +572,21 @@ export default function ResultsPage() {
       // Add custom component for divs to handle YouTube embeds
       div: ({ node, className, ...props }) => {
         if (className === 'youtube-embed') {
+          // Get the raw HTML content and extract both the container styles and iframe
           const rawHtml = (node as any)?.children?.[0]?.value || '';
-          const iframeMatch = rawHtml.match(/<iframe[^>]*>.*?<\/iframe>/i);
-          const html = iframeMatch ? iframeMatch[0] : rawHtml;
           
+          // Extract the style from the container div
+          const styleMatch = rawHtml.match(/style="([^"]*)"/) || [];
+          const containerStyle = styleMatch[1] || '';
+          
+          // Extract the iframe
+          const iframeMatch = rawHtml.match(/<iframe[^>]*>.*?<\/iframe>/i);
+          const iframe = iframeMatch ? iframeMatch[0] : '';
+          
+          // Combine styles
           const style = {
             position: 'relative' as const,
-            paddingBottom: props.style?.paddingBottom || '56.25%',
+            paddingBottom: containerStyle.match(/padding-bottom:\s*([\d.]+%)/)?.[1] || '56.25%',
             height: 0,
             overflow: 'hidden' as const,
             maxWidth: '100%',
@@ -585,7 +594,7 @@ export default function ResultsPage() {
             ...(props.style || {})
           };
           
-          return <div className={className} style={style} dangerouslySetInnerHTML={{ __html: html }} />;
+          return <div className={className} style={style} dangerouslySetInnerHTML={{ __html: iframe }} />;
         }
         return <div className={className} {...props} />;
       },
