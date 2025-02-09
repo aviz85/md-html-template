@@ -358,32 +358,43 @@ export default function ResultsPage() {
     const processContent = (content: string) => {
       let processedContent = content;
       
-      // Helper function to extract video ID from URL
-      const extractVideoId = (url: string): string | null => {
-        try {
-          const patterns = [
-            /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i,
-            /(?:youtube\.com\/shorts\/)([^"&?\/\s]{11})/i
-          ];
-          
-          for (const pattern of patterns) {
-            const match = url.match(pattern);
-            if (match && match[1]) return match[1];
-          }
-          return null;
-        } catch (error) {
-          console.error('Error extracting video ID:', error);
-          return null;
-        }
-      };
-
       // Helper function to create YouTube embed HTML
       const createYouTubeEmbed = (videoId: string, aspectRatio = '56.25%', additionalStyles = '') => {
         if (!videoId?.match(/^[a-zA-Z0-9_-]{11}$/)) {
           console.warn('Invalid YouTube video ID:', videoId);
           return `<div class="error">Invalid YouTube video ID</div>`;
         }
-        return `<div class="youtube-embed" style="position: relative; padding-bottom: ${aspectRatio}; height: 0; overflow: hidden; max-width: 100%; margin: 2rem 0; ${additionalStyles}"><iframe style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+        return `<div class="youtube-embed" style="position: relative; padding-bottom: ${aspectRatio}; height: 0; overflow: hidden; max-width: 100%; margin: 2rem 0; ${additionalStyles}"><iframe src="https://www.youtube.com/embed/${videoId}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+      };
+
+      // Helper function to extract video ID from URL
+      const extractVideoId = (url: string): string | null => {
+        try {
+          // Clean the URL first - remove any query parameters except v=
+          const cleanUrl = url.split('?').map((part, index) => {
+            if (index === 0) return part;
+            return part.split('&')
+              .filter(param => param.startsWith('v='))
+              .join('&');
+          }).join('?');
+
+          const patterns = [
+            /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i,
+            /(?:youtube\.com\/shorts\/)([^"&?\/\s]{11})/i
+          ];
+          
+          for (const pattern of patterns) {
+            const match = cleanUrl.match(pattern);
+            if (match && match[1]) {
+              console.log('Extracted video ID:', match[1], 'from URL:', url);
+              return match[1];
+            }
+          }
+          return null;
+        } catch (error) {
+          console.error('Error extracting video ID:', error);
+          return null;
+        }
       };
 
       // Helper function to parse style parameters - works for both images and YouTube
@@ -431,7 +442,7 @@ export default function ResultsPage() {
       };
 
       // First handle markdown-style YouTube links
-      const youtubeMarkdownRegex = /!\[(\[.*?\])\]\(((?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/).+?)\)/g;
+      const youtubeMarkdownRegex = /!\[(\[.*?\])\]\(((?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([^)\s]+))\)/g;
       processedContent = processedContent.replace(youtubeMarkdownRegex, (match, styleMatch, url) => {
         try {
           const videoId = extractVideoId(url);
@@ -445,7 +456,6 @@ export default function ResultsPage() {
           
           const result = parseStyleParams(style, true);
           if (typeof result === 'string') {
-            // This should never happen because isYouTube is true
             return createYouTubeEmbed(videoId);
           }
           
@@ -457,7 +467,7 @@ export default function ResultsPage() {
       });
 
       // Then handle regular YouTube links (excluding those already processed)
-      const youtubeRegex = /(?<!!\[.*?)(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/).+?(?=\s|$)/g;
+      const youtubeRegex = /(?<!!\[.*?)(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([^)\s]+)(?=\s|$)/g;
       processedContent = processedContent.replace(youtubeRegex, (match) => {
         try {
           const videoId = extractVideoId(match);
