@@ -1664,24 +1664,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         <TabsContent value="microCopy">
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">{TRANSLATIONS.header}</label>
-              <Textarea
-                placeholder={TRANSLATIONS.header}
-                value={headerContent}
-                onChange={(e) => setHeaderContent(e.target.value)}
-                className="mt-2"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">{TRANSLATIONS.footer}</label>
-              <Textarea
-                placeholder={TRANSLATIONS.footer}
-                value={footerContent}
-                onChange={(e) => setFooterContent(e.target.value)}
-                className="mt-2"
-              />
-            </div>
-            <div>
               <label className="text-sm font-medium">{TRANSLATIONS.openingPage}</label>
               <Textarea
                 placeholder={TRANSLATIONS.openingPage}
