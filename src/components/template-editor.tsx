@@ -413,6 +413,13 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     try {
       console.log('🔄 Starting template load process for ID:', id);
       
+      // איפוס התוכן בתחילת הפונקציה
+      setHeaderContent("")
+      setFooterContent("")
+      setOpeningPageContent("")
+      setClosingPageContent("")
+      setCustomContents([])
+      
       const { data: template, error } = await supabase
         .from('templates')
         .select('*')
@@ -426,11 +433,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       if (template) {
         setTemplateName(template.name)
         setTemplateGsheetsId(template.template_gsheets_id || "")
-        setHeaderContent("")
-        setFooterContent("")
-        setOpeningPageContent("")
-        setClosingPageContent("")
-        setCustomContents([])  // Reset custom contents first
         setCustomFonts(template.custom_fonts || [])
         
         setElementStyles(template.element_styles || {
@@ -496,19 +498,28 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         console.log('🔄 Fetching template contents for template ID:', id);
         const { data: contentsData, error: contentsError } = await supabase
           .from('template_contents')
-          .select('*') // שיניתי ל-* כדי לראות את כל השדות
+          .select('*')
           .eq('template_id', id);
 
+        // בדיקת שגיאות מפורטת יותר
         if (contentsError) {
-          console.error('❌ Error loading template contents:', contentsError);
+          console.error('❌ Error loading template contents:', {
+            error: contentsError,
+            code: contentsError.code,
+            message: contentsError.message,
+            details: contentsError.details,
+            hint: contentsError.hint
+          });
           throw contentsError;
         }
 
+        // בדיקת הנתונים שחזרו
         console.log('📦 Raw template contents query:', {
           table: 'template_contents',
           templateId: id,
           resultCount: contentsData?.length || 0,
-          fullResult: contentsData
+          fullResult: contentsData,
+          firstItem: contentsData?.[0]
         });
 
         // בדיקה האם יש נתונים בכלל
