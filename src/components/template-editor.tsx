@@ -434,6 +434,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         setTemplateName(template.name)
         setTemplateGsheetsId(template.template_gsheets_id || "")
         setCustomFonts(template.custom_fonts || [])
+        setSendEmail(template.send_email ?? true)
+        setWebhookUrl(template.webhook_url || "")
         
         setElementStyles(template.element_styles || {
           body: {
@@ -582,8 +584,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         setEmailSubject(template.email_subject || "")
         setEmailBody(template.email_body || "")
         setEmailFrom(template.email_from || "")
-        setSendEmail(template.send_email ?? true)
-        setWebhookUrl(template.webhook_url || "")
       }
     } catch (error) {
       console.error('❌ Error in loadTemplate:', error);
@@ -1577,6 +1577,32 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             }}
             className="mt-2 font-mono" // Use monospace font for better number readability
           />
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="sendEmail"
+              checked={sendEmail}
+              onChange={(e) => setSendEmail(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <label htmlFor="sendEmail" className="text-sm font-medium">
+              שלח מייל לאחר שליחת הטופס
+            </label>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">Webhook URL</label>
+            <Input
+              placeholder="https://your-webhook-url.com"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              className="mt-2 font-mono"
+              dir="ltr"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4">
