@@ -365,16 +365,8 @@ export default function ResultsPage() {
           return `<div class="error">Invalid YouTube video ID</div>`;
         }
         
-        // Simple, clean HTML structure
-        return `<div class="youtube-embed" style="position: relative; padding-bottom: ${aspectRatio}; height: 0; overflow: hidden; max-width: 100%; margin: 2rem 0; ${additionalStyles}">
-  <iframe 
-    src="https://www.youtube.com/embed/${videoId}"
-    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
-    frameborder="0"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-    allowfullscreen
-  ></iframe>
-</div>`;
+        // Compact, single-line HTML to avoid any whitespace issues
+        return `<div class="youtube-embed" style="position: relative; padding-bottom: ${aspectRatio}; height: 0; overflow: hidden; max-width: 100%; margin: 2rem 0; ${additionalStyles}"><iframe src="https://www.youtube.com/embed/${videoId}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
       };
 
       // Helper function to extract video ID from URL
@@ -577,6 +569,14 @@ export default function ResultsPage() {
 
     const markdownComponents: Components = {
       img: ImageRenderer,
+      // Add custom component for divs to handle YouTube embeds
+      div: ({ node, className, ...props }) => {
+        if (className === 'youtube-embed') {
+          // This ensures the HTML inside youtube-embed divs is rendered properly
+          return <div className={className} {...props} dangerouslySetInnerHTML={{ __html: node?.children?.[0]?.value || '' }} />;
+        }
+        return <div className={className} {...props} />;
+      },
       h1: ({ node, children, ...props }) => (
         <motion.h1 
           style={{ 
