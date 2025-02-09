@@ -1479,6 +1479,35 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           />
         </div>
 
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">שליחת מייל</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={sendEmail}
+                onChange={(e) => setSendEmail(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span className="text-sm">שלח מייל בסיום התהליך</span>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">כתובת Webhook</label>
+            <input
+              type="text"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              className="w-full p-2 border rounded-md"
+              dir="ltr"
+              placeholder="https://your-webhook-url.com"
+            />
+            <p className="text-sm text-muted-foreground mt-1">
+              אם תוזן כתובת, יישלח POST request עם כל המידע בסיום התהליך
+            </p>
+          </div>
+        </div>
+
         <div className="grid grid-cols-3 gap-4">
           <ColorPicker
             id="mainBackground"
@@ -1707,32 +1736,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                       dir="rtl"
                       placeholder="נושא המייל שיישלח"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">שליחת מייל</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={sendEmail}
-                        onChange={(e) => setSendEmail(e.target.checked)}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm">שלח מייל בסיום התהליך</span>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">כתובת Webhook</label>
-                    <input
-                      type="text"
-                      value={webhookUrl}
-                      onChange={(e) => setWebhookUrl(e.target.value)}
-                      className="w-full p-2 border rounded-md"
-                      dir="ltr"
-                      placeholder="https://your-webhook-url.com"
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">
-                      אם תוזן כתובת, יישלח POST request עם כל המידע בסיום התהליך
-                    </p>
                   </div>
                 </div>
               </div>
