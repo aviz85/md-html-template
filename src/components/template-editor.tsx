@@ -65,6 +65,8 @@ interface Template {
   email_subject?: string
   email_body?: string
   email_from?: string
+  send_email?: boolean
+  webhook_url?: string
 }
 
 interface SubmissionStatus {
@@ -195,6 +197,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const [isMediaUploading, setIsMediaUploading] = useState(false)
   const [showMediaInstructions, setShowMediaInstructions] = useState(false)
   const [template, setTemplate] = useState<Template | null>(null)
+  const [sendEmail, setSendEmail] = useState(true)
+  const [webhookUrl, setWebhookUrl] = useState("")
 
   useEffect(() => {
     if (templateId) {
@@ -407,6 +411,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
   const loadTemplate = async (id: string) => {
     try {
+      console.log('🔄 Starting template load process for ID:', id);
+      
       const { data: template, error } = await supabase
         .from('templates')
         .select('*')
@@ -415,8 +421,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
       if (error) throw error;
 
-      console.log('Loaded template:', template);
-      console.log('Template form_id:', template.form_id);
+      console.log('📋 Loaded template base data:', template);
       
       if (template) {
         setTemplateName(template.name)
@@ -488,26 +493,45 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         }
         
         // Load template contents
+        console.log('🔄 Fetching template contents...');
         const { data: contentsData, error: contentsError } = await supabase
           .from('template_contents')
           .select('content_name, md_content')
           .eq('template_id', id)
 
+        if (contentsError) {
+          console.error('❌ Error loading template contents:', contentsError);
+          throw contentsError;
+        }
+
+        console.log('📦 Raw template contents data:', contentsData);
+
         if (!contentsError && contentsData) {
           // Create a Map to store unique contents
           const customContentMap = new Map()
           
+          console.log('🔄 Processing template contents...');
           contentsData.forEach(content => {
+            console.log(`📄 Processing content: ${content.content_name}`, {
+              contentLength: content.md_content?.length || 0,
+              firstChars: content.md_content?.substring(0, 50)
+            });
+
             if (content.content_name === 'header') {
+              console.log('📝 Setting header content');
               setHeaderContent(content.md_content)
             } else if (content.content_name === 'footer') {
+              console.log('📝 Setting footer content');
               setFooterContent(content.md_content)
             } else if (content.content_name === 'opening_page') {
+              console.log('📝 Setting opening page content');
               setOpeningPageContent(content.md_content)
             } else if (content.content_name === 'closing_page') {
+              console.log('📝 Setting closing page content');
               setClosingPageContent(content.md_content)
             } else if (content.content_name.startsWith('custom_')) {
               const name = content.content_name.replace('custom_', '')
+              console.log(`📝 Adding custom content: ${name}`);
               // Use Map to ensure uniqueness
               customContentMap.set(name, {
                 name,
@@ -517,8 +541,12 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           })
           
           // Convert Map values to array and set state
-          setCustomContents(Array.from(customContentMap.values()))
+          const customContentsArray = Array.from(customContentMap.values())
+          console.log('📦 Final custom contents:', customContentsArray);
+          setCustomContents(customContentsArray)
         }
+
+        console.log('✅ Template contents load complete');
 
         setFormId(template.form_id || '')
         setStyles({
@@ -530,9 +558,11 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         setEmailSubject(template.email_subject || "")
         setEmailBody(template.email_body || "")
         setEmailFrom(template.email_from || "")
+        setSendEmail(template.send_email ?? true)
+        setWebhookUrl(template.webhook_url || "")
       }
     } catch (error) {
-      console.error('Error loading template:', error)
+      console.error('❌ Error in loadTemplate:', error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -778,6 +808,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           email_subject: emailSubject,
           email_body: emailBody,
           email_from: emailFrom,
+          send_email: sendEmail,
+          webhook_url: webhookUrl,
         })
         .select()
         .single()
