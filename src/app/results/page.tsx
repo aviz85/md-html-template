@@ -572,8 +572,10 @@ export default function ResultsPage() {
       // Add custom component for divs to handle YouTube embeds
       div: ({ node, className, ...props }) => {
         if (className === 'youtube-embed') {
-          // This ensures the HTML inside youtube-embed divs is rendered properly
-          return <div className={className} {...props} dangerouslySetInnerHTML={{ __html: node?.children?.[0]?.value || '' }} />;
+          // Get the raw HTML content
+          const html = (node as any)?.children?.[0]?.value || 
+                      (node as any)?.children?.[0]?.children?.[0]?.value || '';
+          return <div className={className} {...props} dangerouslySetInnerHTML={{ __html: html }} />;
         }
         return <div className={className} {...props} />;
       },
