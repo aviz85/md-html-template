@@ -411,6 +411,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
   const loadTemplate = async (id: string) => {
     try {
+      // Fetch template data
       const { data: template, error } = await supabase
         .from('templates')
         .select('*')
@@ -424,7 +425,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       
       if (template) {
         // Set basic template info
-        setTemplateName(template.name)
+        setTemplateName(template.name || '')
         setTemplateGsheetsId(template.template_gsheets_id || '')
         setFormId(template.form_id || '')
         
@@ -434,50 +435,50 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         setEmailFrom(template.email_from || '')
         setSendEmail(template.send_email !== false)  // Default to true if not set
         setWebhookUrl(template.webhook_url || '')
-        
-        // Load template contents BEFORE setting them
+
+        // Load template contents BEFORE resetting states
         const { data: contentsData, error: contentsError } = await supabase
           .from('template_contents')
           .select('content_name, md_content')
           .eq('template_id', id)
 
-        // Reset contents only after we have the new data
-        setHeaderContent('')
-        setFooterContent('')
-        setOpeningPageContent('')
-        setClosingPageContent('')
-        setCustomContents([])
-
-        if (!contentsError && contentsData) {
+        if (contentsError) {
+          console.error('Error loading template contents:', contentsError)
+        } else if (contentsData) {
           // Create a Map to store unique contents
           const customContentMap = new Map()
           
           contentsData.forEach(content => {
-            if (content.content_name === 'header') {
-              setHeaderContent(content.md_content || '')
-            } else if (content.content_name === 'footer') {
-              setFooterContent(content.md_content || '')
-            } else if (content.content_name === 'opening_page') {
-              setOpeningPageContent(content.md_content || '')
-            } else if (content.content_name === 'closing_page') {
-              setClosingPageContent(content.md_content || '')
-            } else if (content.content_name.startsWith('custom_')) {
-              const name = content.content_name.replace('custom_', '')
-              customContentMap.set(name, {
-                name,
-                content: content.md_content
-              })
+            switch(content.content_name) {
+              case 'header':
+                setHeaderContent(content.md_content || '')
+                break
+              case 'footer':
+                setFooterContent(content.md_content || '')
+                break
+              case 'opening_page':
+                setOpeningPageContent(content.md_content || '')
+                break
+              case 'closing_page':
+                setClosingPageContent(content.md_content || '')
+                break
+              default:
+                if (content.content_name.startsWith('custom_')) {
+                  const name = content.content_name.replace('custom_', '')
+                  customContentMap.set(name, {
+                    name,
+                    content: content.md_content || ''
+                  })
+                }
             }
           })
           
           // Convert Map values to array and set state
           setCustomContents(Array.from(customContentMap.values()))
-        } else if (contentsError) {
-          console.error('Error loading template contents:', contentsError)
         }
 
         // Set element styles with all required fields
-        setElementStyles(template.element_styles || {
+        const defaultStyles = {
           body: {
             backgroundColor: template.styles?.bodyBackground || '#ffffff'
           },
@@ -505,6 +506,11 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           prose: {
             backgroundColor: template.styles?.contentBackground || '#ffffff'
           }
+        }
+
+        setElementStyles({
+          ...defaultStyles,
+          ...template.element_styles
         })
 
         // Set styles
