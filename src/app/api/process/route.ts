@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { findEmailInFormData, replaceVariables, sendEmail } from '@/lib/email'
+import { sendWebhook } from '@/lib/webhook'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -151,76 +152,93 @@ async function handleRequest(req: Request) {
               };
             }
 
-            console.log('✉️ Found recipient email:', recipientEmail);
-            
-            const emailHtml = replaceVariables(template.email_body, {
-              ...submission.content,
-              submission: {
-                created_at: submission.created_at,
-                id: submission.submission_id,
-                form_id: submission.form_id
+            // Only send email if send_email is not false
+            if (template.send_email !== false) {
+              console.log('✉️ Found recipient email:', recipientEmail);
+              
+              const emailHtml = replaceVariables(template.email_body, {
+                ...submission.content,
+                submission: {
+                  created_at: submission.created_at,
+                  id: submission.submission_id,
+                  form_id: submission.form_id
+                }
+              });
+
+              const emailSubject = replaceVariables(template.email_subject, {
+                ...submission.content,
+                submission: {
+                  created_at: submission.created_at,
+                  id: submission.submission_id,
+                  form_id: submission.form_id
+                }
+              });
+
+              // Use template name as display name, and email from editor or default
+              const defaultEmail = 'no-reply@reports.vocalvault.ai';
+              // Ensure valid email format and use default if empty or invalid
+              const senderEmail = template.email_from?.trim()?.includes('@') 
+                ? template.email_from.trim() 
+                : defaultEmail;
+              
+              // Ensure email format is valid for Mailgun
+              const formattedSender = template.name 
+                ? `"${template.name.replace(/"/g, '')}" <${senderEmail}>`  // Escape quotes in name
+                : `"VocalVault Reports" <${senderEmail}>`;  // Always include display name
+
+              console.log('📧 Attempting to send email:', {
+                to: recipientEmail,
+                from: formattedSender,
+                subject: emailSubject.substring(0, 50) + '...',
+                submissionId: submission.id
+              });
+
+              // Update DB that we're attempting to send email
+              await supabaseAdmin
+                .from('form_submissions')
+                .update({
+                  email_status: 'sending',
+                  recipient_email: recipientEmail,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('submission_id', submissionId);
+
+              await sendEmail({
+                to: recipientEmail,
+                from: formattedSender,
+                subject: emailSubject,
+                html: emailHtml,
+                submissionId: submission.id
+              });
+
+              // Update DB that email was sent successfully
+              await supabaseAdmin
+                .from('form_submissions')
+                .update({
+                  email_status: 'sent',
+                  email_sent_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                })
+                .eq('submission_id', submissionId);
+
+              console.log('✅ Email sent successfully');
+            } else {
+              console.log('📫 Email sending disabled for this template');
+            }
+
+            // Handle webhook if configured
+            if (template.webhook_url) {
+              try {
+                console.log('🔔 Sending webhook for submission:', submissionId);
+                await sendWebhook(submissionId);
+                console.log('✅ Webhook sent successfully');
+              } catch (webhookError) {
+                console.error('❌ Webhook error:', webhookError);
+                // Don't throw - we want to continue even if webhook fails
               }
-            });
+            }
 
-            const emailSubject = replaceVariables(template.email_subject, {
-              ...submission.content,
-              submission: {
-                created_at: submission.created_at,
-                id: submission.submission_id,
-                form_id: submission.form_id
-              }
-            });
-
-            // Use template name as display name, and email from editor or default
-            const defaultEmail = 'no-reply@reports.vocalvault.ai';
-            // Ensure valid email format and use default if empty or invalid
-            const senderEmail = template.email_from?.trim()?.includes('@') 
-              ? template.email_from.trim() 
-              : defaultEmail;
-            
-            // Ensure email format is valid for Mailgun
-            const formattedSender = template.name 
-              ? `"${template.name.replace(/"/g, '')}" <${senderEmail}>`  // Escape quotes in name
-              : `"VocalVault Reports" <${senderEmail}>`;  // Always include display name
-
-            console.log('📧 Attempting to send email:', {
-              to: recipientEmail,
-              from: formattedSender,
-              subject: emailSubject.substring(0, 50) + '...',
-              submissionId: submission.id
-            });
-
-            // Update DB that we're attempting to send email
-            await supabaseAdmin
-              .from('form_submissions')
-              .update({
-                email_status: 'sending',
-                recipient_email: recipientEmail,
-                updated_at: new Date().toISOString()
-              })
-              .eq('submission_id', submissionId);
-
-            await sendEmail({
-              to: recipientEmail,
-              from: formattedSender,
-              subject: emailSubject,
-              html: emailHtml,
-              submissionId: submission.id
-            });
-
-            // Update DB that email was sent successfully
-            await supabaseAdmin
-              .from('form_submissions')
-              .update({
-                email_status: 'sent',
-                email_sent_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              })
-              .eq('submission_id', submissionId);
-
-            console.log('✅ Email sent successfully');
-
-            // Even if email fails, we keep the completed status from processSubmission
+            // Even if email or webhook fails, we keep the completed status from processSubmission
             return {
               message: 'Processing completed',
               submissionId,
