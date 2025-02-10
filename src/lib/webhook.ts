@@ -21,41 +21,61 @@ interface WebhookPayload {
 // Helper function to find customer details in form data
 function findCustomerDetails(formData: any): WebhookPayload['customer'] {
   const customer: WebhookPayload['customer'] = {};
+  console.log('Starting customer details search in formData:', formData);
 
   // בדיקת שדה pretty
   if (formData.pretty && typeof formData.pretty === 'string') {
-    const fields = formData.pretty.split(',').map(field => field.trim());
+    console.log('Found pretty field:', formData.pretty);
+    const fields = formData.pretty.split(',').map((field: string) => field.trim());
+    console.log('Split pretty fields:', fields);
     
     for (const field of fields) {
-      // פיצול לפי הנקודתיים הראשונות
       const [key, ...rest] = field.split(':');
-      const value = rest.join(':').trim(); // מאחד חזרה את שאר החלקים למקרה שיש עוד נקודתיים
+      const value = rest.join(':').trim();
       
-      if (!key || !value) continue;
+      if (!key || !value) {
+        console.log('Skipping empty field:', { key, value });
+        continue;
+      }
 
       const cleanKey = key.trim();
+      console.log('Processing pretty field:', { cleanKey, value });
 
-      // בדיקות מדויקות לפי הפורמט שלך
       if (cleanKey === 'שם מלא') {
         customer.name = value;
+        console.log('Found name in pretty:', value);
       }
       else if (cleanKey === 'אימייל') {
         customer.email = value;
+        console.log('Found email in pretty:', value);
       }
       else if (cleanKey === 'מספר טלפון') {
-        // ניקוי סוגריים ומקפים
         customer.phone = value.replace(/[^\d]/g, '');
+        console.log('Found phone in pretty:', { original: value, cleaned: customer.phone });
       }
     }
 
     // אם מצאנו את כל הפרטים ב-pretty, נחזיר
     if (customer.name && customer.email && customer.phone) {
+      console.log('Found all details in pretty field:', customer);
+      
       // ניקוי מספר טלפון
       if (customer.phone.startsWith('972')) {
+        const oldPhone = customer.phone;
         customer.phone = '0' + customer.phone.slice(3);
+        console.log('Cleaned phone number:', { from: oldPhone, to: customer.phone });
       }
+      
       return customer;
+    } else {
+      console.log('Missing some details in pretty field:', {
+        foundName: !!customer.name,
+        foundEmail: !!customer.email,
+        foundPhone: !!customer.phone
+      });
     }
+  } else {
+    console.log('No pretty field found or invalid type:', formData.pretty);
   }
 
   // Common field patterns for customer information
