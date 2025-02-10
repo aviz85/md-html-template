@@ -131,23 +131,28 @@ export async function sendWebhook(submissionId: string): Promise<void> {
     console.log('Starting webhook process for submission:', submissionId);
     
     // Fetch submission and template data
-    const { data: submission, error } = await supabaseAdmin
+    const { data: submission } = await supabaseAdmin
       .from('form_submissions')
-      .select('*, templates!inner(*)')
+      .select(`
+        *,
+        template:templates!left (
+          id,
+          webhook_url,
+          send_email,
+          email_subject,
+          email_body,
+          email_from
+        )
+      `)
       .eq('submission_id', submissionId)
       .single();
-
-    if (error) {
-      console.error('Error fetching submission:', error);
-      throw error;
-    }
 
     if (!submission) {
       console.error('No submission found for ID:', submissionId);
       throw new Error('Submission not found');
     }
 
-    if (!submission?.templates?.webhook_url) {
+    if (!submission?.template?.webhook_url) {
       console.log('No webhook URL configured for template');
       return;
     }
@@ -161,7 +166,7 @@ export async function sendWebhook(submissionId: string): Promise<void> {
       throw new Error('Submission ID mismatch');
     }
 
-    const webhookUrl = submission.templates.webhook_url;
+    const webhookUrl = submission.template.webhook_url;
     const formData = submission.content?.form_data || submission.content || {};
     const customer = findCustomerDetails(formData);
 
