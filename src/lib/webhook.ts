@@ -22,6 +22,42 @@ interface WebhookPayload {
 function findCustomerDetails(formData: any): WebhookPayload['customer'] {
   const customer: WebhookPayload['customer'] = {};
 
+  // בדיקת שדה pretty
+  if (formData.pretty && typeof formData.pretty === 'string') {
+    const fields = formData.pretty.split(',').map(field => field.trim());
+    
+    for (const field of fields) {
+      // פיצול לפי הנקודתיים הראשונות
+      const [key, ...rest] = field.split(':');
+      const value = rest.join(':').trim(); // מאחד חזרה את שאר החלקים למקרה שיש עוד נקודתיים
+      
+      if (!key || !value) continue;
+
+      const cleanKey = key.trim();
+
+      // בדיקות מדויקות לפי הפורמט שלך
+      if (cleanKey === 'שם מלא') {
+        customer.name = value;
+      }
+      else if (cleanKey === 'אימייל') {
+        customer.email = value;
+      }
+      else if (cleanKey === 'מספר טלפון') {
+        // ניקוי סוגריים ומקפים
+        customer.phone = value.replace(/[^\d]/g, '');
+      }
+    }
+
+    // אם מצאנו את כל הפרטים ב-pretty, נחזיר
+    if (customer.name && customer.email && customer.phone) {
+      // ניקוי מספר טלפון
+      if (customer.phone.startsWith('972')) {
+        customer.phone = '0' + customer.phone.slice(3);
+      }
+      return customer;
+    }
+  }
+
   // Common field patterns for customer information
   const patterns = {
     name: [
