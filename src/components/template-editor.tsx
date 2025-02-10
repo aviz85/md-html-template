@@ -1711,7 +1711,41 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           <div className="flex h-full">
             {/* Sidebar */}
             <div className="w-1/4 bg-muted border-l overflow-y-auto">
-              <nav className="p-2">
+              <div className="p-2">
+                <Button 
+                  variant="outline" 
+                  className="w-full mb-4"
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/templates/refresh-css', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ templateId })
+                      });
+
+                      if (!response.ok) {
+                        throw new Error('Failed to refresh CSS');
+                      }
+
+                      toast({
+                        title: "הצלחה",
+                        description: "ה-CSS עודכן בהצלחה"
+                      });
+                    } catch (error) {
+                      console.error('Error refreshing CSS:', error);
+                      toast({
+                        variant: "destructive",
+                        title: "שגיאה",
+                        description: "שגיאה בעדכון ה-CSS"
+                      });
+                    }
+                  }}
+                >
+                  רענן CSS
+                </Button>
+
                 {/* General & Layout */}
                 <div className="space-y-1">
                   <button
@@ -1786,7 +1820,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                     {TRANSLATIONS.list}
                   </button>
                 </div>
-              </nav>
+              </div>
             </div>
 
             {/* Style Editor */}
