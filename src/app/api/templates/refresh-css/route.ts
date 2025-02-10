@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { generateHtmlTemplate } from '@/lib/constants'
+import { generateHtmlTemplate, generateGoogleFontsUrl, generateCustomFontFaces, extractUsedFonts } from '@/lib/constants'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,10 +14,10 @@ export async function POST(req: Request) {
       return new Response('Template ID is required', { status: 400 })
     }
 
-    // Get template
+    // Get template with all required fields
     const { data: template, error: templateError } = await supabase
       .from('templates')
-      .select('element_styles')
+      .select('element_styles, custom_fonts')
       .eq('id', templateId)
       .single()
 
@@ -30,8 +30,29 @@ export async function POST(req: Request) {
       return new Response('No element styles found', { status: 404 })
     }
 
-    // Generate CSS from element styles
-    const css = generateHtmlTemplate({ elementStyles: template.element_styles }).css
+    // Extract used fonts from element styles
+    const usedFonts = extractUsedFonts(template.element_styles)
+    
+    // Generate Google Fonts URL
+    const googleFontsUrl = generateGoogleFontsUrl(usedFonts)
+    
+    // Generate custom font faces CSS
+    const customFontFaces = generateCustomFontFaces(template.custom_fonts || [])
+
+    // Generate full template HTML (which includes the CSS)
+    const generatedTemplate = generateHtmlTemplate(
+      '', // Empty content since we only need the CSS
+      template.element_styles,
+      googleFontsUrl,
+      customFontFaces
+    )
+
+    // Extract just the CSS part
+    const css = generatedTemplate.match(/<style[^>]*>([\s\S]*?)<\/style>/)?.[1]?.trim()
+
+    if (!css) {
+      return new Response('Failed to extract CSS', { status: 500 })
+    }
 
     // Update template with new CSS
     const { error: updateError } = await supabase
