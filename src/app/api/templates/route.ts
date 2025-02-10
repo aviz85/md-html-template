@@ -110,4 +110,25 @@ export async function PATCH(req: Request) {
     console.error('Error:', error)
     return new Response('Error updating template', { status: 500 })
   }
+}
+
+export async function GET() {
+  try {
+    const { data: templates, error } = await supabase
+      .from('templates')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching templates:', error)
+      return new Response('Error fetching templates', { status: 500 })
+    }
+
+    return new Response(JSON.stringify(templates), {
+      headers: { 'content-type': 'application/json' }
+    })
+  } catch (error) {
+    console.error('Error:', error)
+    return new Response('Error fetching templates', { status: 500 })
+  }
 } 
