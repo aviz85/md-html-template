@@ -116,7 +116,15 @@ export async function GET() {
   try {
     const { data: templates, error } = await supabase
       .from('templates')
-      .select('*')
+      .select(`
+        *,
+        template_contents (
+          id,
+          content_name,
+          md_content,
+          created_at
+        )
+      `)
       .order('created_at', { ascending: false })
 
     if (error) {

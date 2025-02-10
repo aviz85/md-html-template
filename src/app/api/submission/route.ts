@@ -54,8 +54,10 @@ export async function GET(request: Request) {
     const { data: submission, error: submissionError } = await supabase
       .from('form_submissions')
       .select('*')
-      .eq('submission_id', submissionId)
-      .single();
+      .or(`form_id.eq.${submissionId},submission_id.eq.${submissionId}`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     console.log('Submission query result:', { submission, error: submissionError });
 
@@ -76,23 +78,16 @@ export async function GET(request: Request) {
     const { data: template, error: templateError } = await supabase
       .from('templates')
       .select(`
-        id,
-        name,
-        form_id,
-        show_logo,
-        logo_position,
-        css,
-        element_styles,
-        header_content,
-        footer_content,
-        custom_fonts,
-        logo:logos!inner(
+        *,
+        logo:logos(
           id,
           file_path
         ),
         template_contents(
+          id,
           content_name,
-          md_content
+          md_content,
+          created_at
         )
       `)
       .eq('form_id', submission.form_id)
@@ -183,9 +178,86 @@ export async function GET(request: Request) {
         logo_position: 'top-left',
         logo: null,
         element_styles: {
-          body: {},
-          h1: {},
-          p: {},
+          body: {
+            backgroundColor: '#ffffff',
+            color: '#333333',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            fontSize: '16px',
+            lineHeight: '1.5'
+          },
+          h1: {
+            fontSize: '2.5rem',
+            fontWeight: 'bold',
+            color: '#1a1a1a',
+            marginBottom: '1.5rem',
+            lineHeight: '1.2'
+          },
+          h2: {
+            fontSize: '2rem',
+            fontWeight: 'bold',
+            color: '#1a1a1a',
+            marginTop: '2rem',
+            marginBottom: '1rem',
+            lineHeight: '1.3'
+          },
+          h3: {
+            fontSize: '1.75rem',
+            fontWeight: 'bold',
+            color: '#1a1a1a',
+            marginTop: '1.5rem',
+            marginBottom: '0.75rem',
+            lineHeight: '1.4'
+          },
+          h4: {
+            fontSize: '1.5rem',
+            fontWeight: 'bold',
+            color: '#1a1a1a',
+            marginTop: '1.25rem',
+            marginBottom: '0.5rem'
+          },
+          h5: {
+            fontSize: '1.25rem',
+            fontWeight: 'bold',
+            color: '#1a1a1a',
+            marginTop: '1rem',
+            marginBottom: '0.5rem'
+          },
+          h6: {
+            fontSize: '1.1rem',
+            fontWeight: 'bold',
+            color: '#1a1a1a',
+            marginTop: '0.75rem',
+            marginBottom: '0.5rem'
+          },
+          p: {
+            marginBottom: '1rem',
+            lineHeight: '1.7'
+          },
+          list: {
+            marginLeft: '1.5rem',
+            marginBottom: '1rem'
+          },
+          main: {
+            maxWidth: '800px',
+            margin: '0 auto',
+            padding: '2rem'
+          },
+          prose: {
+            color: '#333333'
+          },
+          header: {
+            showLogo: false,
+            logoWidth: '100px',
+            logoHeight: 'auto',
+            logoMargin: '1rem',
+            logoPosition: 'top-right'
+          },
+          specialParagraph: {}
+        },
+        styles: {
+          bodyBackground: '#ffffff',
+          mainBackground: '#ffffff',
+          contentBackground: '#ffffff'
         }
       }
     };

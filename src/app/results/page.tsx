@@ -743,13 +743,26 @@ export default function ResultsPage() {
     return (
       <motion.div 
         className="my-8 fade-in"
+        style={{
+          ...template?.element_styles?.main,
+          backgroundColor: template?.styles?.mainBackground
+        }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
+        {/* Add direct CSS from template */}
+        {template?.css && (
+          <style dangerouslySetInnerHTML={{ __html: template.css }} />
+        )}
+        
         {template?.opening_page_content && (
           <motion.div 
             className="prose prose-lg max-w-none mb-12"
+            style={{
+              ...template?.element_styles?.prose,
+              backgroundColor: template?.styles?.contentBackground
+            }}
             initial="hidden"
             animate="visible"
             variants={contentVariants}
@@ -792,6 +805,10 @@ export default function ResultsPage() {
             <motion.div 
               key={index} 
               className={`prose prose-lg max-w-none ${index > 0 ? 'mt-12' : ''}`}
+              style={{
+                ...template?.element_styles?.prose,
+                backgroundColor: template?.styles?.contentBackground
+              }}
               initial="hidden"
               animate="visible"
               variants={contentVariants}
@@ -831,6 +848,10 @@ export default function ResultsPage() {
         ) : (
           <motion.div 
             className="prose prose-lg max-w-none"
+            style={{
+              ...template?.element_styles?.prose,
+              backgroundColor: template?.styles?.contentBackground
+            }}
             initial="hidden"
             animate="visible"
             variants={contentVariants}
