@@ -49,7 +49,7 @@ function findCustomerDetails(formData: any): WebhookPayload['customer'] {
         customer.email = value;
         console.log('Found email in pretty:', value);
       }
-      else if (cleanKey === 'מספר טלפון') {
+      else if (cleanKey === 'מספר טלפון' || cleanKey === 'טלפון נייד') {
         customer.phone = value.replace(/[^\d]/g, '');
         console.log('Found phone in pretty:', { original: value, cleaned: customer.phone });
       }
@@ -96,7 +96,9 @@ function findCustomerDetails(formData: any): WebhookPayload['customer'] {
       /^(phone|mobile|tel|טלפון|נייד)$/i,
       /(^|_)(phone|mobile|tel)($|_)/i,
       /טלפון.*נייד/i,
-      /מספר.*טלפון/i
+      /מספר.*טלפון/i,
+      /^טלפון נייד$/i,
+      /^מספר טלפון$/i
     ]
   };
 
@@ -108,7 +110,10 @@ function findCustomerDetails(formData: any): WebhookPayload['customer'] {
 
   // Helper function to check if a string is a valid phone number
   const isPhoneNumber = (str: string): boolean => {
-    return /^[\d\-+() ]{9,}$/.test(str.trim());
+    // Remove all formatting characters first
+    const cleaned = str.replace(/[\s\-()]/g, '');
+    // Check if it's a valid phone number format
+    return /^(?:\+?972|0)\d{8,9}$/.test(cleaned);
   };
 
   // Helper function to check if a string is a valid email
@@ -172,10 +177,25 @@ function findCustomerDetails(formData: any): WebhookPayload['customer'] {
 
   // Clean up phone number format
   if (customer.phone) {
-    customer.phone = customer.phone.replace(/[^\d+]/g, '');
-    if (customer.phone.startsWith('972')) {
-      customer.phone = '0' + customer.phone.slice(3);
+    // First remove formatting chars but keep + prefix
+    let cleaned = customer.phone.replace(/[\s\-()]/g, '');
+    
+    // Handle international format
+    if (cleaned.startsWith('+')) {
+      cleaned = cleaned.slice(1);
     }
+    
+    // Convert 972 prefix to 0
+    if (cleaned.startsWith('972')) {
+      cleaned = '0' + cleaned.slice(3);
+    }
+    
+    // Ensure starts with 0
+    if (!cleaned.startsWith('0')) {
+      cleaned = '0' + cleaned;
+    }
+    
+    customer.phone = cleaned;
   }
 
   console.log('Found customer details:', customer);

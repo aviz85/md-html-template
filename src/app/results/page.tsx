@@ -592,8 +592,7 @@ export default function ResultsPage() {
         <motion.h1 
           style={{ 
             ...template?.element_styles?.h1,
-            marginTop: template?.element_styles?.h1?.margin ? undefined : '2rem',
-            marginBottom: template?.element_styles?.h1?.margin ? undefined : '1rem'
+            margin: template?.element_styles?.h1?.margin
           }}
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -606,8 +605,7 @@ export default function ResultsPage() {
         <motion.h2 
           style={{ 
             ...template?.element_styles?.h2,
-            marginTop: template?.element_styles?.h2?.margin ? undefined : '1.5rem',
-            marginBottom: template?.element_styles?.h2?.margin ? undefined : '0.75rem'
+            margin: template?.element_styles?.h2?.margin
           }}
           initial={{ opacity: 0, x: -15 }}
           animate={{ opacity: 1, x: 0 }}
@@ -620,8 +618,7 @@ export default function ResultsPage() {
         <motion.h3 
           style={{ 
             ...template?.element_styles?.h3,
-            marginTop: template?.element_styles?.h3?.margin ? undefined : '1.25rem',
-            marginBottom: template?.element_styles?.h3?.margin ? undefined : '0.5rem'
+            margin: template?.element_styles?.h3?.margin
           }}
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
@@ -634,8 +631,7 @@ export default function ResultsPage() {
         <motion.h4 
           style={{ 
             ...template?.element_styles?.h4,
-            marginTop: template?.element_styles?.h4?.margin ? undefined : '1rem',
-            marginBottom: template?.element_styles?.h4?.margin ? undefined : '0.5rem'
+            margin: template?.element_styles?.h4?.margin
           }}
           initial={{ opacity: 0, x: -5 }}
           animate={{ opacity: 1, x: 0 }}
@@ -648,8 +644,7 @@ export default function ResultsPage() {
         <motion.h5 
           style={{ 
             ...template?.element_styles?.h5,
-            marginTop: template?.element_styles?.h5?.margin ? undefined : '0.75rem',
-            marginBottom: template?.element_styles?.h5?.margin ? undefined : '0.5rem'
+            margin: template?.element_styles?.h5?.margin
           }}
           initial={{ opacity: 0, x: -3 }}
           animate={{ opacity: 1, x: 0 }}
@@ -662,8 +657,7 @@ export default function ResultsPage() {
         <motion.h6 
           style={{ 
             ...template?.element_styles?.h6,
-            marginTop: template?.element_styles?.h6?.margin ? undefined : '0.5rem',
-            marginBottom: template?.element_styles?.h6?.margin ? undefined : '0.5rem'
+            margin: template?.element_styles?.h6?.margin
           }}
           initial={{ opacity: 0, x: -2 }}
           animate={{ opacity: 1, x: 0 }}

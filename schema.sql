@@ -16,7 +16,8 @@ CREATE TABLE templates (
     footer_content TEXT,
     opening_page_content TEXT,
     closing_page_content TEXT,
-    custom_fonts JSONB
+    custom_fonts JSONB,
+    element_styles JSONB
 );
 
 -- Static MD content linked to templates
@@ -154,4 +155,58 @@ CREATE POLICY "Allow viewing raw submissions" ON raw_submissions
 
 CREATE POLICY "Allow anonymous insert to raw" ON raw_submissions
     FOR INSERT TO anon
-    WITH CHECK (true); 
+    WITH CHECK (true);
+
+-- Function to generate CSS from element_styles
+CREATE OR REPLACE FUNCTION generate_css_from_styles()
+RETURNS TRIGGER AS $$
+DECLARE
+  css_output TEXT := '';
+  element_key TEXT;
+  style_obj JSONB;
+  style_key TEXT;
+  style_value TEXT;
+BEGIN
+  -- Loop through each element in element_styles
+  FOR element_key, style_obj IN SELECT * FROM jsonb_each(NEW.element_styles)
+  LOOP
+    -- Convert element name to CSS selector
+    css_output := css_output || 
+      CASE element_key
+        WHEN 'specialParagraph' THEN E'.special-paragraph {\n'
+        WHEN 'header' THEN E'.header {\n'
+        WHEN 'footer' THEN E'.footer {\n'
+        WHEN 'main' THEN E'.main {\n'
+        WHEN 'prose' THEN E'.prose {\n'
+        ELSE element_key || E' {\n'
+      END;
+    
+    -- Add each style property
+    FOR style_key, style_value IN SELECT * FROM jsonb_each_text(style_obj)
+    LOOP
+      -- Skip certain properties that shouldn't be in CSS
+      IF style_key NOT IN ('showLogo', 'showLogoOnAllPages') THEN
+        -- Convert camelCase to kebab-case
+        css_output := css_output || E'  ' || 
+          regexp_replace(style_key, '([a-z0-9])([A-Z])', '\1-\2', 'g') || ': ' || 
+          style_value || E';\n';
+      END IF;
+    END LOOP;
+    
+    css_output := css_output || E'}\n\n';
+  END LOOP;
+
+  -- Update the css column
+  NEW.css := css_output;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger to update CSS when element_styles changes
+DROP TRIGGER IF EXISTS update_css_on_styles_change ON templates;
+CREATE TRIGGER update_css_on_styles_change
+  BEFORE INSERT OR UPDATE OF element_styles
+  ON templates
+  FOR EACH ROW
+  EXECUTE FUNCTION generate_css_from_styles(); 
