@@ -195,7 +195,11 @@ async function callClaude(messages: Message[], submissionId: string): Promise<Cl
   });
 
   try {
-    return await Promise.race([claudePromise, timeoutPromise]);
+    const response = await Promise.race([claudePromise, timeoutPromise]);
+    // Track tokens separately
+    inputTokens += response.usage?.input_tokens || 0;
+    outputTokens += response.usage?.output_tokens || 0;
+    return response;
   } catch (error) {
     if (error instanceof Error && error.message.includes('Timeout')) {
       await supabaseAdmin
@@ -273,7 +277,8 @@ async function updateProgress(submissionId: string, stage: string, message: stri
 export async function processSubmission(submissionId: string) {
   let submissionUUID: string | null = null;
   let messages: Message[] = [];
-  let totalTokens = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
   let msg: ClaudeMessage;
   
   try {
@@ -412,7 +417,6 @@ export async function processSubmission(submissionId: string) {
     );
     
     claudeResponses.push(msg);
-    totalTokens += estimateTokens(firstResponse);
 
     // Process remaining prompts with validation
     for (let i = 1; i < prompts.length; i++) {
@@ -443,7 +447,6 @@ export async function processSubmission(submissionId: string) {
         { role: 'assistant', content: lastResponse },
         { role: 'user', content: prompts[i] }
       );
-      totalTokens += estimateTokens(prompts[i]);
 
       console.log('📨 Sending full conversation to Claude:', messages);
 
@@ -459,15 +462,14 @@ export async function processSubmission(submissionId: string) {
       });
       
       claudeResponses.push(msg);
-      totalTokens += estimateTokens(response);
-      console.log('📈 Total tokens used:', totalTokens);
+      console.log('📈 Total tokens used:', inputTokens + outputTokens);
     }
 
     // Final response
     const lastResponse = msg.content.find(block => 'text' in block)?.text || '';
     console.log('\n✨ Final conversation summary:');
     console.log('Total messages:', messages.length);
-    console.log('Total tokens:', totalTokens);
+    console.log('Total tokens:', inputTokens + outputTokens);
     console.log('Final response:', lastResponse);
 
     // Validate markdown in responses
@@ -487,13 +489,17 @@ export async function processSubmission(submissionId: string) {
     // Update final status to completed regardless of what happens next
     const result = {
       finalResponse: lastResponse,
-      tokenCount: totalTokens
+      tokenCount: {
+        input: inputTokens,
+        output: outputTokens,
+        total: inputTokens + outputTokens
+      }
     };
 
     await supabaseAdmin
       .from('form_submissions')
       .update({
-        status: 'completed', // Always mark as completed here
+        status: 'completed',
         result: result,
         progress: {
           stage: 'completed',
