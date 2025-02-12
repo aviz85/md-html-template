@@ -561,37 +561,30 @@ export default function ResultsPage() {
     const markdownComponents: Components = {
       img: ImageRenderer,
       // Add table components
-      table: ({ children, ...props }) => (
-        <div className="overflow-x-auto my-4">
-          <table className="min-w-full divide-y divide-gray-200" {...props}>
-            {children}
-          </table>
-        </div>
+      table: ({ node, ...props }) => {
+        // Check if this is a table with headers
+        const hasHeaders = node?.children?.[0]?.tagName === 'thead';
+        
+        return (
+          <div className="overflow-x-auto my-4">
+            <table className="min-w-full divide-y divide-gray-200 border" {...props} />
+          </div>
+        );
+      },
+      thead: ({ node, ...props }) => (
+        <thead className="bg-gray-50" {...props} />
       ),
-      thead: ({ children, ...props }) => (
-        <thead className="bg-gray-50" {...props}>
-          {children}
-        </thead>
+      tbody: ({ node, ...props }) => (
+        <tbody className="bg-white divide-y divide-gray-200" {...props} />
       ),
-      tbody: ({ children, ...props }) => (
-        <tbody className="bg-white divide-y divide-gray-200" {...props}>
-          {children}
-        </tbody>
+      tr: ({ node, ...props }) => (
+        <tr className="hover:bg-gray-50" {...props} />
       ),
-      tr: ({ children, ...props }) => (
-        <tr className="hover:bg-gray-50" {...props}>
-          {children}
-        </tr>
+      th: ({ node, ...props }) => (
+        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b" {...props} />
       ),
-      th: ({ children, ...props }) => (
-        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider" {...props}>
-          {children}
-        </th>
-      ),
-      td: ({ children, ...props }) => (
-        <td className="px-6 py-4 whitespace-nowrap text-sm" {...props}>
-          {children}
-        </td>
+      td: ({ node, ...props }) => (
+        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900 border-b" {...props} />
       ),
       // Add custom component for divs to handle YouTube embeds
       div: ({ node, className, ...props }) => {

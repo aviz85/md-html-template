@@ -152,21 +152,27 @@ export async function GET(request: Request) {
             const content = submission.result.finalResponse;
             console.log('Original content:', content);
             
-            const matches = content?.match(/`````[\s\S]*?`````|[^`]+/g);
-            console.log('Matches found:', matches);
+            // Split by headers but preserve tables
+            const blocks = content.split(/(?=^#{1,6}\s)/m)
+              .filter((block: string) => block.trim())
+              .reduce((acc: string[], block: string) => {
+                if (block.includes('\n---|')) {
+                  const prevBlock = acc[acc.length - 1];
+                  if (prevBlock && prevBlock.startsWith('#')) {
+                    acc[acc.length - 1] = prevBlock + block;
+                  } else {
+                    acc.push(block);
+                  }
+                } else {
+                  acc.push(block);
+                }
+                return acc;
+              }, [])
+              .map((block: string) => block.trim());
+
+            console.log('Split blocks:', blocks);
             
-            const processed = matches?.map((block: string) => {
-              const isWrapped = block.startsWith('`````');
-              console.log('Processing block:', {
-                isWrapped,
-                length: block.length,
-                preview: block.slice(0, 100)
-              });
-              return isWrapped ? block.slice(5, -5).trim() : block.trim();
-            }).filter(Boolean);
-            
-            console.log('Final processed blocks:', processed?.length);
-            return processed;
+            return blocks;
           })()
         } : null
       }, 

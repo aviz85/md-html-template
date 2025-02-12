@@ -135,6 +135,8 @@ table {
   border-collapse: collapse;
   width: 100%;
   margin: 1rem 0;
+  direction: rtl;
+  text-align: right;
 }
 
 th, td {
@@ -146,6 +148,14 @@ th, td {
 th {
   background-color: #f9fafb;
   font-weight: 600;
+}
+
+tr:nth-child(even) {
+  background-color: #f8f8f8;
+}
+
+tr:hover {
+  background-color: #f3f4f6;
 }
 
 * {
