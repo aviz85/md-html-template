@@ -70,8 +70,6 @@ interface Template {
   webhook_url?: string
   send_whatsapp?: boolean
   whatsapp_message?: string
-  whatsapp_instance_id?: string
-  whatsapp_api_token?: string
 }
 
 interface SubmissionStatus {
@@ -206,8 +204,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const [webhookUrl, setWebhookUrl] = useState("")
   const [sendWhatsapp, setSendWhatsapp] = useState(false)
   const [whatsappMessage, setWhatsappMessage] = useState("")
-  const [whatsappInstanceId, setWhatsappInstanceId] = useState("")
-  const [whatsappApiToken, setWhatsappApiToken] = useState("")
 
   useEffect(() => {
     if (templateId) {
@@ -454,8 +450,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         setWebhookUrl(template.webhook_url || "")
         setSendWhatsapp(template.send_whatsapp ?? false)
         setWhatsappMessage(template.whatsapp_message || "")
-        setWhatsappInstanceId(template.whatsapp_instance_id || "")
-        setWhatsappApiToken(template.whatsapp_api_token || "")
         
         setElementStyles(template.element_styles || {
           body: {
@@ -856,8 +850,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           webhook_url: webhookUrl,
           send_whatsapp: sendWhatsapp,
           whatsapp_message: whatsappMessage,
-          whatsapp_instance_id: whatsappInstanceId,
-          whatsapp_api_token: whatsappApiToken,
         })
         .select()
         .single()
