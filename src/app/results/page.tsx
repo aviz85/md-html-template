@@ -441,6 +441,13 @@ export default function ResultsPage() {
         }
       };
 
+      // Helper function to process image styles
+      const processImageStyles = (styleMatch: string, src: string) => {
+        const style = styleMatch.slice(1, -1);
+        const cssStyle = parseStyleParams(style, false);
+        return `<img src="${src}" alt="" data-original-styles="${cssStyle}" />`;
+      };
+
       // First handle markdown-style YouTube links
       const youtubeMarkdownRegex = /!\[(\[.*?\])\]\(((?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)[^)]+)\)/g;
       processedContent = processedContent.replace(youtubeMarkdownRegex, (match, styleMatch, url) => {
@@ -494,24 +501,27 @@ export default function ResultsPage() {
         }
       });
       
-      // Format: ![[style]](url) - but skip if it's a YouTube URL
+      // Handle linked images first: [![[style]](img-url)](link-url)
+      const linkedImageRegex = /\[!\[(\[.*?\])\]\((.*?)\)\]\((.*?)\)/g;
+      processedContent = processedContent.replace(linkedImageRegex, (match, styleMatch, imgSrc, linkUrl) => {
+        try {
+          const imgHtml = processImageStyles(styleMatch, imgSrc);
+          return `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer">${imgHtml}</a>`;
+        } catch (error) {
+          console.error('Error processing linked image:', error);
+          return match;
+        }
+      });
+
+      // Then handle regular images: ![[style]](url)
       const imageRegex = /!\[(\[.*?\])\]\(((?!(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)).*?)\)/g;
       const matches = Array.from(processedContent.matchAll(imageRegex));
-      
-      console.log('Image matches:', matches);
       
       matches.forEach(match => {
         try {
           const [fullMatch, styleMatch, src] = match;
-          const style = styleMatch.slice(1, -1);
-          console.log('Processing match:', { fullMatch, style, src });
-          
-          if (style) {
-            const cssStyle = parseStyleParams(style, false);
-            console.log('Generated CSS style:', cssStyle);
-            const htmlImg = `<img src="${src}" alt="" data-original-styles="${cssStyle}" />`;
-            processedContent = processedContent.replace(fullMatch, htmlImg);
-          }
+          const imgHtml = processImageStyles(styleMatch, src);
+          processedContent = processedContent.replace(fullMatch, imgHtml);
         } catch (error) {
           console.error('Error processing image:', error);
         }
