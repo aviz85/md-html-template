@@ -61,7 +61,7 @@ export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
       `${phone}@c.us`;
 
     // Replace template variables
-    const message = whatsapp_message.replace(/{{(\w+)}}/g, (match, key) => {
+    const message = whatsapp_message.replace(/{{(\w+)}}/g, (match: string, key: string) => {
       if (key === 'id') return submissionId;
       return match;
     });

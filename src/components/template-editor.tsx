@@ -2016,39 +2016,40 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
             {sendWhatsapp && (
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="whatsapp-instance">Instance ID</Label>
-                  <Input
-                    id="whatsapp-instance"
-                    value={whatsappInstanceId}
-                    onChange={(e) => setWhatsappInstanceId(e.target.value)}
-                    placeholder="Enter your Green API Instance ID"
-                  />
+                <div className="space-y-4">
+                  <div>
+                    <Label>תוכן ההודעה</Label>
+                    <Textarea
+                      value={whatsappMessage}
+                      onChange={(e) => setWhatsappMessage(e.target.value)}
+                      placeholder="היי, האבחון האישי שלך מוכן! אפשר לצפות בו כאן: https://md-html-template.vercel.app/results?s={{id}}"
+                      rows={5}
+                      dir="rtl"
+                    />
+                    <p className="text-sm text-muted-foreground mt-2">
+                      משתנים זמינים: {'{{id}}'} - מזהה השליחה
+                    </p>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="whatsapp-token">API Token</Label>
-                  <Input
-                    id="whatsapp-token"
-                    type="password"
-                    value={whatsappApiToken}
-                    onChange={(e) => setWhatsappApiToken(e.target.value)}
-                    placeholder="Enter your Green API Token"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="whatsapp-message">Message Template</Label>
-                  <Textarea
-                    id="whatsapp-message"
-                    value={whatsappMessage}
-                    onChange={(e) => setWhatsappMessage(e.target.value)}
-                    placeholder="Enter message template. Use {{id}} for submission ID"
-                    rows={5}
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Available variables: {'{{id}}'} - Submission ID
-                  </p>
+                <div className="space-y-4 mt-4">
+                  <div>
+                    <Label>Instance ID</Label>
+                    <Input
+                      value={whatsappInstanceId}
+                      onChange={(e) => setWhatsappInstanceId(e.target.value)}
+                      placeholder="הכנס את ה-Instance ID מ-Green API"
+                    />
+                  </div>
+                  <div>
+                    <Label>API Token</Label>
+                    <Input
+                      value={whatsappApiToken}
+                      onChange={(e) => setWhatsappApiToken(e.target.value)}
+                      placeholder="הכנס את ה-API Token מ-Green API"
+                      type="password"
+                    />
+                  </div>
                 </div>
               </>
             )}
