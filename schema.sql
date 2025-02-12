@@ -19,9 +19,7 @@ CREATE TABLE templates (
     custom_fonts JSONB,
     element_styles JSONB,
     send_whatsapp BOOLEAN DEFAULT false,
-    whatsapp_message TEXT DEFAULT E'היי!\n\nהאבחון האישי שלך מוכן! 🎯\n\nהוא כולל תובנות חשובות וכלים מעשיים שיעזרו לך לקבל בהירות ולמקד את הצעדים הבאים שלך.\n\nאפשר לצפות בו כאן:\nhttps://md-html-template.vercel.app/results?s={{id}}\n\nכדאי לקרוא את האבחון בתשומת לב ולהקדיש מחשבה לחלקים המרכזיים שבו.\n\nאם יש לך שאלות או צורך בהבהרה, אני כאן עבורך! 🤝',
-    whatsapp_instance_id TEXT,
-    whatsapp_api_token TEXT
+    whatsapp_message TEXT DEFAULT E'היי!\n\nהאבחון האישי שלך מוכן! 🎯\n\nהוא כולל תובנות חשובות וכלים מעשיים שיעזרו לך לקבל בהירות ולמקד את הצעדים הבאים שלך.\n\nאפשר לצפות בו כאן:\nhttps://md-html-template.vercel.app/results?s={{id}}\n\nכדאי לקרוא את האבחון בתשומת לב ולהקדיש מחשבה לחלקים המרכזיים שבו.\n\nאם יש לך שאלות או צורך בהבהרה, אני כאן עבורך! 🤝'
 );
 
 -- Static MD content linked to templates

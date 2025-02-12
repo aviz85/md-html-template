@@ -1615,6 +1615,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           />
         </div>
 
+        {/* General settings area */}
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <input
@@ -1626,6 +1627,19 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             />
             <label htmlFor="sendEmail" className="text-sm font-medium">
               שלח מייל לאחר שליחת הטופס
+            </label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="send-whatsapp"
+              checked={sendWhatsapp}
+              onChange={(e) => setSendWhatsapp(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <label htmlFor="send-whatsapp" className="text-sm font-medium">
+              שלח הודעת WhatsApp לאחר שליחת הטופס
             </label>
           </div>
 
@@ -1658,7 +1672,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       </div>
 
       <Tabs defaultValue="content" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="content">{TRANSLATIONS.content}</TabsTrigger>
           <TabsTrigger value="microCopy">{TRANSLATIONS.microCopy}</TabsTrigger>
           <TabsTrigger value="styles">{TRANSLATIONS.styles}</TabsTrigger>
@@ -2004,54 +2018,22 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
         <TabsContent value="whatsapp" className="mt-0">
           <div className="space-y-4 p-4">
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="send-whatsapp"
-                checked={sendWhatsapp}
-                onChange={(e) => setSendWhatsapp(e.target.checked)}
-              />
-              <Label htmlFor="send-whatsapp">Send WhatsApp message</Label>
-            </div>
-
             {sendWhatsapp && (
-              <>
-                <div className="space-y-4">
-                  <div>
-                    <Label>תוכן ההודעה</Label>
-                    <Textarea
-                      value={whatsappMessage}
-                      onChange={(e) => setWhatsappMessage(e.target.value)}
-                      placeholder="היי, האבחון האישי שלך מוכן! אפשר לצפות בו כאן: https://md-html-template.vercel.app/results?s={{id}}"
-                      rows={5}
-                      dir="rtl"
-                    />
-                    <p className="text-sm text-muted-foreground mt-2">
-                      משתנים זמינים: {'{{id}}'} - מזהה השליחה
-                    </p>
-                  </div>
+              <div className="space-y-4">
+                <div>
+                  <Label>תוכן ההודעה</Label>
+                  <Textarea
+                    value={whatsappMessage}
+                    onChange={(e) => setWhatsappMessage(e.target.value)}
+                    placeholder="היי, האבחון האישי שלך מוכן! אפשר לצפות בו כאן: https://md-html-template.vercel.app/results?s={{id}}"
+                    rows={5}
+                    dir="rtl"
+                  />
+                  <p className="text-sm text-muted-foreground mt-2">
+                    משתנים זמינים: {'{{id}}'} - מזהה השליחה
+                  </p>
                 </div>
-
-                <div className="space-y-4 mt-4">
-                  <div>
-                    <Label>Instance ID</Label>
-                    <Input
-                      value={whatsappInstanceId}
-                      onChange={(e) => setWhatsappInstanceId(e.target.value)}
-                      placeholder="הכנס את ה-Instance ID מ-Green API"
-                    />
-                  </div>
-                  <div>
-                    <Label>API Token</Label>
-                    <Input
-                      value={whatsappApiToken}
-                      onChange={(e) => setWhatsappApiToken(e.target.value)}
-                      placeholder="הכנס את ה-API Token מ-Green API"
-                      type="password"
-                    />
-                  </div>
-                </div>
-              </>
+              </div>
             )}
           </div>
         </TabsContent>
