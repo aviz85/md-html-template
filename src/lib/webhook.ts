@@ -18,6 +18,29 @@ interface WebhookPayload {
   };
 }
 
+// Helper function to normalize phone number
+const normalizePhone = (phone: string): string => {
+  // First remove formatting chars but keep + prefix
+  let cleaned = phone.replace(/[\s\-()]/g, '');
+  
+  // Handle international format
+  if (cleaned.startsWith('+')) {
+    cleaned = cleaned.slice(1);
+  }
+  
+  // Convert 972 prefix to 0
+  if (cleaned.startsWith('972')) {
+    cleaned = '0' + cleaned.slice(3);
+  }
+  
+  // Ensure starts with 0
+  if (!cleaned.startsWith('0')) {
+    cleaned = '0' + cleaned;
+  }
+  
+  return cleaned;
+};
+
 // Helper function to find customer details in form data
 function findCustomerDetails(formData: any): WebhookPayload['customer'] {
   const customer: WebhookPayload['customer'] = {};
@@ -50,7 +73,8 @@ function findCustomerDetails(formData: any): WebhookPayload['customer'] {
         console.log('Found email in pretty:', value);
       }
       else if (cleanKey === 'מספר טלפון' || cleanKey === 'טלפון נייד') {
-        customer.phone = value.replace(/[^\d]/g, '');
+        const rawPhone = value.replace(/[^\d+]/g, ''); // שומר על + במקרה של מספר בינלאומי
+        customer.phone = normalizePhone(rawPhone);
         console.log('Found phone in pretty:', { original: value, cleaned: customer.phone });
       }
     }
@@ -58,14 +82,6 @@ function findCustomerDetails(formData: any): WebhookPayload['customer'] {
     // אם מצאנו את כל הפרטים ב-pretty, נחזיר
     if (customer.name && customer.email && customer.phone) {
       console.log('Found all details in pretty field:', customer);
-      
-      // ניקוי מספר טלפון
-      if (customer.phone.startsWith('972')) {
-        const oldPhone = customer.phone;
-        customer.phone = '0' + customer.phone.slice(3);
-        console.log('Cleaned phone number:', { from: oldPhone, to: customer.phone });
-      }
-      
       return customer;
     } else {
       console.log('Missing some details in pretty field:', {
@@ -133,7 +149,11 @@ function findCustomerDetails(formData: any): WebhookPayload['customer'] {
           if (field === 'email' && isEmail(value) ||
               field === 'phone' && isPhoneNumber(value) ||
               field === 'name' && isFullName(value)) {
-            customer[field as keyof typeof customer] = value.trim();
+            if (field === 'phone') {
+              customer[field] = normalizePhone(value);
+            } else {
+              customer[field as keyof typeof customer] = value.trim();
+            }
           }
         }
       }
@@ -165,7 +185,7 @@ function findCustomerDetails(formData: any): WebhookPayload['customer'] {
 
       // Find phone by format if not found
       if (!customer.phone && isPhoneNumber(valueStr)) {
-        customer.phone = valueStr;
+        customer.phone = normalizePhone(valueStr);
       }
 
       // Find name by format if not found
@@ -173,29 +193,6 @@ function findCustomerDetails(formData: any): WebhookPayload['customer'] {
         customer.name = valueStr;
       }
     });
-  }
-
-  // Clean up phone number format
-  if (customer.phone) {
-    // First remove formatting chars but keep + prefix
-    let cleaned = customer.phone.replace(/[\s\-()]/g, '');
-    
-    // Handle international format
-    if (cleaned.startsWith('+')) {
-      cleaned = cleaned.slice(1);
-    }
-    
-    // Convert 972 prefix to 0
-    if (cleaned.startsWith('972')) {
-      cleaned = '0' + cleaned.slice(3);
-    }
-    
-    // Ensure starts with 0
-    if (!cleaned.startsWith('0')) {
-      cleaned = '0' + cleaned;
-    }
-    
-    customer.phone = cleaned;
   }
 
   console.log('Found customer details:', customer);
