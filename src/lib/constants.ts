@@ -131,6 +131,23 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
 }
 
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+}
+
+th, td {
+  border: 1px solid #e5e7eb;
+  padding: 0.75rem;
+  text-align: right;
+}
+
+th {
+  background-color: #f9fafb;
+  font-weight: 600;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -285,10 +302,21 @@ export const generateGoogleFontsUrl = (fonts: string[]): string => {
   return `https://fonts.googleapis.com/css2?${fontFamilies.map(f => `family=${f.replace(' ', '+')}`).join('&')}&display=swap`;
 };
 
+export function configureMarked() {
+  marked.setOptions({
+    breaks: true,
+    gfm: true,
+    pedantic: false
+  });
+}
+
 export async function convertMarkdownToHtml(content: string, headerContent?: string, footerContent?: string, customContents?: Array<{ name: string, content: string }>) {
   if (!content) {
     throw new Error('Content is required')
   }
+
+  // Configure marked once
+  configureMarked();
 
   let processedContent = content;
   
@@ -301,13 +329,6 @@ export async function convertMarkdownToHtml(content: string, headerContent?: str
       processedContent = processedContent.replace(upperPlaceholder, content).replace(lowerPlaceholder, content);
     });
   }
-
-  // Configure marked for proper line breaks and header rendering
-  marked.setOptions({
-    breaks: true,
-    gfm: true,
-    pedantic: false
-  });
 
   // Add custom image renderer
   const renderer = new marked.Renderer();

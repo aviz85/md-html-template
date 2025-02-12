@@ -7,6 +7,7 @@ import rehypeRaw from 'rehype-raw';
 import { motion, AnimatePresence } from 'framer-motion';
 import { marked } from 'marked';
 import type { Components } from 'react-markdown';
+import { configureMarked } from '@/lib/constants';
 
 type CustomFont = {
   font_family: string;
@@ -517,12 +518,9 @@ export default function ResultsPage() {
       });
       
       if (template?.custom_contents) {
-        // Configure marked for proper line breaks
-        marked.setOptions({
-          breaks: true,
-          gfm: true
-        });
-
+        // Configure marked with central configuration
+        configureMarked();
+        
         // Convert custom_contents object to array format expected by convertMarkdownToHtml
         const customContentsArray = Object.entries(template.custom_contents).map(([key, value]) => ({
           name: key,
@@ -562,6 +560,39 @@ export default function ResultsPage() {
 
     const markdownComponents: Components = {
       img: ImageRenderer,
+      // Add table components
+      table: ({ children, ...props }) => (
+        <div className="overflow-x-auto my-4">
+          <table className="min-w-full divide-y divide-gray-200" {...props}>
+            {children}
+          </table>
+        </div>
+      ),
+      thead: ({ children, ...props }) => (
+        <thead className="bg-gray-50" {...props}>
+          {children}
+        </thead>
+      ),
+      tbody: ({ children, ...props }) => (
+        <tbody className="bg-white divide-y divide-gray-200" {...props}>
+          {children}
+        </tbody>
+      ),
+      tr: ({ children, ...props }) => (
+        <tr className="hover:bg-gray-50" {...props}>
+          {children}
+        </tr>
+      ),
+      th: ({ children, ...props }) => (
+        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider" {...props}>
+          {children}
+        </th>
+      ),
+      td: ({ children, ...props }) => (
+        <td className="px-6 py-4 whitespace-nowrap text-sm" {...props}>
+          {children}
+        </td>
+      ),
       // Add custom component for divs to handle YouTube embeds
       div: ({ node, className, ...props }) => {
         if (className?.startsWith('youtube-embed:')) {

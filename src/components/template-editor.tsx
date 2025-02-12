@@ -15,7 +15,8 @@ import {
   toKebabCase,
   toCamelCase,
   CSS_PROPERTIES,
-  convertMarkdownToHtml
+  convertMarkdownToHtml,
+  configureMarked
 } from "@/lib/constants"
 import { TRANSLATIONS } from "@/lib/translations"
 import { supabase } from "@/lib/supabase-client"
@@ -967,6 +968,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   }
 
   const handlePreview = async () => {
+    // Configure marked with central configuration
+    configureMarked();
+    
     // Validate template ID
     if (!templateId) {
       toast({
