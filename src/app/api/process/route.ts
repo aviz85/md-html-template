@@ -4,6 +4,8 @@ import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { findEmailInFormData, replaceVariables, sendEmail } from '@/lib/email'
 import { sendWebhook } from '@/lib/webhook'
+import { findCustomerDetails } from '@/lib/customer'
+import { sendWhatsAppMessage } from '@/lib/whatsapp'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -224,6 +226,33 @@ async function handleRequest(req: Request) {
               console.log('✅ Email sent successfully');
             } else {
               console.log('📫 Email sending disabled for this template');
+            }
+
+            // Handle WhatsApp if enabled
+            if (template.send_whatsapp) {
+              try {
+                console.log('📱 Checking WhatsApp configuration:', {
+                  templateId: template.id,
+                  hasMessage: !!template.whatsapp_message,
+                  hasPhone: !!recipientEmail // We'll get the phone from findCustomerDetails later
+                });
+
+                const formData = submission.content?.form_data || submission.content || {};
+                const customer = findCustomerDetails(formData);
+
+                if (!customer.phone) {
+                  console.warn('⚠️ No phone number found in submission data');
+                } else {
+                  console.log('📞 Starting WhatsApp process with phone:', customer.phone);
+                  await sendWhatsAppMessage(submissionId);
+                  console.log('✅ WhatsApp message sent successfully');
+                }
+              } catch (whatsappError) {
+                console.error('❌ WhatsApp error:', whatsappError);
+                // Don't throw - we want to continue even if WhatsApp fails
+              }
+            } else {
+              console.log('📱 WhatsApp sending not enabled for this template');
             }
 
             // Handle webhook if configured
