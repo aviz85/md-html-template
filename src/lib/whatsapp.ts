@@ -46,7 +46,6 @@ export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
       throw new Error('Missing WhatsApp configuration');
     }
 
-    const formData = submission.content?.form_data || submission.content || {};
     const phone = submission.recipient_phone;
 
     if (!phone) {
