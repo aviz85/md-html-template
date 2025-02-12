@@ -96,7 +96,7 @@ export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
       })
       .eq('submission_id', submissionId);
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error sending WhatsApp message:', error);
     
     // Update submission with error
@@ -104,7 +104,7 @@ export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
       .from('form_submissions')
       .update({
         whatsapp_status: 'error',
-        whatsapp_error: error.message
+        whatsapp_error: error instanceof Error ? error.message : String(error)
       })
       .eq('submission_id', submissionId);
 
