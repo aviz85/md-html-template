@@ -2047,7 +2047,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                     rows={5}
                   />
                   <p className="text-sm text-muted-foreground">
-                    Available variables: {{id}} - Submission ID
+                    Available variables: {'{{id}}'} - Submission ID
                   </p>
                 </div>
               </>
