@@ -17,7 +17,11 @@ CREATE TABLE templates (
     opening_page_content TEXT,
     closing_page_content TEXT,
     custom_fonts JSONB,
-    element_styles JSONB
+    element_styles JSONB,
+    send_whatsapp BOOLEAN DEFAULT false,
+    whatsapp_message TEXT,
+    whatsapp_instance_id TEXT,
+    whatsapp_api_token TEXT
 );
 
 -- Static MD content linked to templates
@@ -85,6 +89,10 @@ CREATE TABLE form_submissions (
     email_error TEXT,
     email_sent_at TIMESTAMPTZ,
     recipient_email TEXT,
+    whatsapp_status TEXT DEFAULT 'pending',
+    whatsapp_error TEXT,
+    whatsapp_sent_at TIMESTAMPTZ,
+    recipient_phone TEXT,
     UNIQUE(form_id, submission_id)
 );
 

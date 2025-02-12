@@ -68,6 +68,10 @@ interface Template {
   email_from?: string
   send_email?: boolean
   webhook_url?: string
+  send_whatsapp?: boolean
+  whatsapp_message?: string
+  whatsapp_instance_id?: string
+  whatsapp_api_token?: string
 }
 
 interface SubmissionStatus {
@@ -200,6 +204,10 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const [template, setTemplate] = useState<Template | null>(null)
   const [sendEmail, setSendEmail] = useState(true)
   const [webhookUrl, setWebhookUrl] = useState("")
+  const [sendWhatsapp, setSendWhatsapp] = useState(false)
+  const [whatsappMessage, setWhatsappMessage] = useState("")
+  const [whatsappInstanceId, setWhatsappInstanceId] = useState("")
+  const [whatsappApiToken, setWhatsappApiToken] = useState("")
 
   useEffect(() => {
     if (templateId) {
@@ -432,11 +440,22 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       console.log('📋 Loaded template base data:', template);
       
       if (template) {
-        setTemplateName(template.name)
+        setTemplateName(template.name || "")
         setTemplateGsheetsId(template.template_gsheets_id || "")
-        setCustomFonts(template.custom_fonts || [])
+        setHeaderContent(template.header_content || "")
+        setFooterContent(template.footer_content || "")
+        setOpeningPageContent(template.opening_page_content || "")
+        setClosingPageContent(template.closing_page_content || "")
+        setFormId(template.form_id || "")
+        setEmailSubject(template.email_subject || "")
+        setEmailBody(template.email_body || "")
+        setEmailFrom(template.email_from || "")
         setSendEmail(template.send_email ?? true)
         setWebhookUrl(template.webhook_url || "")
+        setSendWhatsapp(template.send_whatsapp ?? false)
+        setWhatsappMessage(template.whatsapp_message || "")
+        setWhatsappInstanceId(template.whatsapp_instance_id || "")
+        setWhatsappApiToken(template.whatsapp_api_token || "")
         
         setElementStyles(template.element_styles || {
           body: {
@@ -835,6 +854,10 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           email_from: emailFrom,
           send_email: sendEmail,
           webhook_url: webhookUrl,
+          send_whatsapp: sendWhatsapp,
+          whatsapp_message: whatsappMessage,
+          whatsapp_instance_id: whatsappInstanceId,
+          whatsapp_api_token: whatsappApiToken,
         })
         .select()
         .single()
@@ -1641,6 +1664,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           <TabsTrigger value="styles">{TRANSLATIONS.styles}</TabsTrigger>
           <TabsTrigger value="email">תבנית מייל</TabsTrigger>
           <TabsTrigger value="status">סטטוס שליחות</TabsTrigger>
+          <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
         </TabsList>
 
         <TabsContent value="content">
@@ -1975,6 +1999,59 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                 </tbody>
               </table>
             </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="whatsapp" className="mt-0">
+          <div className="space-y-4 p-4">
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="send-whatsapp"
+                checked={sendWhatsapp}
+                onChange={(e) => setSendWhatsapp(e.target.checked)}
+              />
+              <Label htmlFor="send-whatsapp">Send WhatsApp message</Label>
+            </div>
+
+            {sendWhatsapp && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp-instance">Instance ID</Label>
+                  <Input
+                    id="whatsapp-instance"
+                    value={whatsappInstanceId}
+                    onChange={(e) => setWhatsappInstanceId(e.target.value)}
+                    placeholder="Enter your Green API Instance ID"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp-token">API Token</Label>
+                  <Input
+                    id="whatsapp-token"
+                    type="password"
+                    value={whatsappApiToken}
+                    onChange={(e) => setWhatsappApiToken(e.target.value)}
+                    placeholder="Enter your Green API Token"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp-message">Message Template</Label>
+                  <Textarea
+                    id="whatsapp-message"
+                    value={whatsappMessage}
+                    onChange={(e) => setWhatsappMessage(e.target.value)}
+                    placeholder="Enter message template. Use {{id}} for submission ID"
+                    rows={5}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Available variables: {{id}} - Submission ID
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </TabsContent>
       </Tabs>
