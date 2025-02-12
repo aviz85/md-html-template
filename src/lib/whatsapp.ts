@@ -21,9 +21,7 @@ export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
         template:templates!left (
           id,
           send_whatsapp,
-          whatsapp_message,
-          whatsapp_instance_id,
-          whatsapp_api_token
+          whatsapp_message
         )
       `)
       .eq('submission_id', submissionId)
@@ -39,9 +37,9 @@ export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
       return;
     }
 
-    // Use template-specific credentials if available, otherwise use defaults
-    const instanceId = submission.template.whatsapp_instance_id || DEFAULT_INSTANCE_ID;
-    const apiToken = submission.template.whatsapp_api_token || DEFAULT_API_TOKEN;
+    // Use environment variables for credentials
+    const instanceId = DEFAULT_INSTANCE_ID;
+    const apiToken = DEFAULT_API_TOKEN;
     const { whatsapp_message } = submission.template;
     
     if (!instanceId || !apiToken || !whatsapp_message) {
