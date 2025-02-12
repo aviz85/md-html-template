@@ -563,7 +563,7 @@ export default function ResultsPage() {
       // Add table components
       table: ({ node, ...props }) => {
         // Check if this is a table with headers
-        const hasHeaders = node?.children?.[0]?.tagName === 'thead';
+        const hasHeaders = node?.children?.[0] && 'tagName' in node.children[0] && node.children[0].tagName === 'thead';
         
         return (
           <div className="overflow-x-auto my-4">
