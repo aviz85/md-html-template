@@ -3,8 +3,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { findEmailInFormData, replaceVariables, sendEmail } from '@/lib/email'
-import { sendWebhook } from '@/lib/webhook'
-import { findCustomerDetails } from '@/lib/customer'
+import { sendWebhook, findCustomerDetails } from '@/lib/webhook'
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
 
 const supabase = createClient(
@@ -139,10 +138,11 @@ async function handleRequest(req: Request) {
 
             console.log('📋 Found template with all required fields');
 
-            // Find email in content using improved findEmailInFormData
-            const recipientEmail = findEmailInFormData(submission.content);
+            // Find customer details in content
+            const formData = submission.content?.form_data || submission.content || {};
+            const customer = findCustomerDetails(formData);
               
-            if (!recipientEmail) {
+            if (!customer.email) {
               console.warn('⚠️ No recipient email found in submission data');
               return {
                 message: 'Processing completed (no email sent - no recipient)',
@@ -156,7 +156,7 @@ async function handleRequest(req: Request) {
 
             // Only send email if send_email is not false
             if (template.send_email !== false) {
-              console.log('✉️ Found recipient email:', recipientEmail);
+              console.log('✉️ Found recipient email:', customer.email);
               
               const emailHtml = replaceVariables(template.email_body, {
                 ...submission.content,
@@ -189,7 +189,7 @@ async function handleRequest(req: Request) {
                 : `"VocalVault Reports" <${senderEmail}>`;  // Always include display name
 
               console.log('📧 Attempting to send email:', {
-                to: recipientEmail,
+                to: customer.email,
                 from: formattedSender,
                 subject: emailSubject.substring(0, 50) + '...',
                 submissionId: submission.id
@@ -200,13 +200,14 @@ async function handleRequest(req: Request) {
                 .from('form_submissions')
                 .update({
                   email_status: 'sending',
-                  recipient_email: recipientEmail,
+                  recipient_email: customer.email,
+                  recipient_phone: customer.phone,
                   updated_at: new Date().toISOString()
                 })
                 .eq('submission_id', submissionId);
 
               await sendEmail({
-                to: recipientEmail,
+                to: customer.email,
                 from: formattedSender,
                 subject: emailSubject,
                 html: emailHtml,
@@ -234,11 +235,8 @@ async function handleRequest(req: Request) {
                 console.log('📱 Checking WhatsApp configuration:', {
                   templateId: template.id,
                   hasMessage: !!template.whatsapp_message,
-                  hasPhone: !!recipientEmail // We'll get the phone from findCustomerDetails later
+                  hasPhone: !!customer.phone
                 });
-
-                const formData = submission.content?.form_data || submission.content || {};
-                const customer = findCustomerDetails(formData);
 
                 if (!customer.phone) {
                   console.warn('⚠️ No phone number found in submission data');

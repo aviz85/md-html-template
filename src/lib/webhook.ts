@@ -43,7 +43,7 @@ const normalizePhone = (phone: string): string => {
 };
 
 // Helper function to find customer details in form data
-function findCustomerDetails(formData: any): WebhookPayload['customer'] {
+export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
   const customer: WebhookPayload['customer'] = {};
   console.log('Starting customer details search in formData:', formData);
 
