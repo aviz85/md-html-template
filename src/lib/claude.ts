@@ -53,6 +53,10 @@ type Message = {
 // Add at the top with other types
 type ClaudeMessage = Anthropic.Messages.Message;
 
+// Add token tracking
+let inputTokens = 0;
+let outputTokens = 0;
+
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 })
@@ -277,8 +281,6 @@ async function updateProgress(submissionId: string, stage: string, message: stri
 export async function processSubmission(submissionId: string) {
   let submissionUUID: string | null = null;
   let messages: Message[] = [];
-  let inputTokens = 0;
-  let outputTokens = 0;
   let msg: ClaudeMessage;
   
   try {

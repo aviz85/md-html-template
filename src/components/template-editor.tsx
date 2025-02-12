@@ -1214,7 +1214,14 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     console.log('Fetching recent submissions');
     setIsLoadingSubmissions(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/jotform-results`);
+      // Only fetch if we have a formId
+      if (!formId) {
+        console.log('No formId available, skipping fetch');
+        setRecentSubmissions([]);
+        return;
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/jotform-results?formId=${formId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch submissions');
       }
@@ -1230,12 +1237,14 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     }
   };
 
-  // Fetch on mount and every minute
+  // Fetch on mount and every minute, but only if formId changes
   useEffect(() => {
-    fetchRecentSubmissions();
-    const interval = setInterval(fetchRecentSubmissions, 60000);
-    return () => clearInterval(interval);
-  }, []);
+    if (formId) {
+      fetchRecentSubmissions();
+      const interval = setInterval(fetchRecentSubmissions, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [formId]);
 
   const handleDetailsClick = (submission: SubmissionStatus) => {
     setSelectedSubmission(submission);

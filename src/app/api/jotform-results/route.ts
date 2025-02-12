@@ -248,27 +248,29 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const formId = searchParams.get('formId');
     
-    let query = supabaseAdmin
+    if (!formId) {
+      return NextResponse.json(
+        { error: 'formId is required' },
+        { status: 400 }
+      );
+    }
+
+    // Get submissions for this form only
+    const { data: submissions, error } = await supabaseAdmin
       .from('form_submissions')
       .select('*')
+      .eq('form_id', formId)
       .order('created_at', { ascending: false })
       .limit(50);
-      
-    if (formId) {
-      query = query.eq('form_id', formId);
-    }
-    
-    const { data, error } = await query;
-    
+
     if (error) {
       console.error('Error fetching submissions:', error);
       throw error;
     }
-    
-    return NextResponse.json({ submissions: data });
-    
+
+    return NextResponse.json(submissions);
   } catch (error) {
-    console.error('Error listing submissions:', error);
+    console.error('Error in GET /api/jotform-results:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
