@@ -5,106 +5,206 @@ interface WhatsAppMessage {
   message: string;
 }
 
+interface WhatsAppResponse {
+  idMessage: string;
+  status: boolean;
+  message?: string;
+  error?: string;
+}
+
 const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL || 'https://api.green-api.com';
 const DEFAULT_INSTANCE_ID = process.env.WHATSAPP_INSTANCE_ID;
 const DEFAULT_API_TOKEN = process.env.WHATSAPP_API_TOKEN;
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 1000;
+
+async function addWhatsAppLog(submissionId: string, type: 'info' | 'error', message: string, data?: any) {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    type,
+    message,
+    data
+  };
+
+  await supabaseAdmin.rpc('append_log', {
+    p_submission_id: submissionId,
+    p_log: logEntry
+  });
+
+  if (type === 'error') {
+    console.error(`WhatsApp ${message}:`, data);
+  } else {
+    console.log(`WhatsApp ${message}:`, data);
+  }
+}
+
+async function validateWhatsAppResponse(response: Response, submissionId: string): Promise<WhatsAppResponse> {
+  let responseData: WhatsAppResponse;
+  
+  try {
+    responseData = await response.json();
+  } catch (error) {
+    await addWhatsAppLog(submissionId, 'error', 'Invalid JSON response', { 
+      status: response.status,
+      error 
+    });
+    throw new Error('Invalid response from WhatsApp API');
+  }
+
+  if (!response.ok || !responseData.status) {
+    await addWhatsAppLog(submissionId, 'error', 'API error response', responseData);
+    throw new Error(responseData.error || 'WhatsApp API error');
+  }
+
+  return responseData;
+}
 
 export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
-  try {
-    console.log('Starting WhatsApp process for submission:', submissionId);
-    
-    // Fetch submission and template data
-    const { data: submission } = await supabaseAdmin
-      .from('form_submissions')
-      .select(`
-        *,
-        template:templates!left (
-          id,
-          send_whatsapp,
-          whatsapp_message
-        )
-      `)
-      .eq('submission_id', submissionId)
-      .single();
+  let retryCount = 0;
+  
+  while (true) {
+    try {
+      await addWhatsAppLog(submissionId, 'info', 'Starting WhatsApp process');
+      
+      // Fetch submission and template data
+      const { data: submission } = await supabaseAdmin
+        .from('form_submissions')
+        .select(`
+          *,
+          template:templates!left (
+            id,
+            send_whatsapp,
+            whatsapp_message
+          )
+        `)
+        .eq('submission_id', submissionId)
+        .single();
 
-    if (!submission) {
-      console.error('No submission found for ID:', submissionId);
-      throw new Error('Submission not found');
-    }
+      if (!submission) {
+        await addWhatsAppLog(submissionId, 'error', 'No submission found');
+        throw new Error('Submission not found');
+      }
 
-    if (!submission.template?.send_whatsapp) {
-      console.log('WhatsApp sending not enabled for template');
+      if (!submission.template?.send_whatsapp) {
+        await addWhatsAppLog(submissionId, 'info', 'WhatsApp sending not enabled');
+        return;
+      }
+
+      // Validate configuration
+      const instanceId = DEFAULT_INSTANCE_ID;
+      const apiToken = DEFAULT_API_TOKEN;
+      const { whatsapp_message } = submission.template;
+      
+      if (!instanceId || !apiToken || !whatsapp_message) {
+        await addWhatsAppLog(submissionId, 'error', 'Missing configuration', {
+          hasInstanceId: !!instanceId,
+          hasApiToken: !!apiToken,
+          hasMessage: !!whatsapp_message
+        });
+        throw new Error('Missing WhatsApp configuration');
+      }
+
+      const phone = submission.recipient_phone;
+      if (!phone) {
+        await addWhatsAppLog(submissionId, 'error', 'No phone number found');
+        throw new Error('No phone number found for recipient');
+      }
+
+      // Format phone number
+      const whatsappPhone = phone.startsWith('0') ? 
+        `972${phone.slice(1)}@c.us` : 
+        `${phone}@c.us`;
+
+      // Replace template variables
+      const message = whatsapp_message.replace(/{{(\w+)}}/g, (match: string, key: string) => {
+        if (key === 'id') return submissionId;
+        return match;
+      });
+
+      const payload: WhatsAppMessage = {
+        chatId: whatsappPhone,
+        message
+      };
+
+      await addWhatsAppLog(submissionId, 'info', 'Sending message', {
+        phone: whatsappPhone,
+        messageLength: message.length
+      });
+
+      // Send WhatsApp message
+      const apiUrl = `${WHATSAPP_API_URL}/waInstance${instanceId}/sendMessage/${apiToken}`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      // Validate response
+      const responseData = await validateWhatsAppResponse(response, submissionId);
+      
+      await addWhatsAppLog(submissionId, 'info', 'Message sent successfully', {
+        messageId: responseData.idMessage
+      });
+
+      // Update submission status
+      await supabaseAdmin
+        .from('form_submissions')
+        .update({
+          whatsapp_status: 'sent',
+          whatsapp_sent_at: new Date().toISOString(),
+          whatsapp_message_id: responseData.idMessage
+        })
+        .eq('submission_id', submissionId);
+
       return;
+
+    } catch (error) {
+      const isRetryableError = error instanceof Error && (
+        error.message.includes('network') ||
+        error.message.includes('timeout') ||
+        error.message.includes('socket') ||
+        error.message.includes('ECONNRESET')
+      );
+
+      if (isRetryableError && retryCount < MAX_RETRIES) {
+        retryCount++;
+        const delay = INITIAL_RETRY_DELAY * Math.pow(2, retryCount - 1);
+        
+        await addWhatsAppLog(submissionId, 'error', 'Retrying after error', {
+          error: error instanceof Error ? error.message : String(error),
+          attempt: retryCount,
+          nextDelay: delay
+        });
+
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      // Final error handling
+      await addWhatsAppLog(submissionId, 'error', 'Final error', {
+        error: error instanceof Error ? error.message : String(error),
+        retryAttempts: retryCount
+      });
+      
+      await supabaseAdmin
+        .from('form_submissions')
+        .update({
+          whatsapp_status: 'error',
+          whatsapp_error: error instanceof Error ? error.message : String(error),
+          whatsapp_error_details: {
+            error: error instanceof Error ? {
+              message: error.message,
+              stack: error.stack
+            } : String(error),
+            retryAttempts: retryCount,
+            timestamp: new Date().toISOString()
+          }
+        })
+        .eq('submission_id', submissionId);
+
+      throw error;
     }
-
-    // Use environment variables for credentials
-    const instanceId = DEFAULT_INSTANCE_ID;
-    const apiToken = DEFAULT_API_TOKEN;
-    const { whatsapp_message } = submission.template;
-    
-    if (!instanceId || !apiToken || !whatsapp_message) {
-      throw new Error('Missing WhatsApp configuration');
-    }
-
-    const phone = submission.recipient_phone;
-
-    if (!phone) {
-      throw new Error('No phone number found for recipient');
-    }
-
-    // Format phone number for WhatsApp API (remove leading 0, add 972)
-    const whatsappPhone = phone.startsWith('0') ? 
-      `972${phone.slice(1)}@c.us` : 
-      `${phone}@c.us`;
-
-    // Replace template variables
-    const message = whatsapp_message.replace(/{{(\w+)}}/g, (match: string, key: string) => {
-      if (key === 'id') return submissionId;
-      return match;
-    });
-
-    const payload: WhatsAppMessage = {
-      chatId: whatsappPhone,
-      message
-    };
-
-    // Send WhatsApp message
-    const apiUrl = `${WHATSAPP_API_URL}/waInstance${instanceId}/sendMessage/${apiToken}`;
-    
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`WhatsApp API error: ${error}`);
-    }
-
-    // Update submission status
-    await supabaseAdmin
-      .from('form_submissions')
-      .update({
-        whatsapp_status: 'sent',
-        whatsapp_sent_at: new Date().toISOString()
-      })
-      .eq('submission_id', submissionId);
-
-  } catch (error: unknown) {
-    console.error('Error sending WhatsApp message:', error);
-    
-    // Update submission with error
-    await supabaseAdmin
-      .from('form_submissions')
-      .update({
-        whatsapp_status: 'error',
-        whatsapp_error: error instanceof Error ? error.message : String(error)
-      })
-      .eq('submission_id', submissionId);
-
-    throw error;
   }
 } 
