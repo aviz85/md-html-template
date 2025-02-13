@@ -67,149 +67,175 @@ async function validateWhatsAppResponse(response: Response, submissionId: string
 export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
   let retryCount = 0;
   
-  while (true) {
-    try {
-      await addWhatsAppLog(submissionId, 'info', 'Starting WhatsApp process');
-      
-      // Fetch submission and template data
-      const { data: submission } = await supabaseAdmin
-        .from('form_submissions')
-        .select(`
-          *,
-          template:templates!left (
-            id,
-            send_whatsapp,
-            whatsapp_message
-          )
-        `)
-        .eq('submission_id', submissionId)
-        .single();
+  try {
+    while (true) {
+      try {
+        // Update status to processing
+        await supabaseAdmin
+          .from('form_submissions')
+          .update({
+            whatsapp_status: 'processing',
+            updated_at: new Date().toISOString()
+          })
+          .eq('submission_id', submissionId);
 
-      if (!submission) {
-        await addWhatsAppLog(submissionId, 'error', 'No submission found');
-        throw new Error('Submission not found');
-      }
-
-      if (!submission.template?.send_whatsapp) {
-        await addWhatsAppLog(submissionId, 'info', 'WhatsApp sending not enabled');
-        return;
-      }
-
-      // Validate configuration
-      const instanceId = DEFAULT_INSTANCE_ID;
-      const apiToken = DEFAULT_API_TOKEN;
-      const { whatsapp_message } = submission.template;
-      
-      if (!instanceId || !apiToken || !whatsapp_message) {
-        await addWhatsAppLog(submissionId, 'error', 'Missing configuration', {
-          hasInstanceId: !!instanceId,
-          hasApiToken: !!apiToken,
-          hasMessage: !!whatsapp_message
-        });
-        throw new Error('Missing WhatsApp configuration');
-      }
-
-      const phone = submission.recipient_phone;
-      if (!phone) {
-        await addWhatsAppLog(submissionId, 'error', 'No phone number found');
-        throw new Error('No phone number found for recipient');
-      }
-
-      // Format phone number
-      const whatsappPhone = phone.startsWith('0') ? 
-        `972${phone.slice(1)}@c.us` : 
-        `${phone}@c.us`;
-
-      // Replace template variables
-      const message = whatsapp_message.replace(/{{(\w+)}}/g, (match: string, key: string) => {
-        if (key === 'id') return submissionId;
-        return match;
-      });
-
-      const payload: WhatsAppMessage = {
-        chatId: whatsappPhone,
-        message
-      };
-
-      await addWhatsAppLog(submissionId, 'info', 'Sending message', {
-        phone: whatsappPhone,
-        messageLength: message.length
-      });
-
-      // Send WhatsApp message
-      const apiUrl = `${WHATSAPP_API_URL}/waInstance${instanceId}/sendMessage/${apiToken}`;
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      // Validate response
-      const responseData = await validateWhatsAppResponse(response, submissionId);
-      
-      await addWhatsAppLog(submissionId, 'info', 'Message sent successfully', {
-        messageId: responseData.idMessage
-      });
-
-      // Update submission status
-      await supabaseAdmin
-        .from('form_submissions')
-        .update({
-          whatsapp_status: 'sent',
-          whatsapp_sent_at: new Date().toISOString(),
-          whatsapp_message_id: responseData.idMessage
-        })
-        .eq('submission_id', submissionId);
-
-      return;
-
-    } catch (error) {
-      const isRetryableError = error instanceof Error && (
-        error.message.includes('network') ||
-        error.message.includes('timeout') ||
-        error.message.includes('socket') ||
-        error.message.includes('ECONNRESET')
-      );
-
-      if (isRetryableError && retryCount < MAX_RETRIES) {
-        retryCount++;
-        const delay = INITIAL_RETRY_DELAY * Math.pow(2, retryCount - 1);
+        await addWhatsAppLog(submissionId, 'info', 'Starting WhatsApp process');
         
-        await addWhatsAppLog(submissionId, 'error', 'Retrying after error', {
-          error: error instanceof Error ? error.message : String(error),
-          attempt: retryCount,
-          nextDelay: delay
+        // Fetch submission and template data
+        const { data: submission } = await supabaseAdmin
+          .from('form_submissions')
+          .select(`
+            *,
+            template:templates!left (
+              id,
+              send_whatsapp,
+              whatsapp_message
+            )
+          `)
+          .eq('submission_id', submissionId)
+          .single();
+
+        if (!submission) {
+          await addWhatsAppLog(submissionId, 'error', 'No submission found');
+          throw new Error('Submission not found');
+        }
+
+        if (!submission.template?.send_whatsapp) {
+          await addWhatsAppLog(submissionId, 'info', 'WhatsApp sending not enabled');
+          return;
+        }
+
+        // Validate configuration
+        const instanceId = DEFAULT_INSTANCE_ID;
+        const apiToken = DEFAULT_API_TOKEN;
+        const { whatsapp_message } = submission.template;
+        
+        if (!instanceId || !apiToken || !whatsapp_message) {
+          await addWhatsAppLog(submissionId, 'error', 'Missing configuration', {
+            hasInstanceId: !!instanceId,
+            hasApiToken: !!apiToken,
+            hasMessage: !!whatsapp_message
+          });
+          throw new Error('Missing WhatsApp configuration');
+        }
+
+        const phone = submission.recipient_phone;
+        if (!phone) {
+          await addWhatsAppLog(submissionId, 'error', 'No phone number found');
+          throw new Error('No phone number found for recipient');
+        }
+
+        // Format phone number
+        const whatsappPhone = phone.startsWith('0') ? 
+          `972${phone.slice(1)}@c.us` : 
+          `${phone}@c.us`;
+
+        // Replace template variables
+        const message = whatsapp_message.replace(/{{(\w+)}}/g, (match: string, key: string) => {
+          if (key === 'id') return submissionId;
+          return match;
         });
 
-        await new Promise(resolve => setTimeout(resolve, delay));
-        continue;
+        const payload: WhatsAppMessage = {
+          chatId: whatsappPhone,
+          message
+        };
+
+        await addWhatsAppLog(submissionId, 'info', 'Sending message', {
+          phone: whatsappPhone,
+          messageLength: message.length
+        });
+
+        // Send WhatsApp message
+        const apiUrl = `${WHATSAPP_API_URL}/waInstance${instanceId}/sendMessage/${apiToken}`;
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        // Validate response
+        const responseData = await validateWhatsAppResponse(response, submissionId);
+        
+        await addWhatsAppLog(submissionId, 'info', 'Message sent successfully', {
+          messageId: responseData.idMessage
+        });
+
+        // On successful send, update status
+        await supabaseAdmin
+          .from('form_submissions')
+          .update({
+            whatsapp_status: 'sent',
+            whatsapp_sent_at: new Date().toISOString(),
+            whatsapp_message_id: responseData.idMessage,
+            whatsapp_error: null, // Clear any previous errors
+            updated_at: new Date().toISOString()
+          })
+          .eq('submission_id', submissionId);
+
+        return;
+
+      } catch (error) {
+        const isRetryableError = error instanceof Error && (
+          error.message.includes('network') ||
+          error.message.includes('timeout') ||
+          error.message.includes('socket') ||
+          error.message.includes('ECONNRESET')
+        );
+
+        if (isRetryableError && retryCount < MAX_RETRIES) {
+          retryCount++;
+          const delay = INITIAL_RETRY_DELAY * Math.pow(2, retryCount - 1);
+          
+          // Update status to retrying
+          await supabaseAdmin
+            .from('form_submissions')
+            .update({
+              whatsapp_status: 'retrying',
+              whatsapp_error: `Attempt ${retryCount}/${MAX_RETRIES}: ${error instanceof Error ? error.message : String(error)}`,
+              updated_at: new Date().toISOString()
+            })
+            .eq('submission_id', submissionId);
+
+          await addWhatsAppLog(submissionId, 'error', 'Retrying after error', {
+            error: error instanceof Error ? error.message : String(error),
+            attempt: retryCount,
+            nextDelay: delay
+          });
+
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        throw error; // Let the outer try-catch handle final error
       }
-
-      // Final error handling
-      await addWhatsAppLog(submissionId, 'error', 'Final error', {
-        error: error instanceof Error ? error.message : String(error),
-        retryAttempts: retryCount
-      });
-      
-      await supabaseAdmin
-        .from('form_submissions')
-        .update({
-          whatsapp_status: 'error',
-          whatsapp_error: error instanceof Error ? error.message : String(error),
-          whatsapp_error_details: {
-            error: error instanceof Error ? {
-              message: error.message,
-              stack: error.stack
-            } : String(error),
-            retryAttempts: retryCount,
-            timestamp: new Date().toISOString()
-          }
-        })
-        .eq('submission_id', submissionId);
-
-      throw error;
     }
+  } catch (error) {
+    // Final error handling
+    await addWhatsAppLog(submissionId, 'error', 'Final error', {
+      error: error instanceof Error ? error.message : String(error),
+      retryAttempts: retryCount
+    });
+    
+    await supabaseAdmin
+      .from('form_submissions')
+      .update({
+        whatsapp_status: 'error',
+        whatsapp_error: error instanceof Error ? error.message : String(error),
+        whatsapp_error_details: {
+          error: error instanceof Error ? {
+            message: error.message,
+            stack: error.stack
+          } : String(error),
+          retryAttempts: retryCount,
+          timestamp: new Date().toISOString()
+        },
+        updated_at: new Date().toISOString()
+      })
+      .eq('submission_id', submissionId);
+
+    throw error;
   }
 } 
