@@ -51,12 +51,17 @@ async function validateWhatsAppResponse(response: Response, submissionId: string
     throw new Error('Invalid response from WhatsApp API');
   }
 
-  if (!response.ok || !responseData.status) {
+  // Success is indicated by having an idMessage and no error
+  if (!response.ok || !responseData.idMessage || responseData.error) {
     await addWhatsAppLog(submissionId, 'error', 'API error response', responseData);
     throw new Error(responseData.error || 'WhatsApp API error');
   }
 
-  return responseData;
+  // If we got here, it's a success
+  return {
+    ...responseData,
+    status: true // Ensure status is true for successful responses
+  };
 }
 
 export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
