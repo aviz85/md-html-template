@@ -1,0 +1,9 @@
+[build]
+command = ""
+
+[deploy]
+max_retries = 0
+
+[env]
+SUPABASE_URL = "https://fdecrxcxrshebgrmbywz.supabase.co"
+APP_URL = "https://md-html-template.vercel.app" 
