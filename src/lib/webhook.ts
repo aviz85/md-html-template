@@ -54,11 +54,18 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
     console.log('Split pretty fields:', fields);
     
     for (const field of fields) {
-      const [key, ...rest] = field.split(':');
-      const value = rest.join(':').trim();
+      // מוצאים את המיקום של הנקודתיים האחרונות בשדה
+      const lastColonIndex = field.lastIndexOf(':');
+      if (lastColonIndex === -1) {
+        console.log('No colon found in field:', field);
+        continue;
+      }
+
+      const key = field.substring(0, lastColonIndex);
+      const value = field.substring(lastColonIndex + 1);
       
       if (!key || !value) {
-        console.log('Skipping empty field:', { key, value });
+        console.log('Empty key or value:', { key, value });
         continue;
       }
 
@@ -67,11 +74,11 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
       console.log('Processing pretty field:', { cleanKey, value });
 
       if (cleanKey === 'שמך המלא' || cleanKey === 'שם מלא') {
-        customer.name = value;
+        customer.name = value.trim();
         console.log('Found name in pretty:', value);
       }
       else if (cleanKey === 'אימייל' || cleanKey === 'אימייל אליו נשלח את מסמך הסיכום שלנו') {
-        customer.email = value;
+        customer.email = value.trim();
         console.log('Found email in pretty:', value);
       }
       else if (cleanKey === 'מספר טלפון' || cleanKey === 'טלפון נייד') {
@@ -81,6 +88,8 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
       }
     }
 
+    console.log('Extracted customer details from pretty:', customer);
+    
     // אם מצאנו את כל הפרטים ב-pretty, נחזיר
     if (customer.name && customer.email && customer.phone) {
       console.log('Found all details in pretty field:', customer);
