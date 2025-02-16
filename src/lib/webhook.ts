@@ -61,7 +61,8 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
       /^שם\s*בעברית$/i,
       /^שם\s*באנגלית$/i,
       /^שם\s*מגיש\/ת\s*הבקשה$/i,
-      /^שם\s*הפונה$/i
+      /^שם\s*הפונה$/i,
+      /שם/i  // תופס כל שדה שמכיל את המילה שם
     ],
     email: [
       /^(email|mail|אימייל|מייל)$/i,
