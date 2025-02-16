@@ -47,6 +47,42 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
   const customer: WebhookPayload['customer'] = {};
   console.log('Starting customer details search in formData:', formData);
 
+  // First pass: Find email and phone by format in ALL values
+  const searchAllValues = (obj: any) => {
+    if (!obj) return;
+
+    if (typeof obj === 'string') {
+      const value = obj.trim();
+      // Find email by format
+      if (!customer.email && isEmail(value)) {
+        customer.email = value;
+        console.log('Found email by format:', value);
+      }
+      // Find phone by format
+      if (!customer.phone && isPhoneNumber(value)) {
+        customer.phone = normalizePhone(value);
+        console.log('Found phone by format:', { original: value, cleaned: customer.phone });
+      }
+      return;
+    }
+
+    if (Array.isArray(obj)) {
+      obj.forEach(item => searchAllValues(item));
+      return;
+    }
+
+    if (typeof obj === 'object') {
+      Object.values(obj).forEach(value => searchAllValues(value));
+    }
+  };
+
+  // Search all values first
+  searchAllValues(formData);
+  console.log('After searching all values:', { 
+    foundEmail: !!customer.email, 
+    foundPhone: !!customer.phone 
+  });
+
   // בדיקת שדה pretty
   if (formData.pretty && typeof formData.pretty === 'string') {
     console.log('Found pretty field:', formData.pretty);
@@ -77,12 +113,13 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
         customer.name = value.trim();
         console.log('Found name in pretty:', value);
       }
-      else if (cleanKey === 'אימייל' || cleanKey === 'אימייל אליו נשלח את מסמך הסיכום שלנו') {
+      // Only set email/phone if not found by format
+      else if (!customer.email && (cleanKey === 'אימייל' || cleanKey === 'אימייל אליו נשלח את מסמך הסיכום שלנו')) {
         customer.email = value.trim();
         console.log('Found email in pretty:', value);
       }
-      else if (cleanKey === 'מספר טלפון' || cleanKey === 'טלפון נייד') {
-        const rawPhone = value.replace(/[^\d+]/g, ''); // שומר על + במקרה של מספר בינלאומי
+      else if (!customer.phone && (cleanKey === 'מספר טלפון' || cleanKey === 'טלפון נייד')) {
+        const rawPhone = value.replace(/[^\d+]/g, '');
         customer.phone = normalizePhone(rawPhone);
         console.log('Found phone in pretty:', { original: value, cleaned: customer.phone });
       }
@@ -101,84 +138,9 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
         foundPhone: !!customer.phone
       });
     }
-  } else {
-    console.log('No pretty field found or invalid type:', formData.pretty);
   }
 
-  // Common field patterns for customer information
-  const patterns = {
-    name: [
-      /^(name|fullname|full_name|שם|שם_מלא)$/i,
-      /(^|_)(first|last)?name($|_)/i,
-      /שם.*משפחה/i,
-      /שם.*פרטי/i
-    ],
-    email: [
-      /^(email|mail|אימייל|מייל)$/i,
-      /(^|_)(email|mail)($|_)/i,
-      /דואר.*אלקטרוני/i,
-      /^JJ$/i  // Special case for our forms
-    ],
-    phone: [
-      /^(phone|mobile|tel|טלפון|נייד)$/i,
-      /(^|_)(phone|mobile|tel)($|_)/i,
-      /טלפון.*נייד/i,
-      /מספר.*טלפון/i,
-      /^טלפון נייד$/i,
-      /^מספר טלפון$/i
-    ]
-  };
-
-  // Helper function to check if a string looks like a full name (2+ words)
-  const isFullName = (str: string): boolean => {
-    const words = str.trim().split(/\s+/);
-    return words.length >= 2 && words.every(word => /^[\u0590-\u05FFa-zA-Z]+$/.test(word));
-  };
-
-  // Helper function to check if a string is a valid phone number
-  const isPhoneNumber = (str: string): boolean => {
-    // תבניות שונות של מספרי טלפון
-    const patterns = [
-      // פורמט עם סוגריים ומקפים: (054) 677-6329
-      /^\(\d{2,3}\)\s*\d{3}[-\s]\d{4}$/,
-      // פורמט עם מקפים: 054-677-6329
-      /^\d{2,3}[-\s]\d{3}[-\s]\d{4}$/,
-      // פורמט בינלאומי: +972546776329
-      /^\+?(972|0)\d{9}$/,
-      // פורמט רגיל: 0546776329
-      /^0\d{8,9}$/
-    ];
-
-    // נקה רווחים מיותרים
-    const trimmed = str.trim();
-    
-    // בדוק אם המספר תואם לאחת התבניות
-    if (patterns.some(pattern => pattern.test(trimmed))) {
-      return true;
-    }
-
-    // אם לא תואם לתבניות, נקה את כל התווים המיוחדים ובדוק אם זה מספר תקין
-    const cleaned = trimmed.replace(/[\s\-()]/g, '');
-    return /^(?:\+?972|0)\d{8,9}$/.test(cleaned);
-  };
-
-  // Helper function to check if a string is a valid email
-  const isEmail = (str: string): boolean => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str.trim());
-  };
-
-  // First pass: Find by value format
-  Object.entries(formData).forEach(([_, value]) => {
-    if (typeof value !== 'string' || !value.trim()) return;
-    const valueStr = value.trim();
-
-    // Find email by format first
-    if (!customer.email && isEmail(valueStr)) {
-      customer.email = valueStr;
-    }
-  });
-
-  // Second pass: Find fields by patterns if not found by format
+  // Second pass: Find fields by patterns if not found
   Object.entries(formData).forEach(([key, value]) => {
     if (typeof value !== 'string' || !value.trim()) return;
 
@@ -186,24 +148,17 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
       if (!customer[field as keyof typeof customer]) {
         const matches = fieldPatterns.some(pattern => pattern.test(key));
         if (matches) {
-          // Validate value based on field type
-          if (field === 'email' && isEmail(value) ||
-              field === 'phone' && isPhoneNumber(value) ||
-              field === 'name' && isFullName(value)) {
-            if (field === 'phone') {
-              customer[field] = normalizePhone(value);
-            } else {
-              customer[field as keyof typeof customer] = value.trim();
-            }
+          // Only validate name (email and phone already validated)
+          if (field === 'name' && isFullName(value)) {
+            customer[field as keyof typeof customer] = value.trim();
           }
         }
       }
     });
   });
 
-  // Third pass: Find by proximity if still missing
-  if (!customer.name || !customer.phone) {
-    // Convert form data to array of entries for easier proximity analysis
+  // Third pass: Find name by proximity if still missing
+  if (!customer.name) {
     const entries = Object.entries(formData);
     
     entries.forEach(([_, value], index) => {
@@ -222,11 +177,6 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
         }
       }
 
-      // Find phone by format if not found
-      if (!customer.phone && isPhoneNumber(valueStr)) {
-        customer.phone = normalizePhone(valueStr);
-      }
-
       // Find name by format if not found
       if (!customer.name && isFullName(valueStr)) {
         customer.name = valueStr;
@@ -234,7 +184,7 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
     });
   }
 
-  console.log('Found customer details:', customer);
+  console.log('Final customer details:', customer);
   return customer;
 }
 
