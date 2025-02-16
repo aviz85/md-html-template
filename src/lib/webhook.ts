@@ -47,6 +47,68 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
   const customer: WebhookPayload['customer'] = {};
   console.log('Starting customer details search in formData:', formData);
 
+  // Common field patterns for customer information
+  const patterns = {
+    name: [
+      /^(name|fullname|full_name|שם|שם_מלא)$/i,
+      /(^|_)(first|last)?name($|_)/i,
+      /שם.*משפחה/i,
+      /שם.*פרטי/i
+    ],
+    email: [
+      /^(email|mail|אימייל|מייל)$/i,
+      /(^|_)(email|mail)($|_)/i,
+      /דואר.*אלקטרוני/i,
+      /^JJ$/i  // Special case for our forms
+    ],
+    phone: [
+      /^(phone|mobile|tel|טלפון|נייד)$/i,
+      /(^|_)(phone|mobile|tel)($|_)/i,
+      /טלפון.*נייד/i,
+      /מספר.*טלפון/i,
+      /^טלפון נייד$/i,
+      /^מספר טלפון$/i
+    ]
+  };
+
+  // Helper function to check if a string looks like a full name (2+ words)
+  const isFullName = (str: string): boolean => {
+    const words = str.trim().split(/\s+/);
+    return words.length >= 2 && words.every(word => /^[\u0590-\u05FFa-zA-Z]+$/.test(word));
+  };
+
+  // Helper function to check if a string is a valid phone number
+  const isPhoneNumber = (str: string): boolean => {
+    // תבניות שונות של מספרי טלפון
+    const patterns = [
+      // פורמט עם סוגריים ומקפים: (054) 677-6329
+      /^\(\d{2,3}\)\s*\d{3}[-\s]\d{4}$/,
+      // פורמט עם מקפים: 054-677-6329
+      /^\d{2,3}[-\s]\d{3}[-\s]\d{4}$/,
+      // פורמט בינלאומי: +972546776329
+      /^\+?(972|0)\d{9}$/,
+      // פורמט רגיל: 0546776329
+      /^0\d{8,9}$/
+    ];
+
+    // נקה רווחים מיותרים
+    const trimmed = str.trim();
+    
+    // בדוק אם המספר תואם לאחת התבניות
+    if (patterns.some(pattern => pattern.test(trimmed))) {
+      return true;
+    }
+
+    // אם לא תואם לתבניות, נקה את כל התווים המיוחדים ובדוק אם זה מספר תקין
+    const cleaned = trimmed.replace(/[\s\-()]/g, '');
+    return /^(?:\+?972|0)\d{8,9}$/.test(cleaned);
+  };
+
+  // Helper function to check if a string is a valid email
+  const isEmail = (str: string): boolean => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str.trim());
+  };
+
   // First pass: Find email and phone by format in ALL values
   const searchAllValues = (obj: any) => {
     if (!obj) return;
