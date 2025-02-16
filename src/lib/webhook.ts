@@ -53,7 +53,15 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
       /^(name|fullname|full_name|שם|שם_מלא)$/i,
       /(^|_)(first|last)?name($|_)/i,
       /שם.*משפחה/i,
-      /שם.*פרטי/i
+      /שם.*פרטי/i,
+      /^שמך\s*המלא$/i,
+      /^שם\s*מלא$/i,
+      /^שם\s*פרטי$/i,
+      /^שם\s*משפחה$/i,
+      /^שם\s*בעברית$/i,
+      /^שם\s*באנגלית$/i,
+      /^שם\s*מגיש\/ת\s*הבקשה$/i,
+      /^שם\s*הפונה$/i
     ],
     email: [
       /^(email|mail|אימייל|מייל)$/i,
@@ -71,10 +79,20 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
     ]
   };
 
-  // Helper function to check if a string looks like a full name (2+ words)
+  // Helper function to check if a string looks like a full name
   const isFullName = (str: string): boolean => {
-    const words = str.trim().split(/\s+/);
-    return words.length >= 2 && words.every(word => /^[\u0590-\u05FFa-zA-Z]+$/.test(word));
+    // נקה רווחים מיותרים
+    const trimmed = str.trim();
+    
+    // בדוק שיש לפחות 2 מילים
+    const words = trimmed.split(/\s+/);
+    if (words.length < 2) return false;
+    
+    // בדוק שכל מילה מכילה רק אותיות בעברית או אנגלית
+    return words.every(word => {
+      // אותיות בעברית או אנגלית, מינימום 2 תווים למילה
+      return word.length >= 2 && /^[\u0590-\u05FF\u200fa-zA-Z'"-]+$/.test(word);
+    });
   };
 
   // Helper function to check if a string is a valid phone number
@@ -88,7 +106,23 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
       // פורמט בינלאומי: +972546776329
       /^\+?(972|0)\d{9}$/,
       // פורמט רגיל: 0546776329
-      /^0\d{8,9}$/
+      /^0\d{8,9}$/,
+      // פורמט עם רווחים: 054 677 6329
+      /^\d{2,3}\s\d{3}\s\d{4}$/,
+      // פורמט עם נקודות: 054.677.6329
+      /^\d{2,3}\.\d{3}\.\d{4}$/,
+      // פורמט בינלאומי עם מקף: +972-54-677-6329
+      /^\+?(972|0)[-\s]?\d{1,2}[-\s]?\d{3}[-\s]?\d{4}$/,
+      // פורמט עם סוגריים חלקי: 054-6776329
+      /^\d{2,3}[-\s]\d{7}$/,
+      // פורמט בינלאומי עם סוגריים: (+972) 54-677-6329
+      /^\(\+?(972|0)\)\s*\d{1,2}[-\s]?\d{3}[-\s]?\d{4}$/,
+      // פורמט עם קידומת בסוגריים: (054) 6776329
+      /^\(\d{2,3}\)\s*\d{7}$/,
+      // פורמט עם קידומת ארוכה: 0549876543
+      /^0\d{9}$/,
+      // פורמט בינלאומי נקי: 972549876543
+      /^972\d{9}$/
     ];
 
     // נקה רווחים מיותרים
@@ -100,8 +134,8 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
     }
 
     // אם לא תואם לתבניות, נקה את כל התווים המיוחדים ובדוק אם זה מספר תקין
-    const cleaned = trimmed.replace(/[\s\-()]/g, '');
-    return /^(?:\+?972|0)\d{8,9}$/.test(cleaned);
+    const cleaned = trimmed.replace(/[\s\-().+]/g, '');
+    return /^(?:972|0)\d{9}$/.test(cleaned);
   };
 
   // Helper function to check if a string is a valid email
