@@ -62,14 +62,15 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
         continue;
       }
 
-      const cleanKey = key.trim();
+      // Clean the key by removing leading/trailing colons and whitespace
+      const cleanKey = key.replace(/^:+|:+$/g, '').trim();
       console.log('Processing pretty field:', { cleanKey, value });
 
-      if (cleanKey === 'שם מלא') {
+      if (cleanKey === 'שמך המלא' || cleanKey === 'שם מלא') {
         customer.name = value;
         console.log('Found name in pretty:', value);
       }
-      else if (cleanKey === 'אימייל') {
+      else if (cleanKey === 'אימייל' || cleanKey === 'אימייל אליו נשלח את מסמך הסיכום שלנו') {
         customer.email = value;
         console.log('Found email in pretty:', value);
       }
@@ -127,9 +128,28 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
 
   // Helper function to check if a string is a valid phone number
   const isPhoneNumber = (str: string): boolean => {
-    // Remove all formatting characters first
-    const cleaned = str.replace(/[\s\-()]/g, '');
-    // Check if it's a valid phone number format
+    // תבניות שונות של מספרי טלפון
+    const patterns = [
+      // פורמט עם סוגריים ומקפים: (054) 677-6329
+      /^\(\d{2,3}\)\s*\d{3}[-\s]\d{4}$/,
+      // פורמט עם מקפים: 054-677-6329
+      /^\d{2,3}[-\s]\d{3}[-\s]\d{4}$/,
+      // פורמט בינלאומי: +972546776329
+      /^\+?(972|0)\d{9}$/,
+      // פורמט רגיל: 0546776329
+      /^0\d{8,9}$/
+    ];
+
+    // נקה רווחים מיותרים
+    const trimmed = str.trim();
+    
+    // בדוק אם המספר תואם לאחת התבניות
+    if (patterns.some(pattern => pattern.test(trimmed))) {
+      return true;
+    }
+
+    // אם לא תואם לתבניות, נקה את כל התווים המיוחדים ובדוק אם זה מספר תקין
+    const cleaned = trimmed.replace(/[\s\-()]/g, '');
     return /^(?:\+?972|0)\d{8,9}$/.test(cleaned);
   };
 
@@ -138,7 +158,18 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str.trim());
   };
 
-  // First pass: Find fields by patterns
+  // First pass: Find by value format
+  Object.entries(formData).forEach(([_, value]) => {
+    if (typeof value !== 'string' || !value.trim()) return;
+    const valueStr = value.trim();
+
+    // Find email by format first
+    if (!customer.email && isEmail(valueStr)) {
+      customer.email = valueStr;
+    }
+  });
+
+  // Second pass: Find fields by patterns if not found by format
   Object.entries(formData).forEach(([key, value]) => {
     if (typeof value !== 'string' || !value.trim()) return;
 
@@ -161,19 +192,17 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
     });
   });
 
-  // Second pass: Find by value format and proximity
-  if (!customer.name || !customer.email || !customer.phone) {
+  // Third pass: Find by proximity if still missing
+  if (!customer.name || !customer.phone) {
     // Convert form data to array of entries for easier proximity analysis
     const entries = Object.entries(formData);
     
-    entries.forEach(([key, value], index) => {
+    entries.forEach(([_, value], index) => {
       if (typeof value !== 'string' || !value.trim()) return;
       const valueStr = value.trim();
 
-      // Find email by format if not found
-      if (!customer.email && isEmail(valueStr)) {
-        customer.email = valueStr;
-        
+      // If we found email by format, look for name in adjacent fields
+      if (customer.email && !customer.name) {
         // Look for name in adjacent fields (before and after)
         for (let i = Math.max(0, index - 2); i <= Math.min(entries.length - 1, index + 2); i++) {
           const [_, adjacentValue] = entries[i];
