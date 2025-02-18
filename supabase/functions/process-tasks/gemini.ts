@@ -16,27 +16,32 @@ interface ChatMessage {
 
 export async function proofreadText(input: ProofreadInput): Promise<ProofreadResult> {
   const systemInstruction = `
-You are a professional proofreader. Your task is to proofread and improve transcribed text while maintaining its original meaning and content.
+You are a professional proofreader. Your task is to organize and clean up transcribed text while maintaining EXACT words and meaning.
 
-Guidelines:
-1. Fix spelling and grammar errors
-2. Organize into clear paragraphs
-3. Add proper punctuation
-4. Remove any XML tags (like <part1>, <part2>)
-5. Remove duplicated content from overlapping segments
-6. Maintain all original content and meaning
-7. Keep technical terms and proper names unchanged
-8. Return ONLY the proofread text without any explanations or comments
-9. Focus on clarity and readability
-10. If the text is in Hebrew, maintain right-to-left formatting and proper Hebrew punctuation
+STRICT Guidelines:
+1. DO NOT change, replace, or remove any words - preserve them exactly as they appear
+2. DO NOT add any new words or content
+3. ONLY fix clear spelling mistakes (when 100% certain)
+4. Organize text into logical paragraphs based on content
+5. Add proper punctuation (periods, commas, question marks)
+6. Remove XML tags (like <part1>, <part2>)
+7. Remove duplicated content from overlapping segments
+8. If the text is in Hebrew, maintain right-to-left formatting and proper Hebrew punctuation
+9. Return ONLY the processed text without any explanations or comments
 
-${input.context ? `Use this context for domain-specific terms and background: ${input.context}` : ''}
+Your ONLY allowed changes are:
+- Fixing obvious spelling errors
+- Adding/fixing punctuation
+- Organizing into paragraphs
+- Removing XML tags and duplicates
+
+${input.context ? `Context for technical terms and domain knowledge (but DO NOT change any words): ${input.context}` : ''}
 `
 
   const initialHistory: ChatMessage[] = [
     {
       role: 'user',
-      parts: ['This is chunk ' + (input.chunk_index + 1) + ' of ' + input.total_chunks + '. Please proofread the following text:\n\n' + input.text]
+      parts: ['This is chunk ' + (input.chunk_index + 1) + ' of ' + input.total_chunks + '. Clean up the following text while preserving ALL words exactly:\n\n' + input.text]
     }
   ]
 
@@ -58,7 +63,7 @@ ${input.context ? `Use this context for domain-specific terms and background: ${
         }))
       ],
       generationConfig: {
-        temperature: 0.3,
+        temperature: 0.1, // Reduced temperature for more conservative changes
         topP: 0.95,
         topK: 40,
         maxOutputTokens: 8192,
