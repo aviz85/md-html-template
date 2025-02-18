@@ -215,4 +215,147 @@ CREATE TRIGGER update_css_on_styles_change
   BEFORE INSERT OR UPDATE OF element_styles
   ON templates
   FOR EACH ROW
-  EXECUTE FUNCTION generate_css_from_styles(); 
+  EXECUTE FUNCTION generate_css_from_styles();
+
+-- Enable required extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Enum for task types
+CREATE TYPE task_type AS ENUM (
+    'SAVE_FILE',
+    'CONVERT_AUDIO',
+    'SPLIT_AUDIO',
+    'TRANSCRIBE',
+    'MERGE_TRANSCRIPTIONS',
+    'SPLIT_TEXT',
+    'PROOFREAD',
+    'MERGE_PROOFREADS',
+    'CLEANUP'
+);
+
+-- Enum for job status
+CREATE TYPE job_status AS ENUM (
+    'pending',
+    'processing',
+    'completed',
+    'failed'
+);
+
+-- Enum for task status
+CREATE TYPE task_status AS ENUM (
+    'pending',
+    'locked',
+    'completed',
+    'failed',
+    'retry'
+);
+
+-- Main jobs table
+CREATE TABLE transcription_jobs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    status job_status NOT NULL DEFAULT 'pending',
+    original_filename TEXT NOT NULL,
+    preferred_language TEXT,
+    proofreading_context TEXT,
+    storage_path TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    final_transcription TEXT,
+    final_proofread TEXT,
+    error TEXT,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    segments_count INTEGER,
+    completed_segments INTEGER DEFAULT 0,
+    completed_proofreads INTEGER DEFAULT 0,
+    expected_completion_time TIMESTAMPTZ,
+    processing_started_at TIMESTAMPTZ
+);
+
+-- Task queue table
+CREATE TABLE task_queue (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    job_id UUID NOT NULL REFERENCES transcription_jobs(id) ON DELETE CASCADE,
+    task_type task_type NOT NULL,
+    status task_status NOT NULL DEFAULT 'pending',
+    priority INTEGER DEFAULT 1,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    error TEXT,
+    input_data JSONB DEFAULT '{}'::jsonb,
+    output_data JSONB DEFAULT '{}'::jsonb,
+    retry_count INTEGER DEFAULT 0,
+    max_retries INTEGER DEFAULT 3,
+    locked_until TIMESTAMPTZ,
+    locked_by TEXT,
+    parent_task_id UUID REFERENCES task_queue(id),
+    sequence_order INTEGER
+);
+
+-- Create indexes
+CREATE INDEX idx_task_queue_status ON task_queue(status);
+CREATE INDEX idx_task_queue_priority ON task_queue(priority);
+CREATE INDEX idx_task_queue_job_id ON task_queue(job_id);
+CREATE INDEX idx_transcription_jobs_status ON transcription_jobs(status);
+CREATE INDEX idx_task_queue_locked_until ON task_queue(locked_until);
+CREATE INDEX idx_task_queue_parent ON task_queue(parent_task_id);
+
+-- Enable row level security
+ALTER TABLE transcription_jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE task_queue ENABLE ROW LEVEL SECURITY;
+
+-- Create policies
+CREATE POLICY "Enable read access for all users" ON transcription_jobs
+    FOR SELECT
+    USING (true);
+
+CREATE POLICY "Enable insert for authenticated users only" ON transcription_jobs
+    FOR INSERT
+    WITH CHECK (auth.role() = 'authenticated');
+
+-- Function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Create trigger for updated_at
+CREATE TRIGGER update_transcription_jobs_updated_at
+    BEFORE UPDATE ON transcription_jobs
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Function to create initial task for new job
+CREATE OR REPLACE FUNCTION create_initial_task()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO task_queue (
+        job_id,
+        task_type,
+        priority,
+        input_data
+    ) VALUES (
+        NEW.id,
+        'SAVE_FILE',
+        1,
+        jsonb_build_object(
+            'filename', NEW.original_filename,
+            'storage_path', NEW.storage_path
+        )
+    );
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Create trigger for initial task creation
+CREATE TRIGGER create_initial_task_trigger
+    AFTER INSERT ON transcription_jobs
+    FOR EACH ROW
+    EXECUTE FUNCTION create_initial_task();
+
+-- Enable realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE transcription_jobs;
+ALTER PUBLICATION supabase_realtime ADD TABLE task_queue; 
