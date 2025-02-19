@@ -81,12 +81,37 @@ interface SubmissionStatus {
   progress?: {
     stage: string;
     message: string;
+    timestamp?: string;
+    details?: any;
   };
   email_error?: string;
   email_sent_at?: string;
   recipient_email?: string;
   result?: any;
-  logs?: any[];
+  logs?: Array<{
+    stage: string;
+    message: string;
+    timestamp: string;
+    details?: any;
+  }>;
+  content?: {
+    parsedRequest?: Record<string, string>;
+    pretty?: string;
+    email_subject?: string;
+    email_body?: string;
+    email_from?: string;
+    email_to?: string;
+    whatsapp_message?: string;
+  };
+  whatsapp_status?: string;
+  whatsapp_error?: string;
+  whatsapp_sent_at?: string;
+  recipient_phone?: string;
+  claude_status?: string;
+  has_audio?: boolean;
+  transcription_status?: string;
+  processing_duration?: number;
+  form_id?: string;
 }
 
 interface TemplateEditorProps {
@@ -2058,24 +2083,118 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                   <label className="text-sm font-medium">זמן יצירה</label>
                   <div className="text-sm">{new Date(selectedSubmission.created_at).toLocaleString()}</div>
                 </div>
+                {selectedSubmission.content?.parsedRequest && (
+                  <>
+                    {Object.entries(selectedSubmission.content.parsedRequest)
+                      .filter(([key, value]) => value && typeof value === 'string' && value.trim() !== '')
+                      .map(([key, value]) => (
+                        <div key={key}>
+                          <label className="text-sm font-medium">
+                            {selectedSubmission.content?.pretty 
+                              ? selectedSubmission.content.pretty.split(',')
+                                  .find(pair => {
+                                    const [label, val] = pair.split(':').map(s => s.trim());
+                                    return val === value;
+                                  })?.split(':')[0]?.trim() || key
+                              : key}
+                          </label>
+                          <div className="text-sm">{value}</div>
+                        </div>
+                    ))}
+                  </>
+                )}
                 <div>
                   <label className="text-sm font-medium">סטטוס עיבוד</label>
-                  <div className="text-sm">{selectedSubmission.status}</div>
+                  <div className="text-sm">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                      selectedSubmission.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      selectedSubmission.status === 'error' ? 'bg-red-100 text-red-800' :
+                      selectedSubmission.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {selectedSubmission.status === 'completed' ? 'הושלם' :
+                       selectedSubmission.status === 'error' ? 'שגיאה' :
+                       selectedSubmission.status === 'processing' ? 'מעבד' :
+                       'ממתין'}
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm font-medium">סטטוס מייל</label>
-                  <div className="text-sm">{selectedSubmission.email_status}</div>
+                  <div className="text-sm">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                      selectedSubmission.email_status === 'sent' ? 'bg-green-100 text-green-800' :
+                      selectedSubmission.email_status === 'error' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {selectedSubmission.email_status === 'sent' ? 'נשלח' :
+                       selectedSubmission.email_status === 'error' ? 'שגיאה' :
+                       'ממתין'}
+                    </span>
+                  </div>
                 </div>
+                {selectedSubmission.whatsapp_status && (
+                  <div>
+                    <label className="text-sm font-medium">סטטוס WhatsApp</label>
+                    <div className="text-sm">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                        selectedSubmission.whatsapp_status === 'sent' ? 'bg-green-100 text-green-800' :
+                        selectedSubmission.whatsapp_status === 'error' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {selectedSubmission.whatsapp_status === 'sent' ? 'נשלח' :
+                         selectedSubmission.whatsapp_status === 'error' ? 'שגיאה' :
+                         'ממתין'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {selectedSubmission.has_audio && (
+                  <div>
+                    <label className="text-sm font-medium">סטטוס תמלול</label>
+                    <div className="text-sm">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                        selectedSubmission.transcription_status === 'completed' ? 'bg-green-100 text-green-800' :
+                        selectedSubmission.transcription_status === 'error' ? 'bg-red-100 text-red-800' :
+                        selectedSubmission.transcription_status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {selectedSubmission.transcription_status === 'completed' ? 'הושלם' :
+                         selectedSubmission.transcription_status === 'error' ? 'שגיאה' :
+                         selectedSubmission.transcription_status === 'processing' ? 'מתמלל' :
+                         'ממתין'}
+                      </span>
+                    </div>
+                  </div>
+                )}
                 {selectedSubmission.email_sent_at && (
                   <div>
                     <label className="text-sm font-medium">זמן שליחת מייל</label>
                     <div className="text-sm">{new Date(selectedSubmission.email_sent_at).toLocaleString()}</div>
                   </div>
                 )}
+                {selectedSubmission.whatsapp_sent_at && (
+                  <div>
+                    <label className="text-sm font-medium">זמן שליחת WhatsApp</label>
+                    <div className="text-sm">{new Date(selectedSubmission.whatsapp_sent_at).toLocaleString()}</div>
+                  </div>
+                )}
                 {selectedSubmission.recipient_email && (
                   <div>
-                    <label className="text-sm font-medium">נמען</label>
+                    <label className="text-sm font-medium">נמען מייל</label>
                     <div className="text-sm">{selectedSubmission.recipient_email}</div>
+                  </div>
+                )}
+                {selectedSubmission.recipient_phone && (
+                  <div>
+                    <label className="text-sm font-medium">נמען WhatsApp</label>
+                    <div className="text-sm">{selectedSubmission.recipient_phone}</div>
+                  </div>
+                )}
+                {selectedSubmission.updated_at && (
+                  <div>
+                    <label className="text-sm font-medium">עדכון אחרון</label>
+                    <div className="text-sm">{new Date(selectedSubmission.updated_at).toLocaleString()}</div>
                   </div>
                 )}
               </div>
@@ -2083,7 +2202,42 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
               {selectedSubmission.progress && (
                 <div>
                   <label className="text-sm font-medium">התקדמות</label>
-                  {formatLogEntry(selectedSubmission.progress)}
+                  <div className="mt-2 bg-muted p-3 rounded-lg">
+                    <div className="text-sm font-medium">{selectedSubmission.progress.stage}</div>
+                    <div className="text-sm text-muted-foreground">{selectedSubmission.progress.message}</div>
+                    {selectedSubmission.progress.timestamp && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {new Date(selectedSubmission.progress.timestamp).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {selectedSubmission.content?.email_subject && (
+                <div>
+                  <label className="text-sm font-medium">נושא המייל שנשלח</label>
+                  <div className="mt-2 bg-muted p-3 rounded-lg">
+                    <div className="text-sm">{selectedSubmission.content.email_subject}</div>
+                  </div>
+                </div>
+              )}
+
+              {selectedSubmission.content?.email_body && (
+                <div>
+                  <label className="text-sm font-medium">תוכן המייל שנשלח</label>
+                  <div className="mt-2 bg-muted p-3 rounded-lg max-h-32 overflow-y-auto">
+                    <div className="text-sm whitespace-pre-wrap">{selectedSubmission.content.email_body}</div>
+                  </div>
+                </div>
+              )}
+
+              {selectedSubmission.content?.whatsapp_message && (
+                <div>
+                  <label className="text-sm font-medium">הודעת WhatsApp שנשלחה</label>
+                  <div className="mt-2 bg-muted p-3 rounded-lg">
+                    <div className="text-sm whitespace-pre-wrap">{selectedSubmission.content.whatsapp_message}</div>
+                  </div>
                 </div>
               )}
 
@@ -2092,7 +2246,20 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                   <label className="text-sm font-medium">לוג מלא</label>
                   <div className="mt-2 space-y-2">
                     {selectedSubmission.logs.map((log, index) => (
-                      <div key={index}>{formatLogEntry(log)}</div>
+                      <div key={index} className="bg-muted p-3 rounded-lg">
+                        <div className="text-sm font-medium">{log.stage}</div>
+                        <div className="text-sm text-muted-foreground">{log.message}</div>
+                        {log.timestamp && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {new Date(log.timestamp).toLocaleString()}
+                          </div>
+                        )}
+                        {log.details && (
+                          <pre className="mt-2 text-xs bg-background p-2 rounded overflow-auto">
+                            {JSON.stringify(log.details, null, 2)}
+                          </pre>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -2101,16 +2268,31 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
               {selectedSubmission.result && (
                 <div>
                   <label className="text-sm font-medium">תוצאה</label>
-                  <pre className="mt-2 text-sm bg-muted p-2 rounded overflow-auto">
-                    {JSON.stringify(selectedSubmission.result, null, 2)}
-                  </pre>
+                  <div className="mt-2 bg-muted p-3 rounded-lg">
+                    <pre className="text-sm overflow-auto whitespace-pre-wrap">
+                      {typeof selectedSubmission.result === 'string' 
+                        ? selectedSubmission.result 
+                        : JSON.stringify(selectedSubmission.result, null, 2)}
+                    </pre>
+                  </div>
                 </div>
               )}
 
               {selectedSubmission.email_error && (
                 <div>
                   <label className="text-sm font-medium text-red-600">שגיאת מייל</label>
-                  <div className="text-sm text-red-600">{selectedSubmission.email_error}</div>
+                  <div className="mt-2 bg-red-50 text-red-700 p-3 rounded-lg">
+                    <div className="text-sm">{selectedSubmission.email_error}</div>
+                  </div>
+                </div>
+              )}
+
+              {selectedSubmission.whatsapp_error && (
+                <div>
+                  <label className="text-sm font-medium text-red-600">שגיאת WhatsApp</label>
+                  <div className="mt-2 bg-red-50 text-red-700 p-3 rounded-lg">
+                    <div className="text-sm">{selectedSubmission.whatsapp_error}</div>
+                  </div>
                 </div>
               )}
             </div>
