@@ -51,28 +51,47 @@ function findAudioFiles(obj: any): { path: string; fieldName: string; questionLa
 async function transcribeAudio(audioUrl: string): Promise<string> {
   console.log(`[Transcription] Starting transcription for: ${audioUrl}`);
   
-  // First download the audio file
-  console.log('[Transcription] Downloading audio file...');
-  const audioResponse = await fetch(audioUrl);
-  if (!audioResponse.ok) {
-    throw new Error(`Failed to download audio file: ${audioResponse.statusText}`);
+  let response;
+  
+  // Check if it's a direct file URL or a JotForm URL
+  if (audioUrl.includes('jotform.com') || audioUrl.includes('/widget-uploads/')) {
+    // Download the file first
+    console.log('[Transcription] Downloading audio file from JotForm...');
+    const audioResponse = await fetch(audioUrl);
+    if (!audioResponse.ok) {
+      throw new Error(`Failed to download audio file: ${audioResponse.statusText}`);
+    }
+    const audioBlob = await audioResponse.blob();
+    
+    // Create form data with the downloaded file
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'audio.mp3');
+    formData.append('preferredLanguage', 'he');
+    
+    // Call edge function with the file
+    console.log('[Transcription] Calling process-tasks function with downloaded file...');
+    response = await fetch('https://fdecrxcxrshebgrmbywz.supabase.co/functions/v1/process-tasks', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+      },
+      body: formData
+    });
+  } else {
+    // Direct URL to audio file, let the edge function handle it
+    console.log('[Transcription] Calling process-tasks function with URL...');
+    response = await fetch('https://fdecrxcxrshebgrmbywz.supabase.co/functions/v1/process-tasks', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        audioUrl,
+        preferredLanguage: 'he'
+      })
+    });
   }
-  const audioBlob = await audioResponse.blob();
-  
-  // Create form data with the audio file
-  const formData = new FormData();
-  formData.append('file', audioBlob, 'audio.mp3');
-  formData.append('preferredLanguage', 'he');
-  
-  // Call edge function to start transcription
-  console.log('[Transcription] Calling process-tasks function to initiate transcription...');
-  const response = await fetch('https://fdecrxcxrshebgrmbywz.supabase.co/functions/v1/process-tasks', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-    },
-    body: formData
-  });
 
   if (!response.ok) {
     const errorText = await response.text();
