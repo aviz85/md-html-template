@@ -267,7 +267,7 @@ export async function POST(request: Request) {
         status: 'error',
         error: 'Failed to parse request body',
         details: error instanceof Error ? error.message : 'Unknown error'
-      }, { status: 200 }); // Still return 200 to acknowledge receipt
+      }, { status: 200 });
     }
 
     // Validate required fields
@@ -280,32 +280,25 @@ export async function POST(request: Request) {
       }, { status: 200 });
     }
 
-    // Find audio files first
-    let audioFiles = [];
-    try {
-      audioFiles = findAudioFiles(formData.parsedRequest || formData);
-      console.log('[JotForm Webhook] Found audio files:', JSON.stringify(audioFiles, null, 2));
-    } catch (error) {
-      console.error('[JotForm Webhook] Error finding audio files:', error);
-      // Continue processing even if audio file detection fails
-    }
-
     // Create initial submission record
     let submission;
     try {
+      // Check for audio files (but don't fail if we can't find them)
+      let audioFiles = [];
+      try {
+        audioFiles = findAudioFiles(formData.parsedRequest || formData);
+        console.log('[JotForm Webhook] Found audio files:', JSON.stringify(audioFiles, null, 2));
+      } catch (error) {
+        console.error('[JotForm Webhook] Error finding audio files:', error);
+      }
+
       const { data, error: submissionError } = await supabaseAdmin
         .from('form_submissions')
         .insert({
           form_id: formData.formID,
           submission_id: formData.submissionID,
-          content: {
-            ...formData,
-            has_audio: audioFiles.length > 0,
-            audio_count: audioFiles.length,
-            transcription_status: audioFiles.length > 0 ? 'pending' : 'not_required',
-            original_audio_files: audioFiles
-          },
-          status: audioFiles.length > 0 ? 'transcribing' : 'pending_processing',
+          content: formData,
+          status: 'pending_processing',
           updated_at: new Date().toISOString()
         })
         .select()
@@ -321,95 +314,94 @@ export async function POST(request: Request) {
       }
 
       submission = data;
-    } catch (error) {
-      console.error('[JotForm Webhook] Error in submission creation:', error);
-      return NextResponse.json({ 
-        status: 'error',
-        error: 'Failed to create submission',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      }, { status: 200 });
-    }
 
-    // Handle audio files if they exist
-    if (audioFiles.length > 0) {
-      for (const { path, fieldName, questionLabel } of audioFiles) {
-        try {
-          console.log(`[JotForm Webhook] Transcribing audio for field: ${fieldName}`);
-          const transcription = await transcribeAudio(path);
-          
-          // Update form data with transcription
-          updateFormDataWithTranscription(formData, {
-            fieldName,
-            transcription,
-            questionLabel,
-            path
-          });
+      // If we have audio files, handle them in a separate flow
+      if (audioFiles.length > 0) {
+        // Update status to indicate audio processing
+        await supabaseAdmin
+          .from('form_submissions')
+          .update({
+            content: {
+              ...formData,
+              has_audio: true,
+              audio_count: audioFiles.length,
+              transcription_status: 'pending',
+              original_audio_files: audioFiles
+            },
+            status: 'transcribing'
+          })
+          .eq('submission_id', submission.submission_id);
 
-          // Update submission record with progress
-          await supabaseAdmin
-            .from('form_submissions')
-            .update({
-              content: {
-                ...formData,
-                transcription_status: 'in_progress',
-                transcriptions: [
-                  ...(formData.transcriptions || []),
-                  { fieldName, path, questionLabel, transcription }
-                ]
-              },
-              updated_at: new Date().toISOString()
-            })
-            .eq('submission_id', submission.submission_id);
-
-        } catch (error) {
-          console.error(`[JotForm Webhook] Transcription failed for ${path}:`, error);
-          // Continue with other files even if one fails
+        // Process each audio file
+        for (const { path, fieldName, questionLabel } of audioFiles) {
           try {
+            console.log(`[JotForm Webhook] Transcribing audio for field: ${fieldName}`);
+            const transcription = await transcribeAudio(path);
+            
+            updateFormDataWithTranscription(formData, {
+              fieldName,
+              transcription,
+              questionLabel,
+              path
+            });
+
             await supabaseAdmin
               .from('form_submissions')
               .update({
                 content: {
                   ...formData,
-                  transcription_status: 'partial',
-                  transcription_errors: [
-                    ...(formData.transcription_errors || []),
-                    { 
-                      fieldName, 
-                      path, 
-                      error: error instanceof Error ? error.message : 'Unknown error'
-                    }
+                  transcription_status: 'in_progress',
+                  transcriptions: [
+                    ...(formData.transcriptions || []),
+                    { fieldName, path, questionLabel, transcription }
                   ]
-                },
-                updated_at: new Date().toISOString()
+                }
               })
               .eq('submission_id', submission.submission_id);
-          } catch (updateError) {
-            console.error('[JotForm Webhook] Failed to update error status:', updateError);
+
+          } catch (error) {
+            console.error(`[JotForm Webhook] Transcription failed for ${path}:`, error);
+            try {
+              await supabaseAdmin
+                .from('form_submissions')
+                .update({
+                  content: {
+                    ...formData,
+                    transcription_status: 'partial',
+                    transcription_errors: [
+                      ...(formData.transcription_errors || []),
+                      { 
+                        fieldName, 
+                        path, 
+                        error: error instanceof Error ? error.message : 'Unknown error'
+                      }
+                    ]
+                  }
+                })
+                .eq('submission_id', submission.submission_id);
+            } catch (updateError) {
+              console.error('[JotForm Webhook] Failed to update error status:', updateError);
+            }
           }
         }
+
+        // Update final audio status
+        await supabaseAdmin
+          .from('form_submissions')
+          .update({
+            content: {
+              ...formData,
+              transcription_status: 'completed',
+              has_audio: true,
+              audio_count: audioFiles.length
+            },
+            status: 'pending_processing'
+          })
+          .eq('submission_id', submission.submission_id);
       }
-    }
 
-    // Update final status and trigger processing
-    try {
-      const { data: updatedSubmission } = await supabaseAdmin
-        .from('form_submissions')
-        .update({
-          content: {
-            ...formData,
-            transcription_status: audioFiles.length > 0 ? 'completed' : 'not_required',
-            has_audio: audioFiles.length > 0,
-            audio_count: audioFiles.length
-          },
-          status: 'pending_processing',
-          updated_at: new Date().toISOString()
-        })
-        .eq('submission_id', submission.submission_id)
-        .select()
-        .single();
-
-      // Trigger processing in background
-      triggerProcessWithRetry(updatedSubmission).catch(error => {
+      // Trigger processing in background (regardless of audio)
+      triggerProcessWithRetry(submission).catch(error => {
         console.error('[Process] Error in background processing:', error);
       });
 
@@ -417,8 +409,6 @@ export async function POST(request: Request) {
         status: 'success',
         message: 'Submission received and processing started',
         submissionId: submission.submission_id,
-        hasAudio: audioFiles.length > 0,
-        transcriptionStatus: audioFiles.length > 0 ? 'completed' : 'not_required',
         links: {
           status: `/api/submission/status?id=${submission.submission_id}`,
           results: `/results?s=${submission.submission_id}`
@@ -426,12 +416,11 @@ export async function POST(request: Request) {
       }, { status: 200 });
 
     } catch (error) {
-      console.error('[JotForm Webhook] Error in final update:', error);
-      return NextResponse.json({
-        status: 'partial_success',
-        message: 'Submission received but final update failed',
-        submissionId: submission.submission_id,
-        error: error instanceof Error ? error.message : 'Unknown error'
+      console.error('[JotForm Webhook] Error in submission processing:', error);
+      return NextResponse.json({ 
+        status: 'error',
+        error: 'Failed to process submission',
+        details: error instanceof Error ? error.message : 'Unknown error'
       }, { status: 200 });
     }
 
@@ -441,7 +430,7 @@ export async function POST(request: Request) {
       status: 'error',
       error: 'Unhandled error in webhook processing',
       details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 200 }); // Always return 200 to acknowledge receipt
+    }, { status: 200 });
   }
 }
 
