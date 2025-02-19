@@ -60,7 +60,7 @@ async function transcribeAudio(audioUrl: string): Promise<string> {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      audioUrl,
+      url: audioUrl,
       preferredLanguage: 'he'
     })
   });
@@ -90,48 +90,40 @@ async function transcribeAudio(audioUrl: string): Promise<string> {
     attempts++;
     console.log(`[Transcription] Checking status for jobId ${jobId} (attempt ${attempts}/${maxAttempts})`);
     
-    try {
-      const statusResponse = await fetch(
-        `https://fdecrxcxrshebgrmbywz.supabase.co/functions/v1/process-tasks?jobId=${jobId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-          }
+    const statusResponse = await fetch(
+      `https://fdecrxcxrshebgrmbywz.supabase.co/functions/v1/process-tasks?jobId=${jobId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
         }
-      );
-
-      if (!statusResponse.ok) {
-        const errorText = await statusResponse.text();
-        console.error(`[Transcription] Status check failed. Status: ${statusResponse.status}, Error: ${errorText}`);
-        throw new Error(`Failed to check transcription status: ${statusResponse.statusText} - ${errorText}`);
       }
+    );
 
-      const status = await statusResponse.json();
-      console.log(`[Transcription] Job ${jobId} status:`, status);
-      
-      if (status.status === 'completed' && status.text) {
-        console.log(`[Transcription] Job ${jobId} completed successfully. Text length: ${status.text.length}`);
-        return status.text;
-      }
-
-      if (status.status === 'failed') {
-        console.error(`[Transcription] Job ${jobId} failed:`, status.error);
-        throw new Error(`Transcription failed: ${status.error}`);
-      }
-
-      if (attempts === maxAttempts) {
-        throw new Error(`Transcription timed out after ${maxAttempts} attempts`);
-      }
-
-      console.log(`[Transcription] Job ${jobId} still processing. Waiting 5 seconds before next check...`);
-      await new Promise(resolve => setTimeout(resolve, 5000));
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('invalid input syntax for type uuid')) {
-        console.error(`[Transcription] Invalid jobId format:`, { jobId, error: error.message });
-        throw new Error('Invalid transcription job ID returned from service');
-      }
-      throw error;
+    if (!statusResponse.ok) {
+      const errorText = await statusResponse.text();
+      console.error(`[Transcription] Status check failed. Status: ${statusResponse.status}, Error: ${errorText}`);
+      throw new Error(`Failed to check transcription status: ${statusResponse.statusText} - ${errorText}`);
     }
+
+    const status = await statusResponse.json();
+    console.log(`[Transcription] Job ${jobId} status:`, status);
+    
+    if (status.status === 'completed' && status.result) {
+      console.log(`[Transcription] Job ${jobId} completed successfully. Text length: ${status.result.length}`);
+      return status.result;
+    }
+
+    if (status.status === 'failed') {
+      console.error(`[Transcription] Job ${jobId} failed:`, status.error);
+      throw new Error(`Transcription failed: ${status.error}`);
+    }
+
+    if (attempts === maxAttempts) {
+      throw new Error(`Transcription timed out after ${maxAttempts} attempts`);
+    }
+
+    console.log(`[Transcription] Job ${jobId} still processing. Waiting 5 seconds before next check...`);
+    await new Promise(resolve => setTimeout(resolve, 5000));
   }
   
   throw new Error('Transcription failed: Max attempts reached');
