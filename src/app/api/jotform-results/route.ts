@@ -269,7 +269,7 @@ export async function POST(request: Request) {
       console.log('[JotForm Webhook] Processing audio files before continuing...');
       
       // Create initial submission record with pending status
-      const { data: initialSubmission } = await supabaseAdmin
+      const { data: initialSubmission, error: submissionError } = await supabaseAdmin
         .from('form_submissions')
         .insert({
           form_id: formData.formID || '250194606110042',
@@ -287,6 +287,11 @@ export async function POST(request: Request) {
         .select()
         .single();
 
+      if (submissionError) {
+        console.error('[JotForm Webhook] Error creating submission:', submissionError);
+        return NextResponse.json({ error: submissionError.message }, { status: 500 });
+      }
+
       // Process each audio file
       for (const { path, fieldName, questionLabel } of audioFiles) {
         try {
@@ -302,7 +307,7 @@ export async function POST(request: Request) {
           });
 
           // Update submission record with progress
-          await supabaseAdmin
+          const { error: updateError } = await supabaseAdmin
             .from('form_submissions')
             .update({
               content: {
@@ -317,6 +322,11 @@ export async function POST(request: Request) {
             })
             .eq('submission_id', initialSubmission.submission_id);
 
+          if (updateError) {
+            console.error('[JotForm Webhook] Error updating submission:', updateError);
+            return NextResponse.json({ error: updateError.message }, { status: 500 });
+          }
+
         } catch (error: unknown) {
           console.error(`[JotForm Webhook] Transcription failed for ${path}:`, error);
           // Update submission with error for this audio file
@@ -324,7 +334,7 @@ export async function POST(request: Request) {
             error.message : 
             'Unknown transcription error';
 
-          await supabaseAdmin
+          const { error: updateError } = await supabaseAdmin
             .from('form_submissions')
             .update({
               content: {
@@ -338,6 +348,11 @@ export async function POST(request: Request) {
               updated_at: new Date().toISOString()
             })
             .eq('submission_id', initialSubmission.submission_id);
+
+          if (updateError) {
+            console.error('[JotForm Webhook] Error updating submission with error:', updateError);
+            return NextResponse.json({ error: updateError.message }, { status: 500 });
+          }
         }
       }
 
@@ -377,7 +392,12 @@ export async function POST(request: Request) {
     // If no audio files, proceed with normal processing...
     // Rest of your existing code...
   } catch (error) {
-    // Error handling...
+    console.error('[JotForm Webhook] Error processing webhook:', error);
+    return NextResponse.json({ 
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { 
+      status: 500 
+    });
   }
 }
 
