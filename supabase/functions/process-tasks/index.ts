@@ -29,7 +29,134 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get next pending task
+    // Handle file upload and initial task creation
+    if (req.method === 'POST') {
+      const formData = await req.formData()
+      const file = formData.get('file') as File
+      const preferredLanguage = formData.get('preferredLanguage') as string
+      const proofreadingContext = formData.get('proofreadingContext') as string
+
+      if (!file) {
+        return new Response(
+          JSON.stringify({ error: 'No file provided' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        )
+      }
+
+      // Create job record
+      const { data: job, error: jobError } = await supabase
+        .from('transcription_jobs')
+        .insert({
+          original_filename: file.name,
+          preferred_language: preferredLanguage || null,
+          proofreading_context: proofreadingContext || null,
+          storage_path: `jobs/${Date.now()}-${file.name}`,
+          metadata: {
+            file_size: file.size,
+            mime_type: file.type
+          }
+        })
+        .select()
+        .single()
+
+      if (jobError) {
+        throw jobError
+      }
+
+      // Upload file to storage
+      const buffer = await file.arrayBuffer()
+      const { error: uploadError } = await supabase.storage
+        .from('transcriptions')
+        .upload(`${job.storage_path}/original`, buffer)
+
+      if (uploadError) {
+        throw uploadError
+      }
+
+      // Create initial SAVE_FILE task
+      const { error: taskError } = await supabase
+        .from('task_queue')
+        .insert({
+          job_id: job.id,
+          task_type: 'SAVE_FILE',
+          priority: 1,
+          input_data: {
+            filename: file.name,
+            storage_path: job.storage_path
+          }
+        })
+
+      if (taskError) {
+        throw taskError
+      }
+
+      return new Response(
+        JSON.stringify({
+          jobId: job.id,
+          status: 'accepted'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Handle status check
+    if (req.method === 'GET') {
+      const url = new URL(req.url)
+      const jobId = url.searchParams.get('jobId')
+
+      if (!jobId) {
+        return new Response(
+          JSON.stringify({ error: 'No job ID provided' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        )
+      }
+
+      // Get job status
+      const { data: job, error: jobError } = await supabase
+        .from('transcription_jobs')
+        .select('*')
+        .eq('id', jobId)
+        .single()
+
+      if (jobError) {
+        throw jobError
+      }
+
+      // Get task counts
+      const { data: tasks, error: tasksError } = await supabase
+        .from('task_queue')
+        .select('task_type, status')
+        .eq('job_id', jobId)
+
+      if (tasksError) {
+        throw tasksError
+      }
+
+      // Calculate progress
+      const progress = {
+        totalSegments: job.segments_count || 0,
+        completedTranscriptions: tasks.filter(
+          t => t.task_type === 'TRANSCRIBE' && t.status === 'completed'
+        ).length,
+        completedProofreads: tasks.filter(
+          t => t.task_type === 'PROOFREAD' && t.status === 'completed'
+        ).length,
+        currentPhase: getCurrentPhase(tasks)
+      }
+
+      return new Response(
+        JSON.stringify({
+          jobId,
+          status: job.status,
+          progress,
+          result: job.final_proofread,
+          error: job.error
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Process next pending task
     const { data: task, error: taskError } = await supabase
       .from('task_queue')
       .select('*')
@@ -65,7 +192,10 @@ serve(async (req) => {
     let result
     switch (task.task_type) {
       case 'SAVE_FILE':
-        // Handle in separate endpoint
+        // File is already saved during initial upload
+        result = {
+          storage_path: task.input_data.storage_path
+        }
         break
 
       case 'CONVERT_AUDIO':
@@ -264,4 +394,23 @@ async function createNextTasks(supabase: any, completedTask: Task) {
       })
     }
   }
+}
+
+function getCurrentPhase(tasks: any[]): string {
+  const pendingTasks = tasks.filter(t => t.status === 'pending' || t.status === 'locked')
+  if (pendingTasks.length === 0) return 'completed'
+
+  const phases: Record<string, string> = {
+    'SAVE_FILE': 'Saving file',
+    'CONVERT_AUDIO': 'Converting audio',
+    'SPLIT_AUDIO': 'Splitting audio',
+    'TRANSCRIBE': 'Transcribing',
+    'MERGE_TRANSCRIPTIONS': 'Merging transcriptions',
+    'SPLIT_TEXT': 'Preparing for proofreading',
+    'PROOFREAD': 'Proofreading',
+    'MERGE_PROOFREADS': 'Finalizing',
+    'CLEANUP': 'Cleaning up'
+  }
+
+  return phases[pendingTasks[0].task_type] || 'Processing'
 } 
