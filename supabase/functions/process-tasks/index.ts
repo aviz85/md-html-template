@@ -103,6 +103,64 @@ serve(async (req) => {
         )
       }
 
+      // Parse JSON body once
+      let body;
+      try {
+        body = await req.json();
+      } catch (e) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid JSON body' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+
+      // Handle audio URL
+      if (body.audioUrl) {
+        // Create job record
+        const { data: job, error: jobError } = await supabase
+          .from('transcription_jobs')
+          .insert({
+            original_filename: body.audioUrl.split('/').pop(),
+            preferred_language: body.preferredLanguage || null,
+            proofreading_context: body.proofreadingContext || null,
+            storage_path: `jobs/${Date.now()}-${body.audioUrl.split('/').pop()}`,
+            metadata: {
+              source_url: body.audioUrl
+            }
+          })
+          .select()
+          .single();
+
+        if (jobError) {
+          throw jobError;
+        }
+
+        // Create initial SAVE_FILE task
+        const { error: taskError } = await supabase
+          .from('task_queue')
+          .insert({
+            job_id: job.id,
+            task_type: 'SAVE_FILE',
+            priority: 1,
+            input_data: {
+              url: body.audioUrl,
+              storage_path: job.storage_path
+            }
+          });
+
+        if (taskError) {
+          throw taskError;
+        }
+
+        return new Response(
+          JSON.stringify({
+            jobId: job.id,
+            status: 'accepted'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       // Process next pending task
       if (!contentType.includes('application/json')) {
         return new Response(
@@ -152,10 +210,27 @@ serve(async (req) => {
       let result
       switch (task.task_type) {
         case 'SAVE_FILE':
-          // File is already saved during initial upload
+          if (task.input_data.url) {
+            // Download file from URL
+            const response = await fetch(task.input_data.url);
+            if (!response.ok) {
+              throw new Error(`Failed to download file: ${response.statusText}`);
+            }
+            const buffer = await response.arrayBuffer();
+            
+            // Upload to storage
+            const { error: uploadError } = await supabase.storage
+              .from('transcriptions')
+              .upload(`${task.input_data.storage_path}/original`, buffer);
+
+            if (uploadError) {
+              throw uploadError;
+            }
+          }
+          
           result = {
             storage_path: task.input_data.storage_path
-          }
+          };
           break
 
         case 'CONVERT_AUDIO':
