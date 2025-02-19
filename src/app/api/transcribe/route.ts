@@ -57,8 +57,9 @@ export async function POST(req: Request) {
 
   } catch (error) {
     console.error('Error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
     return NextResponse.json(
-      { error: error.message },
+      { error: errorMessage },
       { status: 500 }
     )
   }
@@ -119,8 +120,9 @@ export async function GET(req: Request) {
 
   } catch (error) {
     console.error('Error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
     return NextResponse.json(
-      { error: error.message },
+      { error: errorMessage },
       { status: 500 }
     )
   }
