@@ -267,6 +267,16 @@ serve(async (req) => {
               status: 'completed'
             })
             .eq('id', task.job_id)
+
+          // Create cleanup task
+          await supabase.from('task_queue').insert({
+            job_id: task.job_id,
+            task_type: 'CLEANUP',
+            priority: 1,
+            input_data: {
+              storage_path: task.input_data.storage_path
+            }
+          })
           break
 
         case 'CLEANUP':
@@ -278,10 +288,25 @@ serve(async (req) => {
             .single()
 
           if (job?.storage_path) {
+            // Delete all files in the folder
             await supabase.storage
               .from('transcriptions')
               .remove([`${job.storage_path}/*`])
+              
+            // Delete the folder itself
+            await supabase.storage
+              .from('transcriptions')
+              .remove([job.storage_path])
           }
+          
+          // Update job status to completed
+          await supabase
+            .from('transcription_jobs')
+            .update({
+              status: 'completed'
+            })
+            .eq('id', task.job_id)
+            
           result = { cleaned: true }
           break
       }
@@ -423,9 +448,46 @@ async function createNextTasks(supabase: any, completedTask: Task) {
     return // Don't continue to create more tasks
   }
 
+  // For TRANSCRIBE tasks, check if all are completed to create MERGE_TRANSCRIPTIONS
+  if (completedTask.task_type === 'TRANSCRIBE') {
+    const { data: siblings } = await supabase
+      .from('task_queue')
+      .select('status')
+      .eq('job_id', completedTask.job_id)
+      .eq('task_type', 'TRANSCRIBE')
+
+    const allCompleted = siblings.every((s: any) => s.status === 'completed')
+
+    if (allCompleted) {
+      // Get all completed transcriptions
+      const { data: transcriptions } = await supabase
+        .from('task_queue')
+        .select('*')
+        .eq('job_id', completedTask.job_id)
+        .eq('task_type', 'TRANSCRIBE')
+        .eq('status', 'completed')
+        .order('sequence_order', { ascending: true })
+
+      const mergedText = transcriptions
+        .map((t: any) => t.output_data.text)
+        .join('\n')
+
+      await supabase.from('task_queue').insert({
+        job_id: completedTask.job_id,
+        task_type: 'MERGE_TRANSCRIPTIONS',
+        priority: 1,
+        input_data: {
+          merged_text: mergedText,
+          context: completedTask.input_data.context
+        }
+      })
+    }
+    return
+  }
+
   // For MERGE_TRANSCRIPTIONS, create PROOFREAD task with proper data
   if (completedTask.task_type === 'MERGE_TRANSCRIPTIONS') {
-    const text = completedTask.output_data.merged_text
+    const text = completedTask.output_data.text
     if (!text) {
       throw new Error('No merged text available for proofreading')
     }
@@ -445,30 +507,40 @@ async function createNextTasks(supabase: any, completedTask: Task) {
     return // Don't continue to create more tasks
   }
 
-  // Check if all sibling tasks are completed
-  if (['TRANSCRIBE', 'PROOFREAD'].includes(completedTask.task_type)) {
+  // For PROOFREAD tasks, check if all are completed to create MERGE_PROOFREADS
+  if (completedTask.task_type === 'PROOFREAD') {
     const { data: siblings } = await supabase
       .from('task_queue')
       .select('status')
       .eq('job_id', completedTask.job_id)
-      .eq('task_type', completedTask.task_type)
+      .eq('task_type', 'PROOFREAD')
 
     const allCompleted = siblings.every((s: any) => s.status === 'completed')
 
     if (allCompleted) {
-      const mergeTask = completedTask.task_type === 'TRANSCRIBE' 
-        ? 'MERGE_TRANSCRIPTIONS' 
-        : 'MERGE_PROOFREADS'
+      const { data: proofreads } = await supabase
+        .from('task_queue')
+        .select('*')
+        .eq('job_id', completedTask.job_id)
+        .eq('task_type', 'PROOFREAD')
+        .eq('status', 'completed')
+        .order('sequence_order', { ascending: true })
+
+      const finalText = proofreads
+        .map((p: any) => p.output_data.text)
+        .join('\n')
 
       await supabase.from('task_queue').insert({
         job_id: completedTask.job_id,
-        task_type: mergeTask,
+        task_type: 'MERGE_PROOFREADS',
         priority: 1,
         input_data: {
+          final_text: finalText,
           context: completedTask.input_data.context
         }
       })
     }
+    return
   }
 
   if (completedTask.task_type === 'MERGE_PROOFREADS') {
@@ -480,6 +552,16 @@ async function createNextTasks(supabase: any, completedTask: Task) {
         status: 'completed'
       })
       .eq('id', completedTask.job_id)
+
+    // Create cleanup task
+    await supabase.from('task_queue').insert({
+      job_id: completedTask.job_id,
+      task_type: 'CLEANUP',
+      priority: 1,
+      input_data: {
+        storage_path: completedTask.input_data.storage_path
+      }
+    })
   }
 }
 
