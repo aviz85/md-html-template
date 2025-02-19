@@ -270,7 +270,8 @@ async function handleRequest(req: Request) {
                     console.log('🔗 Starting webhook process to:', template.webhook_url);
                     await sendWebhook(submissionId);
                     console.log('✅ Webhook sent successfully');
-                  } catch (urlError) {
+                  } catch (error) {
+                    const urlError = error as Error;
                     console.error('❌ Invalid webhook URL:', {
                       url: template.webhook_url,
                       error: urlError.message
@@ -293,7 +294,7 @@ async function handleRequest(req: Request) {
                   .from('form_submissions')
                   .update({
                     webhook_status: 'error',
-                    webhook_error: webhookError.message,
+                    webhook_error: (webhookError as Error).message,
                     updated_at: new Date().toISOString()
                   })
                   .eq('submission_id', submissionId);

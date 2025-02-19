@@ -258,7 +258,7 @@ export async function POST(request: Request) {
           // If no change, try finding the question label and replacing everything after it until the next comma
           if (newPretty === oldPretty && questionLabel) {
             const parts = oldPretty.split(', ');
-            const updatedParts = parts.map(part => {
+            const updatedParts = parts.map((part: string) => {
               if (part.startsWith(`${questionLabel}:`)) {
                 return `${questionLabel}:${transcription}`;
               }
