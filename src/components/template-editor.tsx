@@ -1978,16 +1978,26 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                            'ממתין'}
                         </span>
                       </td>
-                      <td 
-                        className="p-2 cursor-pointer hover:bg-muted/50" 
-                        onClick={() => handleDetailsClick(sub)}
-                      >
-                        <a 
-                          className="block text-sm text-gray-600 hover:text-blue-500 transition-colors"
-                          onClick={(e) => e.preventDefault()}
-                        >
-                          {sub.progress?.message || sub.email_error || '-'}
-                        </a>
+                      <td className="p-2">
+                        <div className="flex gap-2 items-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDetailsClick(sub)}
+                          >
+                            פרטים
+                          </Button>
+                          {sub.status === 'completed' && (
+                            <a
+                              href={`https://md-html-template.vercel.app/results?s=${sub.submission_id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-500 hover:text-blue-700"
+                            >
+                              @
+                            </a>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
