@@ -70,7 +70,7 @@ serve(async (req) => {
       // Call Groq API for transcription
       const formData = new FormData()
       formData.append('file', new Blob([buffer]), 'audio.mp3')
-      formData.append('model', 'whisper-large-v3-turbo')
+      formData.append('model', 'whisper-large-v3')
       formData.append('response_format', 'verbose_json')
 
       if (preferredLanguage) {
