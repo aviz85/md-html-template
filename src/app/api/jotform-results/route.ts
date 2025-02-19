@@ -173,21 +173,54 @@ export async function POST(request: Request) {
         
         console.log(`[JotForm Webhook] Transcription completed for ${fieldName}. Length: ${transcription.length}`);
         
-        // Replace the audio file path with the transcription in both formData and parsedRequest
+        // Replace the audio file path with the transcription everywhere it appears
         if (formData.parsedRequest) {
-          formData.parsedRequest[fieldName] = transcription;
+          // Update in parsedRequest
+          const keys = fieldName.split('.');
+          let current = formData.parsedRequest;
+          for (let i = 0; i < keys.length - 1; i++) {
+            current = current[keys[i]];
+          }
+          current[keys[keys.length - 1]] = transcription;
           console.log(`[JotForm Webhook] Updated parsedRequest with transcription for ${fieldName}`);
         }
+
+        // Update in main formData
         formData[fieldName] = transcription;
+        
+        // Update in q73_input73 style fields if they exist
+        const shortFieldName = fieldName.split('.').pop();
+        if (shortFieldName && formData[`q${shortFieldName}`]) {
+          formData[`q${shortFieldName}`] = transcription;
+        }
         
         // Update pretty field by replacing the audio path with the transcription
         if (formData.pretty) {
           const oldPretty = formData.pretty;
-          formData.pretty = formData.pretty.replace(
+          // First try exact match with the path
+          let newPretty = formData.pretty.replace(
             `${questionLabel}:${path}`,
             `${questionLabel}:${transcription}`
           );
-          console.log(`[JotForm Webhook] Updated pretty field. Changed: ${oldPretty !== formData.pretty}`);
+          
+          // If no change, try finding the question label and replacing everything after it until the next comma
+          if (newPretty === oldPretty && questionLabel) {
+            const parts = oldPretty.split(', ');
+            const updatedParts = parts.map(part => {
+              if (part.startsWith(`${questionLabel}:`)) {
+                return `${questionLabel}:${transcription}`;
+              }
+              return part;
+            });
+            newPretty = updatedParts.join(', ');
+          }
+          
+          formData.pretty = newPretty;
+          console.log(`[JotForm Webhook] Updated pretty field:`, {
+            changed: oldPretty !== newPretty,
+            questionLabel,
+            transcriptionPreview: transcription.substring(0, 50)
+          });
         }
         
         console.log(`[JotForm Webhook] Successfully processed transcription for ${fieldName}`);
@@ -212,9 +245,19 @@ export async function POST(request: Request) {
         submission_id: formData.submissionID || formData.submission_id || 'test123',
         content: {
           ...formData,
-          parsedRequest: formData.parsedRequest || undefined
+          parsedRequest: formData.parsedRequest || undefined,
+          transcriptions: audioFiles.map(({ path, fieldName, questionLabel }) => ({
+            path,
+            fieldName,
+            questionLabel,
+            transcription: formData[fieldName]
+          })).filter(t => t.transcription)
         },
-        status: 'pending'
+        has_audio: audioFiles.length > 0,
+        audio_count: audioFiles.length,
+        transcription_status: audioFiles.length > 0 ? 'completed' : 'none',
+        status: 'pending',
+        updated_at: new Date().toISOString()
       })
       .select()
       .single();
@@ -224,10 +267,24 @@ export async function POST(request: Request) {
       throw submissionError;
     }
 
+    // Log transcription details
+    console.log('[JotForm Webhook] Transcription details:', {
+      audioFiles: audioFiles.length,
+      transcriptions: audioFiles.map(({ path, fieldName }) => ({
+        path,
+        fieldName,
+        hasTranscription: !!formData[fieldName],
+        transcriptionLength: formData[fieldName]?.length || 0
+      }))
+    });
+
     console.log('[JotForm Webhook] Submission saved successfully:', {
       id: submission.id,
       submission_id: submission.submission_id,
-      status: submission.status
+      status: submission.status,
+      has_audio: submission.has_audio,
+      audio_count: submission.audio_count,
+      transcription_status: submission.transcription_status
     });
 
     // Start processing in background with retry mechanism
@@ -462,7 +519,57 @@ export async function GET(request: Request) {
     }
 
     console.log(`[JotForm Results] Successfully fetched ${submissions?.length || 0} submissions`);
-    return NextResponse.json(submissions);
+
+    // Process and enrich the submissions data
+    const enrichedSubmissions = submissions?.map(sub => ({
+      ...sub,
+      processing_status: {
+        status: sub.status,
+        stage: sub.stage || sub.progress?.stage,
+        last_update: sub.updated_at,
+        duration: sub.updated_at ? 
+          Math.round((new Date(sub.updated_at).getTime() - new Date(sub.created_at).getTime()) / 1000) : 
+          null,
+        error: sub.error || sub.progress?.details?.error,
+        current_message: sub.message || sub.progress?.message,
+      },
+      audio_files: sub.content?.transcriptions || [],
+      has_audio: sub.has_audio || sub.content && Object.values(sub.content).some(
+        (val: any) => typeof val === 'string' && 
+          (val.includes('/widget-uploads/voiceRecorder/') || val.includes('.mp3'))
+      ),
+      has_transcription: sub.transcription_status === 'completed' || sub.content?.transcriptions?.some(
+        (t: any) => t.transcription && t.transcription.length > 0
+      ),
+      transcriptions: (sub.content?.transcriptions || []).map((t: any) => ({
+        ...t,
+        question: t.questionLabel,
+        field: t.fieldName,
+        audio_url: t.path,
+        text: t.transcription
+      })),
+      latest_log: sub.logs ? sub.logs[sub.logs.length - 1] : null,
+    }));
+
+    console.log(`[JotForm Results] Successfully processed ${enrichedSubmissions?.length || 0} submissions with details`);
+    
+    // Log some stats about the submissions
+    const stats = {
+      total: enrichedSubmissions?.length || 0,
+      pending: enrichedSubmissions?.filter(s => s.status === 'pending').length || 0,
+      completed: enrichedSubmissions?.filter(s => s.status === 'completed').length || 0,
+      failed: enrichedSubmissions?.filter(s => s.status === 'error').length || 0,
+      with_audio: enrichedSubmissions?.filter(s => s.has_audio).length || 0,
+      with_transcription: enrichedSubmissions?.filter(s => s.has_transcription).length || 0,
+      transcription_status: {
+        none: enrichedSubmissions?.filter(s => !s.has_audio).length || 0,
+        pending: enrichedSubmissions?.filter(s => s.has_audio && !s.has_transcription).length || 0,
+        completed: enrichedSubmissions?.filter(s => s.has_transcription).length || 0,
+        failed: enrichedSubmissions?.filter(s => s.has_audio && s.transcription_status === 'failed').length || 0
+      }
+    };
+
+    return NextResponse.json(enrichedSubmissions);
   } catch (error) {
     console.error('[JotForm Results] Error in GET request:', {
       error: error instanceof Error ? error.message : 'Unknown error',
