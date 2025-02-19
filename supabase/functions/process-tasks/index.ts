@@ -31,70 +31,245 @@ serve(async (req) => {
 
     // Handle file upload and initial task creation
     if (req.method === 'POST') {
-      const formData = await req.formData()
-      const file = formData.get('file') as File
-      const preferredLanguage = formData.get('preferredLanguage') as string
-      const proofreadingContext = formData.get('proofreadingContext') as string
+      const contentType = req.headers.get('content-type') || ''
+      
+      // Handle file upload
+      if (contentType.includes('multipart/form-data')) {
+        const formData = await req.formData()
+        const file = formData.get('file') as File
+        const preferredLanguage = formData.get('preferredLanguage') as string
+        const proofreadingContext = formData.get('proofreadingContext') as string
 
-      if (!file) {
+        if (!file) {
+          return new Response(
+            JSON.stringify({ error: 'No file provided' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+          )
+        }
+
+        // Create job record
+        const { data: job, error: jobError } = await supabase
+          .from('transcription_jobs')
+          .insert({
+            original_filename: file.name,
+            preferred_language: preferredLanguage || null,
+            proofreading_context: proofreadingContext || null,
+            storage_path: `jobs/${Date.now()}-${file.name}`,
+            metadata: {
+              file_size: file.size,
+              mime_type: file.type
+            }
+          })
+          .select()
+          .single()
+
+        if (jobError) {
+          throw jobError
+        }
+
+        // Upload file to storage
+        const buffer = await file.arrayBuffer()
+        const { error: uploadError } = await supabase.storage
+          .from('transcriptions')
+          .upload(`${job.storage_path}/original`, buffer)
+
+        if (uploadError) {
+          throw uploadError
+        }
+
+        // Create initial SAVE_FILE task
+        const { error: taskError } = await supabase
+          .from('task_queue')
+          .insert({
+            job_id: job.id,
+            task_type: 'SAVE_FILE',
+            priority: 1,
+            input_data: {
+              filename: file.name,
+              storage_path: job.storage_path
+            }
+          })
+
+        if (taskError) {
+          throw taskError
+        }
+
         return new Response(
-          JSON.stringify({ error: 'No file provided' }),
+          JSON.stringify({
+            jobId: job.id,
+            status: 'accepted'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Process next pending task
+      if (!contentType.includes('application/json')) {
+        return new Response(
+          JSON.stringify({ error: 'Missing content type' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
         )
       }
 
-      // Create job record
-      const { data: job, error: jobError } = await supabase
-        .from('transcription_jobs')
-        .insert({
-          original_filename: file.name,
-          preferred_language: preferredLanguage || null,
-          proofreading_context: proofreadingContext || null,
-          storage_path: `jobs/${Date.now()}-${file.name}`,
-          metadata: {
-            file_size: file.size,
-            mime_type: file.type
-          }
-        })
-        .select()
+      const { data: task, error: taskError } = await supabase
+        .from('task_queue')
+        .select('*')
+        .eq('status', 'pending')
+        .order('priority', { ascending: false })
+        .order('created_at', { ascending: true })
+        .limit(1)
         .single()
 
-      if (jobError) {
-        throw jobError
+      if (taskError || !task) {
+        return new Response(
+          JSON.stringify({ error: 'No pending tasks' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
 
-      // Upload file to storage
-      const buffer = await file.arrayBuffer()
-      const { error: uploadError } = await supabase.storage
-        .from('transcriptions')
-        .upload(`${job.storage_path}/original`, buffer)
-
-      if (uploadError) {
-        throw uploadError
-      }
-
-      // Create initial SAVE_FILE task
-      const { error: taskError } = await supabase
+      // Lock the task
+      const { error: lockError } = await supabase
         .from('task_queue')
-        .insert({
-          job_id: job.id,
-          task_type: 'SAVE_FILE',
-          priority: 1,
-          input_data: {
-            filename: file.name,
-            storage_path: job.storage_path
-          }
+        .update({
+          status: 'locked',
+          locked_until: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 minutes lock
+          locked_by: 'edge-function',
+          started_at: new Date().toISOString()
         })
+        .eq('id', task.id)
 
-      if (taskError) {
-        throw taskError
+      if (lockError) {
+        throw lockError
       }
+
+      // Process task based on type
+      let result
+      switch (task.task_type) {
+        case 'SAVE_FILE':
+          // File is already saved during initial upload
+          result = {
+            storage_path: task.input_data.storage_path
+          }
+          break
+
+        case 'CONVERT_AUDIO':
+          result = await processAudioSegment(task.input_data)
+          break
+
+        case 'SPLIT_AUDIO':
+          // Create multiple TRANSCRIBE tasks
+          const segments = await processAudioSegment(task.input_data, true)
+          for (const segment of segments) {
+            await supabase.from('task_queue').insert({
+              job_id: task.job_id,
+              task_type: 'TRANSCRIBE',
+              priority: task.priority,
+              input_data: {
+                segment_path: segment.path,
+                segment_index: segment.index,
+                total_segments: segments.length
+              },
+              parent_task_id: task.id,
+              sequence_order: segment.index
+            })
+          }
+          result = { segments_count: segments.length }
+          break
+
+        case 'TRANSCRIBE':
+          result = await transcribeAudio(task.input_data)
+          break
+
+        case 'MERGE_TRANSCRIPTIONS':
+          // Get all completed transcription tasks
+          const { data: transcriptions } = await supabase
+            .from('task_queue')
+            .select('*')
+            .eq('job_id', task.job_id)
+            .eq('task_type', 'TRANSCRIBE')
+            .eq('status', 'completed')
+            .order('sequence_order', { ascending: true })
+
+          result = {
+            merged_text: transcriptions
+              .map(t => t.output_data.text)
+              .join('\n')
+          }
+          break
+
+        case 'SPLIT_TEXT':
+          const text = task.input_data.text
+          const chunks = splitTextIntoChunks(text)
+          for (const [index, chunk] of chunks.entries()) {
+            await supabase.from('task_queue').insert({
+              job_id: task.job_id,
+              task_type: 'PROOFREAD',
+              priority: task.priority,
+              input_data: {
+                text: chunk,
+                chunk_index: index,
+                total_chunks: chunks.length,
+                context: task.input_data.context
+              },
+              parent_task_id: task.id,
+              sequence_order: index
+            })
+          }
+          result = { chunks_count: chunks.length }
+          break
+
+        case 'PROOFREAD':
+          result = await proofreadText(task.input_data)
+          break
+
+        case 'MERGE_PROOFREADS':
+          const { data: proofreads } = await supabase
+            .from('task_queue')
+            .select('*')
+            .eq('job_id', task.job_id)
+            .eq('task_type', 'PROOFREAD')
+            .eq('status', 'completed')
+            .order('sequence_order', { ascending: true })
+
+          result = {
+            final_text: proofreads
+              .map(p => p.output_data.text)
+              .join('\n')
+          }
+          break
+
+        case 'CLEANUP':
+          // Delete files from storage
+          const { data: job } = await supabase
+            .from('transcription_jobs')
+            .select('storage_path')
+            .eq('id', task.job_id)
+            .single()
+
+          if (job?.storage_path) {
+            await supabase.storage
+              .from('transcriptions')
+              .remove([`${job.storage_path}/*`])
+          }
+          result = { cleaned: true }
+          break
+      }
+
+      // Update task as completed
+      await supabase
+        .from('task_queue')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          output_data: result
+        })
+        .eq('id', task.id)
+
+      // Create next task(s) based on task flow
+      await createNextTasks(supabase, task)
 
       return new Response(
-        JSON.stringify({
-          jobId: job.id,
-          status: 'accepted'
-        }),
+        JSON.stringify({ success: true, task_id: task.id, result }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -156,169 +331,6 @@ serve(async (req) => {
       )
     }
 
-    // Process next pending task
-    const { data: task, error: taskError } = await supabase
-      .from('task_queue')
-      .select('*')
-      .eq('status', 'pending')
-      .order('priority', { ascending: false })
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .single()
-
-    if (taskError || !task) {
-      return new Response(
-        JSON.stringify({ error: 'No pending tasks' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Lock the task
-    const { error: lockError } = await supabase
-      .from('task_queue')
-      .update({
-        status: 'locked',
-        locked_until: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 minutes lock
-        locked_by: 'edge-function',
-        started_at: new Date().toISOString()
-      })
-      .eq('id', task.id)
-
-    if (lockError) {
-      throw lockError
-    }
-
-    // Process task based on type
-    let result
-    switch (task.task_type) {
-      case 'SAVE_FILE':
-        // File is already saved during initial upload
-        result = {
-          storage_path: task.input_data.storage_path
-        }
-        break
-
-      case 'CONVERT_AUDIO':
-        result = await processAudioSegment(task.input_data)
-        break
-
-      case 'SPLIT_AUDIO':
-        // Create multiple TRANSCRIBE tasks
-        const segments = await processAudioSegment(task.input_data, true)
-        for (const segment of segments) {
-          await supabase.from('task_queue').insert({
-            job_id: task.job_id,
-            task_type: 'TRANSCRIBE',
-            priority: task.priority,
-            input_data: {
-              segment_path: segment.path,
-              segment_index: segment.index,
-              total_segments: segments.length
-            },
-            parent_task_id: task.id,
-            sequence_order: segment.index
-          })
-        }
-        result = { segments_count: segments.length }
-        break
-
-      case 'TRANSCRIBE':
-        result = await transcribeAudio(task.input_data)
-        break
-
-      case 'MERGE_TRANSCRIPTIONS':
-        // Get all completed transcription tasks
-        const { data: transcriptions } = await supabase
-          .from('task_queue')
-          .select('*')
-          .eq('job_id', task.job_id)
-          .eq('task_type', 'TRANSCRIBE')
-          .eq('status', 'completed')
-          .order('sequence_order', { ascending: true })
-
-        result = {
-          merged_text: transcriptions
-            .map(t => t.output_data.text)
-            .join('\n')
-        }
-        break
-
-      case 'SPLIT_TEXT':
-        const text = task.input_data.text
-        const chunks = splitTextIntoChunks(text)
-        for (const [index, chunk] of chunks.entries()) {
-          await supabase.from('task_queue').insert({
-            job_id: task.job_id,
-            task_type: 'PROOFREAD',
-            priority: task.priority,
-            input_data: {
-              text: chunk,
-              chunk_index: index,
-              total_chunks: chunks.length,
-              context: task.input_data.context
-            },
-            parent_task_id: task.id,
-            sequence_order: index
-          })
-        }
-        result = { chunks_count: chunks.length }
-        break
-
-      case 'PROOFREAD':
-        result = await proofreadText(task.input_data)
-        break
-
-      case 'MERGE_PROOFREADS':
-        const { data: proofreads } = await supabase
-          .from('task_queue')
-          .select('*')
-          .eq('job_id', task.job_id)
-          .eq('task_type', 'PROOFREAD')
-          .eq('status', 'completed')
-          .order('sequence_order', { ascending: true })
-
-        result = {
-          final_text: proofreads
-            .map(p => p.output_data.text)
-            .join('\n')
-        }
-        break
-
-      case 'CLEANUP':
-        // Delete files from storage
-        const { data: job } = await supabase
-          .from('transcription_jobs')
-          .select('storage_path')
-          .eq('id', task.job_id)
-          .single()
-
-        if (job?.storage_path) {
-          await supabase.storage
-            .from('transcriptions')
-            .remove([`${job.storage_path}/*`])
-        }
-        result = { cleaned: true }
-        break
-    }
-
-    // Update task as completed
-    await supabase
-      .from('task_queue')
-      .update({
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        output_data: result
-      })
-      .eq('id', task.id)
-
-    // Create next task(s) based on task flow
-    await createNextTasks(supabase, task)
-
-    return new Response(
-      JSON.stringify({ success: true, task_id: task.id, result }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
-
   } catch (error) {
     console.error('Error:', error)
     return new Response(
@@ -351,13 +363,13 @@ function splitTextIntoChunks(text: string, maxChunkSize = 1000): string[] {
 
 async function createNextTasks(supabase: any, completedTask: Task) {
   const taskFlow: Record<string, string[]> = {
-    'SAVE_FILE': ['CONVERT_AUDIO'],
-    'CONVERT_AUDIO': ['SPLIT_AUDIO'],
-    'SPLIT_AUDIO': [], // Creates TRANSCRIBE tasks directly
-    'TRANSCRIBE': [], // All must complete before MERGE_TRANSCRIPTIONS
+    'SAVE_FILE': ['TRANSCRIBE'],
+    'CONVERT_AUDIO': [],
+    'SPLIT_AUDIO': [],
+    'TRANSCRIBE': [],
     'MERGE_TRANSCRIPTIONS': ['SPLIT_TEXT'],
-    'SPLIT_TEXT': [], // Creates PROOFREAD tasks directly
-    'PROOFREAD': [], // All must complete before MERGE_PROOFREADS
+    'SPLIT_TEXT': [],
+    'PROOFREAD': [],
     'MERGE_PROOFREADS': ['CLEANUP']
   }
 
@@ -368,7 +380,14 @@ async function createNextTasks(supabase: any, completedTask: Task) {
       job_id: completedTask.job_id,
       task_type: nextType,
       priority: completedTask.priority,
-      input_data: completedTask.output_data
+      input_data: {
+        ...completedTask.output_data,
+        segment_path: completedTask.task_type === 'SAVE_FILE' 
+          ? `${completedTask.input_data.storage_path}/original`
+          : completedTask.output_data.storage_path + '/original',
+        segment_index: 0,
+        total_segments: 1
+      }
     })
   }
 
