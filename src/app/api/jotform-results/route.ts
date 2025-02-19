@@ -23,9 +23,16 @@ interface FormData {
   [key: string]: any;
 }
 
+// Add interface at the top with other interfaces
+interface AudioFile {
+  path: string;
+  fieldName: string;
+  questionLabel?: string;
+}
+
 // Helper to find audio files in form data
-function findAudioFiles(obj: any): { path: string; fieldName: string; questionLabel?: string }[] {
-  const audioFiles: { path: string; fieldName: string; questionLabel?: string }[] = [];
+function findAudioFiles(obj: any): AudioFile[] {
+  const audioFiles: AudioFile[] = [];
   
   // Extract question labels from pretty field
   const questionMap = new Map<string, string>();
@@ -284,7 +291,7 @@ export async function POST(request: Request) {
     let submission;
     try {
       // Check for audio files (but don't fail if we can't find them)
-      let audioFiles = [];
+      let audioFiles: AudioFile[] = [];
       try {
         audioFiles = findAudioFiles(formData.parsedRequest || formData);
         console.log('[JotForm Webhook] Found audio files:', JSON.stringify(audioFiles, null, 2));
@@ -386,6 +393,12 @@ export async function POST(request: Request) {
         }
 
         // Update final audio status
+        console.log('[JotForm Webhook] Final form data structure:', JSON.stringify({
+          parsedRequest: formData.parsedRequest,
+          transcriptions: formData.transcriptions,
+          pretty: formData.pretty
+        }, null, 2));
+
         await supabaseAdmin
           .from('form_submissions')
           .update({
