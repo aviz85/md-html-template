@@ -2,6 +2,27 @@ import { NextResponse } from 'next/server';
 import { processSubmission } from '@/lib/claude';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
+// Add type for form data
+interface FormData {
+  formID?: string;
+  submissionID?: string;
+  submission_id?: string;
+  parsedRequest?: any;
+  pretty?: string;
+  transcriptions?: Array<{
+    fieldName: string;
+    path: string;
+    questionLabel?: string;
+    transcription: string;
+  }>;
+  transcription_errors?: Array<{
+    fieldName: string;
+    path: string;
+    error: string;
+  }>;
+  [key: string]: any;
+}
+
 // Helper to find audio files in form data
 function findAudioFiles(obj: any): { path: string; fieldName: string; questionLabel?: string }[] {
   const audioFiles: { path: string; fieldName: string; questionLabel?: string }[] = [];
@@ -146,6 +167,85 @@ async function transcribeAudio(audioUrl: string): Promise<string> {
   throw new Error('Transcription failed: Max attempts reached');
 }
 
+// Add parseRequestBody function
+async function parseRequestBody(request: Request): Promise<FormData> {
+  const contentType = request.headers.get('content-type') || '';
+  console.log('[JotForm Webhook] Content-Type:', contentType);
+  
+  let formData: FormData = {};
+  
+  if (contentType.includes('application/json')) {
+    const rawBody = await request.text();
+    console.log('[JotForm Webhook] Raw request body length:', rawBody.length);
+    console.log('[JotForm Webhook] Raw request body preview:', rawBody.substring(0, 500));
+    formData = JSON.parse(rawBody);
+    
+    if (formData.rawRequest) {
+      try {
+        console.log('[JotForm Webhook] Attempting to parse rawRequest...');
+        formData.parsedRequest = JSON.parse(formData.rawRequest);
+        console.log('[JotForm Webhook] Successfully parsed rawRequest');
+      } catch (e) {
+        console.error('[JotForm Webhook] Failed to parse rawRequest:', e);
+        formData.parsedRequest = formData.rawRequest;
+      }
+    }
+  } else if (contentType.includes('multipart/form-data') || contentType.includes('application/x-www-form-urlencoded')) {
+    const formDataObj = await request.formData();
+    formData = Object.fromEntries(formDataObj.entries()) as FormData;
+    
+    if (formData.rawRequest) {
+      try {
+        console.log('[JotForm Webhook] Attempting to parse rawRequest from form data...');
+        formData.parsedRequest = JSON.parse(formData.rawRequest as string);
+        console.log('[JotForm Webhook] Successfully parsed rawRequest from form data');
+      } catch (e) {
+        console.error('[JotForm Webhook] Failed to parse rawRequest from form data:', e);
+        formData.parsedRequest = formData.rawRequest;
+      }
+    }
+  }
+
+  return formData;
+}
+
+// Add triggerProcessWithRetry function
+async function triggerProcessWithRetry(submission: any, retryCount = 0, maxRetries = 5) {
+  try {
+    const processUrl = `/api/process`;
+    console.log('[Process] Triggering process:', {
+      url: processUrl,
+      attempt: retryCount + 1,
+      submissionId: submission.submission_id
+    });
+
+    const response = await fetch(processUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ 
+        submissionId: submission.submission_id,
+        _timestamp: Date.now()
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error('[Process] Error in background processing:', error.message);
+      if (retryCount < maxRetries) {
+        const delay = Math.min(5000 * Math.pow(2, retryCount), 80000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return triggerProcessWithRetry(submission, retryCount + 1, maxRetries);
+      }
+    }
+    throw error;
+  }
+}
+
 export const runtime = 'nodejs';
 export const maxDuration = 300; // Increase timeout to 5 minutes to handle transcriptions
 
@@ -213,9 +313,13 @@ export async function POST(request: Request) {
             })
             .eq('submission_id', initialSubmission.submission_id);
 
-        } catch (error) {
+        } catch (error: unknown) {
           console.error(`[JotForm Webhook] Transcription failed for ${path}:`, error);
           // Update submission with error for this audio file
+          const errorMessage = error instanceof Error ? 
+            error.message : 
+            'Unknown transcription error';
+
           await supabaseAdmin
             .from('form_submissions')
             .update({
@@ -224,7 +328,7 @@ export async function POST(request: Request) {
                 transcription_status: 'partial',
                 transcription_errors: [
                   ...(formData.transcription_errors || []),
-                  { fieldName, path, error: error.message }
+                  { fieldName, path, error: errorMessage }
                 ]
               },
               updated_at: new Date().toISOString()
