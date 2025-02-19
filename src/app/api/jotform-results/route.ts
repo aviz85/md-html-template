@@ -212,9 +212,13 @@ async function parseRequestBody(request: Request): Promise<FormData> {
 // Add triggerProcessWithRetry function
 async function triggerProcessWithRetry(submission: any, retryCount = 0, maxRetries = 5) {
   try {
-    const processUrl = `/api/process`;
+    // Use the base URL from the environment or default to the production URL
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://md-html-template.vercel.app';
+    const processUrl = `${baseUrl}/api/process`;
+    
     console.log('[Process] Triggering process:', {
       url: processUrl,
+      baseUrl,
       attempt: retryCount + 1,
       submissionId: submission.submission_id
     });
