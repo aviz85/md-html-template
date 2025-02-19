@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
@@ -135,7 +135,7 @@ const ImageRenderer = ({ node, ...props }: { node?: any } & React.ImgHTMLAttribu
   return <img {...props} style={defaultStyles} />;
 };
 
-export default function ResultsPage() {
+function ResultsContent() {
   const searchParams = useSearchParams();
   const submissionId = searchParams.get('s') || new URLSearchParams(window.location.search).get('submissionID');
   const isMounted = useRef(false);
@@ -941,11 +941,7 @@ export default function ResultsPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="relative w-12 h-12">
-          <motion.div 
-            className="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          />
+          <div className="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin" />
         </div>
       </div>
     );
@@ -1019,5 +1015,19 @@ export default function ResultsPage() {
         </motion.div>
       </main>
     </div>
+  );
+}
+
+export default function ResultsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="relative w-12 h-12">
+          <div className="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin" />
+        </div>
+      </div>
+    }>
+      <ResultsContent />
+    </Suspense>
   );
 } 
