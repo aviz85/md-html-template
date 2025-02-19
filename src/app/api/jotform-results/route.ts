@@ -290,6 +290,10 @@ export async function POST(request: Request) {
         submission_id: formData.submissionID || formData.submission_id || 'test123',
         content: {
           ...cleanedFormData,
+          // Store these as part of content instead of separate columns
+          has_audio: audioFiles.length > 0,
+          audio_count: audioFiles.length,
+          transcription_status: audioFiles.length > 0 ? 'completed' : 'none',
           // Keep original audio paths in a separate field
           original_audio_files: audioFiles.map(({ path, fieldName, questionLabel }) => ({
             path,
@@ -304,9 +308,6 @@ export async function POST(request: Request) {
             transcription: formData[fieldName]
           })).filter(t => t.transcription && !t.transcription.includes('/widget-uploads/'))
         },
-        has_audio: audioFiles.length > 0,
-        audio_count: audioFiles.length,
-        transcription_status: audioFiles.length > 0 ? 'completed' : 'none',
         status: 'pending',
         updated_at: new Date().toISOString()
       })
