@@ -2,8 +2,90 @@ import { NextResponse } from 'next/server';
 import { processSubmission } from '@/lib/claude';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
+// Helper to find audio files in form data
+function findAudioFiles(obj: any): { path: string; fieldName: string }[] {
+  const audioFiles: { path: string; fieldName: string }[] = [];
+  
+  function traverse(current: any, path: string[] = []) {
+    if (typeof current === 'string') {
+      // Check for voice recorder widget uploads
+      if (current.includes('/widget-uploads/voiceRecorder/')) {
+        audioFiles.push({ 
+          path: current,
+          fieldName: path.join('.')
+        });
+      }
+      // Check for regular mp3 uploads
+      if (current.includes('.mp3')) {
+        audioFiles.push({
+          path: current,
+          fieldName: path.join('.')
+        });
+      }
+    } else if (typeof current === 'object' && current !== null) {
+      Object.entries(current).forEach(([key, value]) => {
+        traverse(value, [...path, key]);
+      });
+    }
+  }
+
+  traverse(obj);
+  return audioFiles;
+}
+
+// Helper to transcribe audio and wait for completion
+async function transcribeAudio(audioUrl: string): Promise<string> {
+  // Call edge function to start transcription
+  const response = await fetch('https://fdecrxcxrshebgrmbywz.supabase.co/functions/v1/process-tasks', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+    },
+    body: JSON.stringify({
+      audioUrl,
+      preferredLanguage: 'he' // Default to Hebrew since form is in Hebrew
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to start transcription: ${response.statusText}`);
+  }
+
+  const { jobId } = await response.json();
+
+  // Poll for completion
+  while (true) {
+    const statusResponse = await fetch(
+      `https://fdecrxcxrshebgrmbywz.supabase.co/functions/v1/process-tasks?jobId=${jobId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+        }
+      }
+    );
+
+    if (!statusResponse.ok) {
+      throw new Error(`Failed to check transcription status: ${statusResponse.statusText}`);
+    }
+
+    const status = await statusResponse.json();
+    
+    if (status.status === 'completed') {
+      return status.text;
+    }
+
+    if (status.status === 'failed') {
+      throw new Error(`Transcription failed: ${status.error}`);
+    }
+
+    // Wait 5 seconds before next check
+    await new Promise(resolve => setTimeout(resolve, 5000));
+  }
+}
+
 export const runtime = 'nodejs';
-export const maxDuration = 10; // Set timeout to 10 seconds for initial handler
+export const maxDuration = 300; // Increase timeout to 5 minutes to handle transcriptions
 
 export async function POST(request: Request) {
   try {
@@ -43,6 +125,31 @@ export async function POST(request: Request) {
           console.error('Failed to parse rawRequest:', e);
           formData.parsedRequest = formData.rawRequest;
         }
+      }
+    }
+
+    // Find and transcribe audio files
+    const audioFiles = findAudioFiles(formData);
+    console.log('Found audio files:', audioFiles);
+
+    for (const { path, fieldName } of audioFiles) {
+      try {
+        console.log(`Transcribing audio file: ${path}`);
+        const transcription = await transcribeAudio(path);
+        
+        // Add transcription to form data
+        const transcriptionField = `${fieldName}_transcription`;
+        formData[transcriptionField] = transcription;
+        
+        // If we have parsedRequest, add it there too
+        if (formData.parsedRequest) {
+          formData.parsedRequest[transcriptionField] = transcription;
+        }
+        
+        console.log(`Added transcription for ${fieldName}`);
+      } catch (error) {
+        console.error(`Failed to transcribe ${path}:`, error);
+        // Continue with other files even if one fails
       }
     }
 
