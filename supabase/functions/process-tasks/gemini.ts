@@ -45,11 +45,16 @@ ${input.context ? `Context for technical terms and domain knowledge (but DO NOT 
     }
   ]
 
+  const apiKey = Deno.env.get('GEMINI_API_KEY')
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY environment variable is not set')
+  }
+
   const response = await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-goog-api-key': Deno.env.get('GEMINI_API_KEY') ?? ''
+      'x-goog-api-key': apiKey
     },
     body: JSON.stringify({
       contents: [
@@ -91,16 +96,17 @@ ${input.context ? `Context for technical terms and domain knowledge (but DO NOT 
   })
 
   if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`Gemini API error: ${error}`)
+    const error = await response.json()
+    console.error('Gemini API error details:', error)
+    throw new Error(`Gemini API error: ${error.error?.message || 'Unknown error'}`)
   }
 
   const result = await response.json()
-  
-  // Extract the proofread text from the response
-  const proofreadText = result.candidates[0].content.parts[0].text.trim()
+  if (!result.candidates?.[0]?.content?.parts?.[0]?.text) {
+    throw new Error('Invalid response format from Gemini API')
+  }
 
   return {
-    text: proofreadText
+    text: result.candidates[0].content.parts[0].text.trim()
   }
 } 

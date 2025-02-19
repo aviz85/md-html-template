@@ -142,6 +142,12 @@ serve(async (req) => {
         throw lockError
       }
 
+      // Update job status to processing
+      await supabase
+        .from('transcription_jobs')
+        .update({ status: 'processing' })
+        .eq('id', task.job_id)
+
       // Process task based on type
       let result
       switch (task.task_type) {
@@ -195,6 +201,19 @@ serve(async (req) => {
               .map(t => t.output_data.text)
               .join('\n')
           }
+
+          // Create PROOFREAD task directly instead of SPLIT_TEXT
+          await supabase.from('task_queue').insert({
+            job_id: task.job_id,
+            task_type: 'PROOFREAD',
+            priority: task.priority,
+            input_data: {
+              text: result.merged_text,
+              chunk_index: 0,
+              total_chunks: 1,
+              context: task.input_data.context
+            }
+          })
           break
 
         case 'SPLIT_TEXT':
@@ -219,6 +238,9 @@ serve(async (req) => {
           break
 
         case 'PROOFREAD':
+          if (!task.input_data.text) {
+            throw new Error('No text provided for proofreading')
+          }
           result = await proofreadText(task.input_data)
           break
 
@@ -236,6 +258,15 @@ serve(async (req) => {
               .map(p => p.output_data.text)
               .join('\n')
           }
+
+          // Update job with final result
+          await supabase
+            .from('transcription_jobs')
+            .update({
+              final_proofread: result.final_text,
+              status: 'completed'
+            })
+            .eq('id', task.job_id)
           break
 
         case 'CLEANUP':
@@ -367,28 +398,51 @@ async function createNextTasks(supabase: any, completedTask: Task) {
     'CONVERT_AUDIO': [],
     'SPLIT_AUDIO': [],
     'TRANSCRIBE': [],
-    'MERGE_TRANSCRIPTIONS': ['SPLIT_TEXT'],
+    'MERGE_TRANSCRIPTIONS': ['PROOFREAD'],
     'SPLIT_TEXT': [],
     'PROOFREAD': [],
     'MERGE_PROOFREADS': ['CLEANUP']
   }
 
-  const nextTaskTypes = taskFlow[completedTask.task_type] || []
-
-  for (const nextType of nextTaskTypes) {
+  // Special handling for SAVE_FILE to create single TRANSCRIBE task
+  if (completedTask.task_type === 'SAVE_FILE') {
+    const inputData = {
+      segment_path: `${completedTask.input_data.storage_path}/original`,
+      preferred_language: completedTask.input_data.preferred_language,
+      segment_index: 0,
+      total_segments: 1
+    }
+    
     await supabase.from('task_queue').insert({
       job_id: completedTask.job_id,
-      task_type: nextType,
-      priority: completedTask.priority,
+      task_type: 'TRANSCRIBE',
+      priority: 1,
+      input_data: inputData
+    })
+    
+    return // Don't continue to create more tasks
+  }
+
+  // For MERGE_TRANSCRIPTIONS, create PROOFREAD task with proper data
+  if (completedTask.task_type === 'MERGE_TRANSCRIPTIONS') {
+    const text = completedTask.output_data.merged_text
+    if (!text) {
+      throw new Error('No merged text available for proofreading')
+    }
+    
+    await supabase.from('task_queue').insert({
+      job_id: completedTask.job_id,
+      task_type: 'PROOFREAD',
+      priority: 1,
       input_data: {
-        ...completedTask.output_data,
-        segment_path: completedTask.task_type === 'SAVE_FILE' 
-          ? `${completedTask.input_data.storage_path}/original`
-          : completedTask.output_data.storage_path + '/original',
-        segment_index: 0,
-        total_segments: 1
+        text,
+        chunk_index: 0,
+        total_chunks: 1,
+        context: completedTask.input_data.context
       }
     })
+    
+    return // Don't continue to create more tasks
   }
 
   // Check if all sibling tasks are completed
@@ -409,9 +463,23 @@ async function createNextTasks(supabase: any, completedTask: Task) {
       await supabase.from('task_queue').insert({
         job_id: completedTask.job_id,
         task_type: mergeTask,
-        priority: completedTask.priority
+        priority: 1,
+        input_data: {
+          context: completedTask.input_data.context
+        }
       })
     }
+  }
+
+  if (completedTask.task_type === 'MERGE_PROOFREADS') {
+    // Update job with final result
+    await supabase
+      .from('transcription_jobs')
+      .update({
+        final_proofread: completedTask.output_data.final_text,
+        status: 'completed'
+      })
+      .eq('id', completedTask.job_id)
   }
 }
 

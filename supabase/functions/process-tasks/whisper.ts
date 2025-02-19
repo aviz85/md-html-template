@@ -29,7 +29,7 @@ export async function transcribeAudio(input: TranscriptionInput): Promise<Transc
     .download(input.segment_path)
 
   if (fileError) {
-    throw new Error(`Failed to get audio file: ${fileError.message}`)
+    throw new Error(`Failed to get audio file: ${JSON.stringify(fileError)}`)
   }
 
   // Convert to FormData
