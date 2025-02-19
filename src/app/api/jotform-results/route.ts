@@ -51,18 +51,27 @@ function findAudioFiles(obj: any): { path: string; fieldName: string; questionLa
 async function transcribeAudio(audioUrl: string): Promise<string> {
   console.log(`[Transcription] Starting transcription for: ${audioUrl}`);
   
+  // First download the audio file
+  console.log('[Transcription] Downloading audio file...');
+  const audioResponse = await fetch(audioUrl);
+  if (!audioResponse.ok) {
+    throw new Error(`Failed to download audio file: ${audioResponse.statusText}`);
+  }
+  const audioBlob = await audioResponse.blob();
+  
+  // Create form data with the audio file
+  const formData = new FormData();
+  formData.append('file', audioBlob, 'audio.mp3');
+  formData.append('preferredLanguage', 'he');
+  
   // Call edge function to start transcription
   console.log('[Transcription] Calling process-tasks function to initiate transcription...');
   const response = await fetch('https://fdecrxcxrshebgrmbywz.supabase.co/functions/v1/process-tasks', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
       'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
     },
-    body: JSON.stringify({
-      audioUrl,
-      preferredLanguage: 'he'
-    })
+    body: formData
   });
 
   if (!response.ok) {
@@ -71,46 +80,70 @@ async function transcribeAudio(audioUrl: string): Promise<string> {
     throw new Error(`Failed to start transcription: ${response.statusText} - ${errorText}`);
   }
 
-  const { jobId } = await response.json();
+  const responseData = await response.json();
+  console.log('[Transcription] Process-tasks response:', responseData);
+
+  if (!responseData.jobId) {
+    console.error('[Transcription] No jobId returned from process-tasks:', responseData);
+    throw new Error('No jobId returned from transcription service');
+  }
+
+  const jobId = responseData.jobId;
   console.log(`[Transcription] Job started successfully. JobID: ${jobId}`);
 
   // Poll for completion
   let attempts = 0;
-  while (true) {
+  const maxAttempts = 60; // 5 minutes max (with 5 second delay)
+  
+  while (attempts < maxAttempts) {
     attempts++;
-    console.log(`[Transcription] Checking status for jobId ${jobId} (attempt ${attempts})`);
+    console.log(`[Transcription] Checking status for jobId ${jobId} (attempt ${attempts}/${maxAttempts})`);
     
-    const statusResponse = await fetch(
-      `https://fdecrxcxrshebgrmbywz.supabase.co/functions/v1/process-tasks?jobId=${jobId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+    try {
+      const statusResponse = await fetch(
+        `https://fdecrxcxrshebgrmbywz.supabase.co/functions/v1/process-tasks?jobId=${jobId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+          }
         }
+      );
+
+      if (!statusResponse.ok) {
+        const errorText = await statusResponse.text();
+        console.error(`[Transcription] Status check failed. Status: ${statusResponse.status}, Error: ${errorText}`);
+        throw new Error(`Failed to check transcription status: ${statusResponse.statusText} - ${errorText}`);
       }
-    );
 
-    if (!statusResponse.ok) {
-      const errorText = await statusResponse.text();
-      console.error(`[Transcription] Status check failed. Status: ${statusResponse.status}, Error: ${errorText}`);
-      throw new Error(`Failed to check transcription status: ${statusResponse.statusText} - ${errorText}`);
+      const status = await statusResponse.json();
+      console.log(`[Transcription] Job ${jobId} status:`, status);
+      
+      if (status.status === 'completed' && status.text) {
+        console.log(`[Transcription] Job ${jobId} completed successfully. Text length: ${status.text.length}`);
+        return status.text;
+      }
+
+      if (status.status === 'failed') {
+        console.error(`[Transcription] Job ${jobId} failed:`, status.error);
+        throw new Error(`Transcription failed: ${status.error}`);
+      }
+
+      if (attempts === maxAttempts) {
+        throw new Error(`Transcription timed out after ${maxAttempts} attempts`);
+      }
+
+      console.log(`[Transcription] Job ${jobId} still processing. Waiting 5 seconds before next check...`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('invalid input syntax for type uuid')) {
+        console.error(`[Transcription] Invalid jobId format:`, { jobId, error: error.message });
+        throw new Error('Invalid transcription job ID returned from service');
+      }
+      throw error;
     }
-
-    const status = await statusResponse.json();
-    console.log(`[Transcription] Job ${jobId} status:`, status);
-    
-    if (status.status === 'completed') {
-      console.log(`[Transcription] Job ${jobId} completed successfully. Text length: ${status.text?.length || 0}`);
-      return status.text;
-    }
-
-    if (status.status === 'failed') {
-      console.error(`[Transcription] Job ${jobId} failed:`, status.error);
-      throw new Error(`Transcription failed: ${status.error}`);
-    }
-
-    console.log(`[Transcription] Job ${jobId} still processing. Waiting 5 seconds before next check...`);
-    await new Promise(resolve => setTimeout(resolve, 5000));
   }
+  
+  throw new Error('Transcription failed: Max attempts reached');
 }
 
 export const runtime = 'nodejs';
@@ -238,20 +271,47 @@ export async function POST(request: Request) {
 
     // Save to database first
     console.log('[JotForm Webhook] Inserting submission into database...');
+    
+    // Clean up the form data to ensure transcriptions are saved as regular answers
+    const cleanedFormData = {
+      ...formData,
+      parsedRequest: formData.parsedRequest || undefined
+    };
+
+    // Ensure transcriptions are saved in their original field locations
+    audioFiles.forEach(({ fieldName, path }) => {
+      if (formData[fieldName] && !formData[fieldName].includes('/widget-uploads/')) {
+        // If the field has been transcribed, use that value
+        cleanedFormData[fieldName] = formData[fieldName];
+        
+        // Also update in q73_input73 style fields if they exist
+        const shortFieldName = fieldName.split('.').pop();
+        if (shortFieldName && formData[`q${shortFieldName}`]) {
+          cleanedFormData[`q${shortFieldName}`] = formData[fieldName];
+        }
+      }
+    });
+
     const { data: submission, error: submissionError } = await supabaseAdmin
       .from('form_submissions')
       .insert({
         form_id: formData.formID || '250194606110042',
         submission_id: formData.submissionID || formData.submission_id || 'test123',
         content: {
-          ...formData,
-          parsedRequest: formData.parsedRequest || undefined,
+          ...cleanedFormData,
+          // Keep original audio paths in a separate field
+          original_audio_files: audioFiles.map(({ path, fieldName, questionLabel }) => ({
+            path,
+            fieldName,
+            questionLabel
+          })),
+          // Store transcriptions both in their original fields and in a dedicated array
           transcriptions: audioFiles.map(({ path, fieldName, questionLabel }) => ({
             path,
             fieldName,
             questionLabel,
             transcription: formData[fieldName]
-          })).filter(t => t.transcription)
+          })).filter(t => t.transcription && !t.transcription.includes('/widget-uploads/'))
         },
         has_audio: audioFiles.length > 0,
         audio_count: audioFiles.length,
