@@ -3,8 +3,20 @@ import { processSubmission } from '@/lib/claude';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
 // Helper to find audio files in form data
-function findAudioFiles(obj: any): { path: string; fieldName: string }[] {
-  const audioFiles: { path: string; fieldName: string }[] = [];
+function findAudioFiles(obj: any): { path: string; fieldName: string; questionLabel?: string }[] {
+  const audioFiles: { path: string; fieldName: string; questionLabel?: string }[] = [];
+  
+  // Extract question labels from pretty field
+  const questionMap = new Map<string, string>();
+  if (obj.pretty) {
+    const pairs = obj.pretty.split(', ');
+    pairs.forEach((pair: string) => {
+      const [question, value] = pair.split(':');
+      if (value && (value.includes('/widget-uploads/voiceRecorder/') || value.includes('.mp3'))) {
+        questionMap.set(value, question);
+      }
+    });
+  }
   
   function traverse(current: any, path: string[] = []) {
     if (typeof current === 'string') {
@@ -12,14 +24,16 @@ function findAudioFiles(obj: any): { path: string; fieldName: string }[] {
       if (current.includes('/widget-uploads/voiceRecorder/')) {
         audioFiles.push({ 
           path: current,
-          fieldName: path.join('.')
+          fieldName: path.join('.'),
+          questionLabel: questionMap.get(current)
         });
       }
       // Check for regular mp3 uploads
       if (current.includes('.mp3')) {
         audioFiles.push({
           path: current,
-          fieldName: path.join('.')
+          fieldName: path.join('.'),
+          questionLabel: questionMap.get(current)
         });
       }
     } else if (typeof current === 'object' && current !== null) {
@@ -129,21 +143,26 @@ export async function POST(request: Request) {
     }
 
     // Find and transcribe audio files
-    const audioFiles = findAudioFiles(formData);
+    const audioFiles = findAudioFiles(formData.parsedRequest || formData);
     console.log('Found audio files:', audioFiles);
 
-    for (const { path, fieldName } of audioFiles) {
+    for (const { path, fieldName, questionLabel } of audioFiles) {
       try {
         console.log(`Transcribing audio file: ${path}`);
         const transcription = await transcribeAudio(path);
         
-        // Add transcription to form data
-        const transcriptionField = `${fieldName}_transcription`;
-        formData[transcriptionField] = transcription;
-        
-        // If we have parsedRequest, add it there too
+        // Replace the audio file path with the transcription in both formData and parsedRequest
         if (formData.parsedRequest) {
-          formData.parsedRequest[transcriptionField] = transcription;
+          formData.parsedRequest[fieldName] = transcription;
+        }
+        formData[fieldName] = transcription;
+        
+        // Update pretty field by replacing the audio path with the transcription
+        if (formData.pretty) {
+          formData.pretty = formData.pretty.replace(
+            `${questionLabel}:${path}`,
+            `${questionLabel}:${transcription}`
+          );
         }
         
         console.log(`Added transcription for ${fieldName}`);
@@ -165,7 +184,10 @@ export async function POST(request: Request) {
       .insert({
         form_id: formData.formID || '250194606110042',
         submission_id: formData.submissionID || formData.submission_id || 'test123',
-        content: formData.form_data || formData,
+        content: {
+          ...formData,
+          parsedRequest: formData.parsedRequest || undefined
+        },
         status: 'pending'
       })
       .select()
