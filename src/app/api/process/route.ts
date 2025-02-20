@@ -253,54 +253,22 @@ async function handleRequest(req: Request) {
               console.log('📱 WhatsApp sending not enabled for this template');
             }
 
-            // Handle webhook if enabled
-            if (template.send_webhook) {
+            // Handle webhook if URL exists and is valid
+            if (template.webhook_url) {
               try {
-                console.log('🌐 Checking webhook configuration:', {
-                  templateId: template.id,
-                  webhookUrl: template.webhook_url
-                });
-
-                if (!template.webhook_url) {
-                  console.warn('⚠️ No webhook URL configured');
+                // Validate webhook URL
+                const webhookUrl = template.webhook_url.trim();
+                if (/^https?:\/\/.+/.test(webhookUrl)) {
+                  console.log('🔗 Starting webhook process:', webhookUrl);
+                  await sendWebhook(submissionId);
+                  console.log('✅ Webhook sent successfully');
                 } else {
-                  // Validate webhook URL
-                  try {
-                    new URL(template.webhook_url); // This will throw if URL is invalid
-                    console.log('🔗 Starting webhook process to:', template.webhook_url);
-                    await sendWebhook(submissionId);
-                    console.log('✅ Webhook sent successfully');
-                  } catch (error) {
-                    const urlError = error as Error;
-                    console.error('❌ Invalid webhook URL:', {
-                      url: template.webhook_url,
-                      error: urlError.message
-                    });
-                    // Update submission with webhook error
-                    await supabaseAdmin
-                      .from('form_submissions')
-                      .update({
-                        webhook_status: 'error',
-                        webhook_error: `Invalid webhook URL: ${template.webhook_url}`,
-                        updated_at: new Date().toISOString()
-                      })
-                      .eq('submission_id', submissionId);
-                  }
+                  console.warn('⚠️ Invalid webhook URL format:', webhookUrl);
                 }
               } catch (webhookError) {
                 console.error('❌ Webhook error:', webhookError);
-                // Update submission with webhook error but don't throw
-                await supabaseAdmin
-                  .from('form_submissions')
-                  .update({
-                    webhook_status: 'error',
-                    webhook_error: (webhookError as Error).message,
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('submission_id', submissionId);
+                // Don't throw - we want to continue even if webhook fails
               }
-            } else {
-              console.log('🔒 Webhook sending disabled for this template');
             }
 
             // Even if email or webhook fails, we keep the completed status from processSubmission
