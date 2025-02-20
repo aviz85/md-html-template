@@ -367,4 +367,106 @@ export async function sendWebhook(submissionId: string): Promise<void> {
     console.error('Error in webhook process:', error);
     throw error;
   }
+}
+
+// Preprocessing webhook interfaces
+export interface PreprocessingWebhookRequest {
+  submission: {
+    id: string;
+    form_id: string;
+    created_at: string;
+  };
+  content: {
+    form_data: any;
+    transcriptions?: Array<{
+      fieldName: string;
+      transcription: string;
+      questionLabel?: string;
+    }>;
+    pretty?: string;
+    [key: string]: any;
+  };
+  template: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface PreprocessingWebhookResponse {
+  content: {
+    form_data: any;
+    [key: string]: any;
+  };
+  error?: string;
+  skip_processing?: boolean;
+}
+
+export async function sendPreprocessingWebhook(
+  submissionId: string,
+  webhookUrl: string
+): Promise<PreprocessingWebhookResponse> {
+  console.log('🔄 Starting preprocessing webhook for submission:', submissionId);
+
+  // Get submission with template data
+  const { data: submission, error: submissionError } = await supabaseAdmin
+    .from('form_submissions')
+    .select(`
+      *,
+      templates:form_id (
+        id,
+        name
+      )
+    `)
+    .eq('submission_id', submissionId)
+    .single();
+
+  if (submissionError || !submission) {
+    console.error('❌ Failed to fetch submission:', submissionError);
+    throw new Error(`Failed to fetch submission: ${submissionError?.message}`);
+  }
+
+  const payload: PreprocessingWebhookRequest = {
+    submission: {
+      id: submission.submission_id,
+      form_id: submission.form_id,
+      created_at: submission.created_at
+    },
+    content: submission.content || {},
+    template: {
+      id: submission.templates.id,
+      name: submission.templates.name
+    }
+  };
+
+  try {
+    console.log('📤 Sending preprocessing webhook request to:', webhookUrl);
+    
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload),
+      // Add timeout of 30 seconds
+      signal: AbortSignal.timeout(30000)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Webhook failed with status ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    // Validate response structure
+    if (!data.content || typeof data.content !== 'object') {
+      throw new Error('Invalid webhook response: missing or invalid content object');
+    }
+
+    console.log('✅ Preprocessing webhook completed successfully');
+    return data;
+
+  } catch (error) {
+    console.error('❌ Preprocessing webhook failed:', error);
+    throw new Error(`Preprocessing webhook failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 } 
