@@ -70,6 +70,7 @@ interface Template {
   webhook_url?: string
   send_whatsapp?: boolean
   whatsapp_message?: string
+  preprocessing_webhook_url?: string
 }
 
 interface SubmissionStatus {
@@ -475,6 +476,10 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         setWebhookUrl(template.webhook_url || "")
         setSendWhatsapp(template.send_whatsapp ?? false)
         setWhatsappMessage(template.whatsapp_message || "")
+        setTemplate({
+          ...template,
+          preprocessing_webhook_url: template.preprocessing_webhook_url || ""
+        })
         
         setElementStyles(template.element_styles || {
           body: {
@@ -875,6 +880,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           webhook_url: webhookUrl,
           send_whatsapp: sendWhatsapp,
           whatsapp_message: whatsappMessage,
+          preprocessing_webhook_url: template?.preprocessing_webhook_url || ""
         })
         .select()
         .single()
@@ -1669,6 +1675,20 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
               className="mt-2 font-mono"
               dir="ltr"
             />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">וובהוק עיבוד מקדים</label>
+            <Input
+              placeholder="https://your-preprocessing-webhook.com"
+              value={template?.preprocessing_webhook_url || ""}
+              onChange={(e) => setTemplate(prev => ({ ...prev, preprocessing_webhook_url: e.target.value }))}
+              className="mt-2 font-mono"
+              dir="ltr"
+            />
+            <p className="text-sm text-muted-foreground mt-1">
+              וובהוק זה יקבל את תוכן הטופס אחרי תמלול ויאפשר לבצע עיבוד מקדים לפני העברה לקלוד
+            </p>
           </div>
         </div>
 
