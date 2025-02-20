@@ -1682,7 +1682,17 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             <Input
               placeholder="https://your-preprocessing-webhook.com"
               value={template?.preprocessing_webhook_url || ""}
-              onChange={(e) => setTemplate(prev => ({ ...prev, preprocessing_webhook_url: e.target.value }))}
+              onChange={(e) => {
+                const url = e.target.value.trim();
+                if (url && !/^https?:\/\/.+/.test(url)) {
+                  toast({
+                    variant: "destructive",
+                    title: "שגיאה",
+                    description: "כתובת URL לא תקינה. חייבת להתחיל ב-http:// או https://"
+                  });
+                }
+                setTemplate(prev => ({ ...prev, preprocessing_webhook_url: e.target.value }));
+              }}
               className="mt-2 font-mono"
               dir="ltr"
             />
