@@ -806,53 +806,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   };
 
   const handleSave = async () => {
-    // Validate template name
-    const templateNameValidation = validateTemplateName(templateName);
-    if (!templateNameValidation.isValid) {
-      toast({
-        variant: "destructive",
-        title: TRANSLATIONS.error,
-        description: templateNameValidation.error
-      });
-      return;
-    }
-
-    // Validate form ID if provided
-    const formIdValidation = validateFormId(formId);
-    if (!formIdValidation.isValid) {
-      toast({
-        variant: "destructive",
-        title: TRANSLATIONS.error,
-        description: formIdValidation.error
-      });
-      return;
-    }
-
-    // Validate Google Sheets ID if provided
-    const gsheetsIdValidation = validateGSheetsId(templateGsheetsId);
-    if (!gsheetsIdValidation.isValid) {
-      toast({
-        variant: "destructive",
-        title: TRANSLATIONS.error,
-        description: gsheetsIdValidation.error
-      });
-      return;
-    }
-
-    // Validate email if provided
-    const emailValidation = validateEmailAddress(emailFrom);
-    if (!emailValidation.isValid) {
-      toast({
-        variant: "destructive",
-        title: TRANSLATIONS.error,
-        description: emailValidation.error
-      });
-      return;
-    }
-
     try {
       // Save template
-      const { data: template, error: templateError } = await supabase
+      const { data: savedTemplate, error: templateError } = await supabase
         .from('templates')
         .upsert({
           id: templateId,
@@ -883,58 +839,15 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           preprocessing_webhook_url: template?.preprocessing_webhook_url || ""
         })
         .select()
-        .single()
+        .single();
 
-      if (templateError) {
-        // שגיאת מזהה טופס כפול
-        if (templateError.code === '23505' && templateError.message?.includes('form_id')) {
-          throw new Error('מזהה הטופס כבר משויך לתבנית אחרת. נא להשתמש במזהה טופס אחר.');
-        }
-        
-        // שגיאת מזהה תבנית כפול
-        if (templateError.code === '23505' && templateError.message?.includes('templates_pkey')) {
-          throw new Error('מזהה התבנית כבר קיים במערכת. נא לנסות שוב.');
-        }
-        
-        // שגיאת שם תבנית כפול
-        if (templateError.code === '23505' && templateError.message?.includes('templates_name_key')) {
-          throw new Error('שם התבנית כבר קיים במערכת. נא לבחור שם אחר.');
-        }
-        
-        // שגיאת מזהה Google Sheets כפול
-        if (templateError.code === '23505' && templateError.message?.includes('template_gsheets_id')) {
-          throw new Error('מזהה Google Sheets כבר משויך לתבנית אחרת. נא להשתמש במזהה אחר.');
-        }
-        
-        // שגיאת הרשאות
-        if (templateError.code === '42501') {
-          throw new Error('אין לך הרשאות מתאימות לביצוע פעולה זו.');
-        }
-        
-        // שגיאת חיבור לDB
-        if (templateError.code === '57P01') {
-          throw new Error('בעיית התחברות לשרת. נא לנסות שוב מאוחר יותר.');
-        }
-        
-        // שגיאת תוכן לא תקין
-        if (templateError.code === '23502') {
-          throw new Error('חסרים שדות חובה בתבנית. נא למלא את כל השדות הנדרשים.');
-        }
-        
-        // שגיאת אורך חריג
-        if (templateError.code === '22001') {
-          throw new Error('אחד השדות חורג מהאורך המקסימלי המותר.');
-        }
-        
-        // שגיאה כללית
-        throw new Error('שגיאה בשמירת התבנית: ' + templateError.message);
-      }
+      if (templateError) throw templateError;
 
       // Delete all existing contents first
       const { error: deleteError } = await supabase
         .from('template_contents')
         .delete()
-        .eq('template_id', template.id)
+        .eq('template_id', savedTemplate.id)
 
       if (deleteError) throw deleteError
 
@@ -944,7 +857,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       // Add header and footer if they exist
       if (headerContent) {
         contents.push({
-          template_id: template.id,
+          template_id: savedTemplate.id,
           content_name: 'header',
           md_content: headerContent
         })
@@ -952,7 +865,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
       if (footerContent) {
         contents.push({
-          template_id: template.id,
+          template_id: savedTemplate.id,
           content_name: 'footer',
           md_content: footerContent
         })
@@ -961,7 +874,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       // Add opening and closing pages if they exist
       if (openingPageContent) {
         contents.push({
-          template_id: template.id,
+          template_id: savedTemplate.id,
           content_name: 'opening_page',
           md_content: openingPageContent
         })
@@ -969,7 +882,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
       if (closingPageContent) {
         contents.push({
-          template_id: template.id,
+          template_id: savedTemplate.id,
           content_name: 'closing_page',
           md_content: closingPageContent
         })
@@ -979,7 +892,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       customContents.forEach(content => {
         if (content.content) {
           contents.push({
-            template_id: template.id,
+            template_id: savedTemplate.id,
             content_name: `custom_${content.name}`,
             md_content: content.content
           })
