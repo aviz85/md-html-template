@@ -119,20 +119,16 @@ export class EssenceQualityCalculator {
       }
     });
 
-    console.log('Date:', dateStr, 'Column points:', columns);
+    console.log('Date:', dateStr);
+    console.log('Numbers:', numbers);
+    console.log('Counts:', counts);
+    console.log('Column points:', columns);
     
     // מציאת העמודה עם מירב הנקודות
     const maxPoints = Math.max(...Object.values(columns));
     
-    // מציאת המספר המתאים לעמודה המנצחת
-    let essenceNumber: number;
-    if (columns.center === maxPoints) {
-      essenceNumber = 6; // יוצר השלום
-    } else if (columns.right === maxPoints) {
-      essenceNumber = 4; // הנותן
-    } else {
-      essenceNumber = 3; // המנתח
-    }
+    // מספר המהות הוא פשוט המספר המקסימלי
+    const essenceNumber = maxPoints;
     
     return {
       number: essenceNumber,
