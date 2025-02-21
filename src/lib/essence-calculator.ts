@@ -15,18 +15,11 @@ export interface QualityResult {
 }
 
 export class EssenceQualityCalculator {
-  // מיפוי מספרים לעמודות מותרות
-  private readonly allowedPositions: Record<number, Column> = {
-    1: 'center', // אמצע
-    2: 'right',  // ימין
-    3: 'left',   // שמאל
-    4: 'right',  // ימין
-    5: 'left',   // שמאל
-    6: 'center', // אמצע
-    7: 'right',  // ימין
-    8: 'left',   // שמאל
-    9: 'center', // אמצע
-    0: 'center'  // אמצע
+  // מיפוי מספרים לעמודות
+  private readonly columnNumbers = {
+    right: [2, 4, 7],    // ימין - החוזה, הנותן, המרפא
+    center: [1, 6, 9, 0], // אמצע - אור הנשמה, יוצר השלום, המאהב, השלם
+    left: [3, 5, 8]      // שמאל - המנתח, השופט, הסטודנט
   };
 
   // ערכי הכפלה לכל מספר
@@ -55,13 +48,6 @@ export class EssenceQualityCalculator {
     8: "הסטודנט",
     9: "המאהב",
     0: "השלם"
-  };
-
-  // מיפוי עמודות למספרים
-  private readonly columnToNumber: Record<Column, number> = {
-    right: 4,  // ימין מייצג 4
-    left: 3,   // שמאל מייצג 3
-    center: 1  // מרכז מייצג 1
   };
 
   /**
@@ -113,38 +99,46 @@ export class EssenceQualityCalculator {
     const numbers = this.getNumbersFromDate(dateStr);
     const counts = this.countNumbers(numbers);
     
-    // אתחול העמודות
+    // חישוב נקודות לכל עמודה
     const columns: Record<Column, number> = {
       right: 0,
       left: 0,
       center: 0
     };
-    
-    // חישוב נקודות לכל עמודה
-    for (const numStr in counts) {
-      const num = parseInt(numStr, 10);
-      const count = counts[num];
-      const column = this.allowedPositions[num];
-      columns[column] += count;
-    }
+
+    // עבור כל מספר בתאריך
+    Object.entries(counts).forEach(([numStr, count]) => {
+      const num = parseInt(numStr);
+      
+      // בדיקה לאיזו עמודה שייך המספר
+      for (const [column, columnNums] of Object.entries(this.columnNumbers)) {
+        if (columnNums.includes(num)) {
+          columns[column as Column] += count;
+          break;
+        }
+      }
+    });
+
+    console.log('Date:', dateStr, 'Column points:', columns);
     
     // מציאת העמודה עם מירב הנקודות
     const maxPoints = Math.max(...Object.values(columns));
     
-    // מציאת העמודה המנצחת והמרה למספר מהות
-    for (const column of ['right', 'left', 'center'] as Column[]) {
-      if (columns[column] === maxPoints) {
-        const essenceNumber = this.columnToNumber[column];
-        return {
-          number: essenceNumber,
-          name: this.numberNames[essenceNumber],
-          points: columns
-        };
-      }
+    // מציאת המספר המתאים לעמודה המנצחת
+    let essenceNumber: number;
+    if (columns.center === maxPoints) {
+      essenceNumber = 6; // יוצר השלום
+    } else if (columns.right === maxPoints) {
+      essenceNumber = 4; // הנותן
+    } else {
+      essenceNumber = 3; // המנתח
     }
     
-    // לא אמור להגיע לכאן
-    throw new Error('Failed to calculate essence number');
+    return {
+      number: essenceNumber,
+      name: this.numberNames[essenceNumber],
+      points: columns
+    };
   }
 
   /**
@@ -154,7 +148,10 @@ export class EssenceQualityCalculator {
     const numbers = this.getNumbersFromDate(dateStr);
     const counts = this.countNumbers(numbers);
     
-    // אתחול העמודות
+    console.log('Date:', dateStr);
+    console.log('Numbers:', numbers);
+    console.log('Counts:', counts);
+    
     const sums: Record<QualityColumn, number> = {
       high: 0,
       middle: 0,
@@ -167,16 +164,23 @@ export class EssenceQualityCalculator {
       const count = counts[num];
       const values = this.multiplicationValues[num];
       
+      // חישוב לכל עמודה
       for (const column of ['high', 'middle', 'low'] as QualityColumn[]) {
-        sums[column] += count * values[column];
+        const columnSum = count * values[column];
+        sums[column] += columnSum;
+        console.log(`Number ${num} appears ${count} times × ${values[column]} (${column}) = ${columnSum}`);
       }
     }
+    
+    console.log('Final sums:', sums);
     
     // מציאת הערך הנמוך ביותר
     const minSum = Math.min(...Object.values(sums));
     
     // אם התוצאה היא 10, היא שווה ערך ל-0
     const qualityNumber = minSum === 10 ? 0 : minSum;
+    
+    console.log('Quality number:', qualityNumber, '=', this.numberNames[qualityNumber]);
     
     return {
       number: qualityNumber,
