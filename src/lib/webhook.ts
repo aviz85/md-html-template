@@ -425,6 +425,13 @@ export async function sendPreprocessingWebhook(
     throw new Error(`Failed to fetch submission: ${submissionError?.message}`);
   }
 
+  // Log original form data
+  console.log('📝 Original form data:', {
+    form_data: submission.content?.form_data,
+    pretty: submission.content?.pretty,
+    transcriptions: submission.content?.transcriptions?.length
+  });
+
   const payload: PreprocessingWebhookRequest = {
     submission: {
       id: submission.submission_id,
@@ -447,7 +454,6 @@ export async function sendPreprocessingWebhook(
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload),
-      // Add timeout of 30 seconds
       signal: AbortSignal.timeout(30000)
     });
 
@@ -460,6 +466,40 @@ export async function sendPreprocessingWebhook(
     // Validate response structure
     if (!data.content || typeof data.content !== 'object') {
       throw new Error('Invalid webhook response: missing or invalid content object');
+    }
+
+    // Log the received data
+    console.log('📥 Received webhook response:', {
+      form_data: data.content.form_data,
+      pretty: data.content.pretty,
+      skip_processing: data.skip_processing
+    });
+
+    // Update pretty field if form_data was modified
+    if (data.content.form_data && submission.content?.pretty) {
+      const originalPretty = submission.content.pretty;
+      let updatedPretty = originalPretty;
+
+      // Update each value in pretty that was modified in form_data
+      Object.entries(data.content.form_data).forEach(([key, newValue]) => {
+        const originalValue = submission.content?.form_data?.[key];
+        if (originalValue && originalValue !== newValue) {
+          // Escape special characters in the original value for regex
+          const escapedOriginal = originalValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const pattern = new RegExp(`(.*?:)${escapedOriginal}(,|$)`);
+          updatedPretty = updatedPretty.replace(pattern, `$1${newValue}$2`);
+        }
+      });
+
+      // Add the updated pretty field to response
+      data.content.pretty = updatedPretty;
+
+      // Log pretty field changes
+      console.log('📝 Pretty field update:', {
+        original: originalPretty,
+        updated: updatedPretty,
+        changed: originalPretty !== updatedPretty
+      });
     }
 
     console.log('✅ Preprocessing webhook completed successfully');
