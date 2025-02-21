@@ -15,6 +15,8 @@ export interface BirthDateNumerologyResponse {
  * מחפש לפי שמות שדה נפוצים ופורמט תאריך תקין
  */
 function findBirthDateField(formData: Record<string, string>): string | null {
+  console.log('🔍 Starting birth date field search in form data:', formData);
+
   // תבניות נפוצות לשמות שדה של תאריך לידה
   const dateFieldPatterns = [
     /^birth[_-]?date$/i,
@@ -28,6 +30,8 @@ function findBirthDateField(formData: Record<string, string>): string | null {
     /^תאריך_לידתך$/i,
     /^מתי_נולדת$/i
   ];
+
+  console.log('📋 Checking against field patterns:', dateFieldPatterns.map(p => p.toString()));
 
   // פונקציה לבדיקה אם ערך נראה כמו תאריך תקין
   const isValidDateFormat = (value: string): boolean => {
@@ -44,34 +48,53 @@ function findBirthDateField(formData: Record<string, string>): string | null {
   };
 
   // קודם מחפש לפי שמות שדה מדויקים
+  console.log('🔎 Searching by exact field names...');
   for (const [key, value] of Object.entries(formData)) {
+    console.log(`  Checking field "${key}" with value "${value}"`);
     for (const pattern of dateFieldPatterns) {
-      if (pattern.test(key) && isValidDateFormat(value)) {
-        return value;
+      if (pattern.test(key)) {
+        console.log(`    ✓ Field name matches pattern ${pattern}`);
+        if (isValidDateFormat(value)) {
+          console.log(`    ✅ Found valid date in field "${key}": ${value}`);
+          return value;
+        } else {
+          console.log(`    ❌ Value is not in valid date format`);
+        }
       }
     }
   }
 
   // אם לא מצאנו, מחפש בשדה pretty אם קיים
   if (formData.pretty) {
+    console.log('🔎 Searching in pretty field:', formData.pretty);
     const prettyFields = formData.pretty.split(',').map(field => field.trim());
     for (const field of prettyFields) {
       const [label, value] = field.split(':').map(part => part.trim());
+      console.log(`  Checking pretty field "${label}" with value "${value}"`);
       if (label && value && 
-          (label.includes('תאריך') || label.includes('לידה') || label.toLowerCase().includes('birth')) && 
-          isValidDateFormat(value)) {
-        return value;
+          (label.includes('תאריך') || label.includes('לידה') || label.toLowerCase().includes('birth'))) {
+        console.log(`    ✓ Label contains birth date keywords`);
+        if (isValidDateFormat(value)) {
+          console.log(`    ✅ Found valid date in pretty field "${label}": ${value}`);
+          return value;
+        } else {
+          console.log(`    ❌ Value is not in valid date format`);
+        }
       }
     }
   }
 
   // אם לא מצאנו כלום, מחפש כל שדה שנראה כמו תאריך
-  for (const value of Object.values(formData)) {
+  console.log('🔎 Searching for any field with date format...');
+  for (const [key, value] of Object.entries(formData)) {
+    console.log(`  Checking field "${key}" with value "${value}"`);
     if (isValidDateFormat(value)) {
+      console.log(`    ✅ Found valid date format in field "${key}": ${value}`);
       return value;
     }
   }
 
+  console.log('❌ No birth date field found in form data');
   return null;
 }
 

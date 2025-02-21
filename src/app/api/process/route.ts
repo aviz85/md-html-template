@@ -81,11 +81,31 @@ async function handleRequest(req: Request) {
 
           try {
             // After transcription handling and before Claude processing
-            const { data: template } = await supabaseAdmin
+            const { data: template, error: templateError } = await supabaseAdmin
               .from('templates')
               .select('*')
               .eq('form_id', submission.form_id)
               .single();
+
+            // Process the submission with Claude
+            const result = await processSubmission(submissionId);
+
+            // Don't split by backticks, keep the original response
+            const cleanResponse = result.finalResponse;
+
+            if (templateError) {
+              console.error('❌ Failed to fetch template:', templateError);
+              console.log('⚠️ Continuing without sending email');
+              // Don't throw, just continue without email
+              return {
+                message: 'Processing completed (no email sent - template error)',
+                submissionId,
+                result: {
+                  ...result,
+                  finalResponse: cleanResponse
+                }
+              };
+            }
 
             if (template?.preprocessing_webhook_url) {
               try {
@@ -148,12 +168,6 @@ async function handleRequest(req: Request) {
               }
             }
 
-            // Process the submission with Claude
-            const result = await processSubmission(submissionId);
-
-            // Don't split by backticks, keep the original response
-            const cleanResponse = result.finalResponse;
-
             // No need to update status here since processSubmission handles it
             
             // After processing submission, try to send email
@@ -165,20 +179,6 @@ async function handleRequest(req: Request) {
               submission_content: submission.content
             });
             
-            if (templateError) {
-              console.error('❌ Failed to fetch template:', templateError);
-              console.log('⚠️ Continuing without sending email');
-              // Don't throw, just continue without email
-              return {
-                message: 'Processing completed (no email sent - template error)',
-                submissionId,
-                result: {
-                  ...result,
-                  finalResponse: cleanResponse
-                }
-              };
-            }
-
             // Check if template exists but has no required email fields
             if (!template?.email_body || !template?.email_subject) {
               console.warn('⚠️ Template missing required email fields:', {
