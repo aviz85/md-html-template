@@ -87,7 +87,92 @@ async function handleRequest(req: Request) {
               .eq('form_id', submission.form_id)
               .single();
 
-            // Process the submission with Claude
+            // Handle preprocessing webhook if configured
+            if (!templateError && template?.preprocessing_webhook_url) {
+              try {
+                // Validate webhook URL
+                const webhookUrl = template.preprocessing_webhook_url.trim();
+                if (!/^https?:\/\/.+/.test(webhookUrl)) {
+                  throw new Error('Invalid preprocessing webhook URL format');
+                }
+
+                console.log('🔄 Starting preprocessing webhook:', webhookUrl);
+                
+                // Update status
+                await supabaseAdmin
+                  .from('form_submissions')
+                  .update({
+                    preprocessing_webhook_status: 'sending',
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('submission_id', submissionId);
+
+                // Send current content to the webhook
+                const response = await fetch(webhookUrl, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify(submission.content)
+                });
+
+                if (!response.ok) {
+                  throw new Error(`Webhook failed with status ${response.status}`);
+                }
+
+                const webhookResponse = await response.json();
+
+                // Update submission with processed content
+                const { data: updatedSubmission } = await supabaseAdmin
+                  .from('form_submissions')
+                  .update({
+                    content: webhookResponse,
+                    preprocessing_webhook_status: 'completed',
+                    preprocessing_webhook_response: webhookResponse,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('submission_id', submissionId)
+                  .select()
+                  .single();
+
+                console.log('✅ Preprocessing webhook completed successfully');
+                console.log('📝 Updated content:', webhookResponse);
+
+                // Continue with the updated submission data
+                if (!updatedSubmission) {
+                  throw new Error('Failed to update submission after preprocessing');
+                }
+
+                // Use the updated submission for further processing
+                const submissionForProcessing = updatedSubmission;
+
+              } catch (error) {
+                console.error('❌ Preprocessing webhook error:', error);
+                
+                // Update error status but continue with processing
+                await supabaseAdmin
+                  .from('form_submissions')
+                  .update({
+                    preprocessing_webhook_status: 'error',
+                    preprocessing_webhook_error: error instanceof Error ? error.message : 'Unknown error',
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('submission_id', submissionId);
+              }
+            }
+
+            // Get latest submission data for processing
+            const { data: currentSubmission } = await supabaseAdmin
+              .from('form_submissions')
+              .select('*')
+              .eq('submission_id', submissionId)
+              .single();
+
+            if (!currentSubmission) {
+              throw new Error('Submission not found after preprocessing');
+            }
+
+            // Process the submission with Claude using the latest data
             const result = await processSubmission(submissionId);
 
             // Don't split by backticks, keep the original response
@@ -107,69 +192,6 @@ async function handleRequest(req: Request) {
               };
             }
 
-            if (template?.preprocessing_webhook_url) {
-              try {
-                // Validate webhook URL
-                const webhookUrl = template.preprocessing_webhook_url.trim();
-                if (!/^https?:\/\/.+/.test(webhookUrl)) {
-                  throw new Error('Invalid preprocessing webhook URL format');
-                }
-
-                console.log('🔄 Starting preprocessing webhook:', webhookUrl);
-                
-                // Update status
-                await supabaseAdmin
-                  .from('form_submissions')
-                  .update({
-                    preprocessing_webhook_status: 'sending',
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('submission_id', submissionId);
-
-                const webhookResponse = await sendPreprocessingWebhook(submissionId, webhookUrl);
-
-                // Update submission with processed content
-                await supabaseAdmin
-                  .from('form_submissions')
-                  .update({
-                    content: webhookResponse.content,
-                    preprocessing_webhook_status: 'completed',
-                    preprocessing_webhook_response: webhookResponse,
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('submission_id', submissionId);
-
-                console.log('✅ Preprocessing webhook completed successfully');
-
-                // Skip Claude processing if requested
-                if (webhookResponse.skip_processing) {
-                  return {
-                    message: 'Processing skipped by preprocessing webhook',
-                    submissionId,
-                    result: {
-                      finalResponse: 'Processing skipped by webhook',
-                      tokenCount: 0
-                    }
-                  };
-                }
-
-              } catch (error) {
-                console.error('❌ Preprocessing webhook error:', error);
-                
-                // Update error status but continue with processing
-                await supabaseAdmin
-                  .from('form_submissions')
-                  .update({
-                    preprocessing_webhook_status: 'error',
-                    preprocessing_webhook_error: error instanceof Error ? error.message : 'Unknown error',
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('submission_id', submissionId);
-              }
-            }
-
-            // No need to update status here since processSubmission handles it
-            
             // After processing submission, try to send email
             console.log('🔍 Starting email process for submission:', submissionId);
             
