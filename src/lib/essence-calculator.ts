@@ -126,22 +126,13 @@ export class EssenceQualityCalculator {
     
     // מציאת העמודה עם מירב הנקודות
     const maxPoints = Math.max(...Object.values(columns));
-    const maxColumn = Object.entries(columns).find(([_, points]) => points === maxPoints)?.[0] as Column;
     
-    // מיפוי עמודות למספרי מהות
-    const columnToEssence = {
-      right: 2,  // ימין - החוזה
-      center: 1, // אמצע - אור הנשמה
-      left: 3    // שמאל - המנתח
-    };
-    
-    // מספר המהות נקבע לפי העמודה עם מירב הנקודות
-    const essenceNumber = columnToEssence[maxColumn];
+    // מספר המהות הוא מספר הנקודות המקסימלי
+    const essenceNumber = maxPoints;
     
     console.log('Essence calculation:', {
       columns,
       maxPoints,
-      maxColumn,
       essenceNumber,
       name: this.numberNames[essenceNumber]
     });
