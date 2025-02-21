@@ -81,10 +81,16 @@ async function handleRequest(req: Request) {
 
           try {
             // After transcription handling and before Claude processing
-            if (submission.content?.template?.preprocessing_webhook_enabled && submission.content?.template?.preprocessing_webhook_url) {
+            const { data: template } = await supabaseAdmin
+              .from('templates')
+              .select('*')
+              .eq('form_id', submission.form_id)
+              .single();
+
+            if (template?.preprocessing_webhook_url) {
               try {
                 // Validate webhook URL
-                const webhookUrl = submission.content.template.preprocessing_webhook_url.trim();
+                const webhookUrl = template.preprocessing_webhook_url.trim();
                 if (!/^https?:\/\/.+/.test(webhookUrl)) {
                   throw new Error('Invalid preprocessing webhook URL format');
                 }
@@ -159,12 +165,6 @@ async function handleRequest(req: Request) {
               submission_content: submission.content
             });
             
-            const { data: template, error: templateError } = await supabaseAdmin
-              .from('templates')
-              .select('*')
-              .eq('form_id', submission.form_id)  // Changed from id to form_id
-              .single();
-
             if (templateError) {
               console.error('❌ Failed to fetch template:', templateError);
               console.log('⚠️ Continuing without sending email');
