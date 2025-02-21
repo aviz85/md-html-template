@@ -1604,7 +1604,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                     description: "כתובת URL לא תקינה. חייבת להתחיל ב-http:// או https://"
                   });
                 }
-                setTemplate(prev => ({ ...prev, preprocessing_webhook_url: e.target.value }));
+                setTemplate(prev => prev ? { ...prev, preprocessing_webhook_url: e.target.value } : null);
               }}
               className="mt-2 font-mono"
               dir="ltr"
