@@ -97,6 +97,14 @@ async function handleRequest(req: Request) {
                 }
 
                 console.log('🔄 Starting preprocessing webhook:', webhookUrl);
+                console.log('📦 Original submission content:', submission.content);
+                
+                const webhookPayload = {
+                  form_data: submission.content?.form_data || submission.content?.parsedRequest || {},
+                  transcription: submission.content?.transcription || ''
+                };
+                
+                console.log('📤 Sending to webhook:', webhookPayload);
                 
                 // Update status
                 await supabaseAdmin
@@ -107,26 +115,43 @@ async function handleRequest(req: Request) {
                   })
                   .eq('submission_id', submissionId);
 
-                // Send current content to the webhook
+                // Send to webhook
                 const response = await fetch(webhookUrl, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json'
                   },
-                  body: JSON.stringify(submission.content)
+                  body: JSON.stringify(webhookPayload)
                 });
 
                 if (!response.ok) {
-                  throw new Error(`Webhook failed with status ${response.status}`);
+                  const errorText = await response.text();
+                  console.error('❌ Webhook error response:', errorText);
+                  console.error('❌ Request payload was:', webhookPayload);
+                  throw new Error(`Webhook failed with status ${response.status}: ${errorText}`);
                 }
 
                 const webhookResponse = await response.json();
+                console.log('📥 Received from webhook:', webhookResponse);
+
+                if (!webhookResponse.form_data) {
+                  console.error('❌ Invalid webhook response - missing form_data:', webhookResponse);
+                  throw new Error('Invalid webhook response: missing form_data');
+                }
 
                 // Update submission with processed content
-                const { data: updatedSubmission } = await supabaseAdmin
+                const updatedContent = {
+                  ...submission.content,
+                  form_data: webhookResponse.form_data,
+                  transcription: webhookResponse.transcription || submission.content?.transcription
+                };
+
+                console.log('📝 Updating submission with:', updatedContent);
+
+                const { data: updatedSubmission, error: updateError } = await supabaseAdmin
                   .from('form_submissions')
                   .update({
-                    content: webhookResponse,
+                    content: updatedContent,
                     preprocessing_webhook_status: 'completed',
                     preprocessing_webhook_response: webhookResponse,
                     updated_at: new Date().toISOString()
@@ -135,8 +160,13 @@ async function handleRequest(req: Request) {
                   .select()
                   .single();
 
+                if (updateError) {
+                  console.error('❌ Failed to update submission:', updateError);
+                  throw new Error(`Failed to update submission: ${updateError.message}`);
+                }
+
                 console.log('✅ Preprocessing webhook completed successfully');
-                console.log('📝 Updated content:', webhookResponse);
+                console.log('📋 Final updated content:', updatedSubmission?.content);
 
                 // Continue with the updated submission data
                 if (!updatedSubmission) {
