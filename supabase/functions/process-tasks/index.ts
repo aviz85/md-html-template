@@ -1,9 +1,27 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { corsHeaders } from '../_shared/cors.ts'
+import { proofreadText } from './gemini.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// Helper function to split text into manageable chunks
+function splitTextIntoChunks(text: string, maxChunkLength = 1000): string[] {
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const chunks: string[] = [];
+  let currentChunk = '';
+
+  for (const sentence of sentences) {
+    if ((currentChunk + sentence).length > maxChunkLength && currentChunk) {
+      chunks.push(currentChunk.trim());
+      currentChunk = '';
+    }
+    currentChunk += (currentChunk ? ' ' : '') + sentence;
+  }
+
+  if (currentChunk) {
+    chunks.push(currentChunk.trim());
+  }
+
+  return chunks;
 }
 
 function isMP3(url: string): boolean {
@@ -130,12 +148,51 @@ serve(async (req) => {
 
       const transcription = await groqResponse.json()
 
-      // Update job with transcription result
+      let finalText = transcription.text;
+      let hasProofread = false;
+
+      // Default proofread to true unless explicitly disabled
+      const shouldProofread = job.metadata?.disable_proofread !== true;
+
+      // Try proofreading if enabled
+      if (shouldProofread) {
+        try {
+          // Split text for proofreading
+          const chunks = splitTextIntoChunks(transcription.text);
+          const proofreadChunks = [];
+
+          // Proofread each chunk
+          for (let i = 0; i < chunks.length; i++) {
+            const proofreadResult = await proofreadText({
+              text: chunks[i],
+              chunk_index: i,
+              total_chunks: chunks.length,
+              context: job.proofreading_context || undefined
+            });
+            proofreadChunks.push(proofreadResult.text);
+          }
+
+          // Merge proofread chunks
+          finalText = proofreadChunks.join('\n\n');
+          hasProofread = true;
+        } catch (proofreadError) {
+          console.error('Proofreading failed:', proofreadError);
+          // Continue with original transcription if proofreading fails
+        }
+      }
+
+      // Update job with results - always save both versions when proofread succeeds
       await supabase
         .from('transcription_jobs')
         .update({
           status: 'completed',
-          final_proofread: transcription.text
+          final_transcription: transcription.text,
+          final_proofread: hasProofread ? finalText : null,
+          metadata: {
+            ...job.metadata,
+            proofread_attempted: shouldProofread,
+            proofread_succeeded: hasProofread
+          }
         })
         .eq('id', job.id)
 
@@ -146,13 +203,21 @@ serve(async (req) => {
           status: 'completed',
           output_data: {
             text: transcription.text,
-            language: transcription.language
+            proofread_text: hasProofread ? finalText : null,
+            language: transcription.language,
+            proofread_attempted: shouldProofread,
+            proofread_succeeded: hasProofread
           }
         })
         .eq('id', task.id)
 
       return new Response(
-        JSON.stringify({ jobId: job.id, status: 'processing' }),
+        JSON.stringify({ 
+          jobId: job.id, 
+          status: 'processing',
+          hasProofread,
+          proofreadAttempted: shouldProofread
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -179,7 +244,9 @@ serve(async (req) => {
         JSON.stringify({
           jobId,
           status: job.status,
-          result: job.final_proofread,
+          result: job.final_proofread || job.final_transcription, // Return proofread if exists, otherwise transcription
+          transcription: job.final_transcription, // Always include original transcription
+          proofread: job.final_proofread, // Include proofread if exists
           error: job.error
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -1,12 +1,35 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// Middleware to check authentication
+async function checkAuth(req: Request) {
+  const supabase = createRouteHandlerClient({ cookies })
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (!session) {
+    return NextResponse.json(
+      { error: 'Unauthorized - Please login' },
+      { status: 401 }
+    )
+  }
+
+  return session
+}
+
 export async function POST(req: Request) {
+  // Check authentication first
+  const session = await checkAuth(req)
+  if (session instanceof NextResponse) return session
+
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File
@@ -20,7 +43,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // Create job record
+    // Create job record with user info
     const { data: job, error: jobError } = await supabase
       .from('transcription_jobs')
       .insert({
@@ -28,9 +51,11 @@ export async function POST(req: Request) {
         preferred_language: preferredLanguage || null,
         proofreading_context: proofreadingContext || null,
         storage_path: `jobs/${Date.now()}-${file.name}`,
+        user_id: session.user.id,
         metadata: {
           file_size: file.size,
-          mime_type: file.type
+          mime_type: file.type,
+          user_email: session.user.email
         }
       })
       .select()
@@ -40,11 +65,11 @@ export async function POST(req: Request) {
       throw jobError
     }
 
-    // Upload file to storage
+    // Upload file to storage with user-specific path
     const buffer = await file.arrayBuffer()
     const { error: uploadError } = await supabase.storage
       .from('transcriptions')
-      .upload(`${job.storage_path}/original`, buffer)
+      .upload(`${session.user.id}/${job.storage_path}/original`, buffer)
 
     if (uploadError) {
       throw uploadError
@@ -66,6 +91,10 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
+  // Check authentication first
+  const session = await checkAuth(req)
+  if (session instanceof NextResponse) return session
+
   try {
     const { searchParams } = new URL(req.url)
     const jobId = searchParams.get('jobId')
@@ -77,11 +106,12 @@ export async function GET(req: Request) {
       )
     }
 
-    // Get job status
+    // Get job status (with user check)
     const { data: job, error: jobError } = await supabase
       .from('transcription_jobs')
       .select('*')
       .eq('id', jobId)
+      .eq('user_id', session.user.id) // Only allow access to user's own jobs
       .single()
 
     if (jobError) {
