@@ -178,10 +178,11 @@ serve(async (req) => {
         } catch (proofreadError) {
           console.error('Proofreading failed:', proofreadError);
           // Continue with original transcription if proofreading fails
+          finalText = transcription.text;
         }
       }
 
-      // Update job with results - always save both versions when proofread succeeds
+      // Update job with results - always save both versions
       await supabase
         .from('transcription_jobs')
         .update({
@@ -215,6 +216,7 @@ serve(async (req) => {
         JSON.stringify({ 
           jobId: job.id, 
           status: 'processing',
+          result: finalText, // For backward compatibility
           hasProofread,
           proofreadAttempted: shouldProofread
         }),
@@ -244,9 +246,13 @@ serve(async (req) => {
         JSON.stringify({
           jobId,
           status: job.status,
-          result: job.final_proofread || job.final_transcription, // Return proofread if exists, otherwise transcription
-          transcription: job.final_transcription, // Always include original transcription
-          proofread: job.final_proofread, // Include proofread if exists
+          result: job.final_proofread || job.final_transcription, // Always return best available version
+          transcription: job.final_transcription,
+          proofread: job.final_proofread,
+          metadata: {
+            proofread_attempted: job.metadata?.proofread_attempted,
+            proofread_succeeded: job.metadata?.proofread_succeeded
+          },
           error: job.error
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
