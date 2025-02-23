@@ -6,6 +6,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function isMP3(url: string): boolean {
+  return url.toLowerCase().endsWith('.mp3');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -43,15 +47,49 @@ serve(async (req) => {
 
       if (jobError) throw jobError
 
+      // Convert audio if not MP3
+      let processUrl = url;
+      if (!isMP3(url)) {
+        console.log('Converting audio to MP3 format...');
+        const convertResponse = await fetch(`${Deno.env.get('APP_URL')}/api/convert`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+          },
+          body: JSON.stringify({ url })
+        });
+
+        if (!convertResponse.ok) {
+          const error = await convertResponse.text();
+          throw new Error(`Conversion failed: ${error}`);
+        }
+
+        const { convertedUrl } = await convertResponse.json();
+        processUrl = convertedUrl;
+        
+        // Update job with conversion info
+        await supabase
+          .from('transcription_jobs')
+          .update({
+            metadata: {
+              ...job.metadata,
+              converted_url: convertedUrl,
+              original_url: url
+            }
+          })
+          .eq('id', job.id);
+      }
+
       // Download and save file
-      const response = await fetch(url)
+      const response = await fetch(processUrl)
       if (!response.ok) throw new Error(`Failed to download file: ${response.statusText}`)
       
       const buffer = await response.arrayBuffer()
       const { error: uploadError } = await supabase.storage
         .from('transcriptions')
         .upload(`${job.storage_path}/original`, buffer, {
-          contentType: response.headers.get('content-type') || 'audio/wav'
+          contentType: 'audio/mpeg'
         })
 
       if (uploadError) throw uploadError
