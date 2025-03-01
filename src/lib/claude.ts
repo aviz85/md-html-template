@@ -528,7 +528,9 @@ export async function processSubmission(submissionId: string) {
       .eq('form_id', submission.form_id)
       .eq('status', 'completed');
     
-    const estimatedTemplateUses = (usage && !usageError) ? parseInt(usage.count) + 1 : 1;
+    const estimatedTemplateUses = (usage && !usageError && usage.length > 0) 
+      ? parseInt(usage[0].count) + 1 
+      : 1;
     console.log(`Estimated template usage history: ${estimatedTemplateUses} submissions`);
     
     // בדיקת כדאיות הקאשינג לתבנית זו (רק לצורך לוג)
