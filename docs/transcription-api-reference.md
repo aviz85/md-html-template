@@ -83,7 +83,8 @@ curl -X POST "http://md-html-template.vercel.app/api/transcribe" \
 {
   "jobId": "job_123abc",
   "status": "accepted",
-  "hasProofread": false,
+  "result": "התמלול הראשוני או המתוקן...",
+  "hasProofread": true,
   "proofreadAttempted": true
 }
 ```
@@ -109,22 +110,29 @@ curl "http://md-html-template.vercel.app/api/transcribe?jobId=job_123abc" \
 {
   "jobId": "job_123abc",
   "status": "completed",
-  "result": "התמלול המתוקן...",  // Proofread version if available, otherwise original
+  "result": "התמלול המתוקן...",  // Best available version (proofread if exists)
   "transcription": "התמלול המקורי...",  // Original transcription
-  "proofread": "התמלול המתוקן...",  // Proofread version if available, null otherwise
+  "proofread": "התמלול המתוקן...",  // Proofread version if exists
+  "metadata": {
+    "proofread_attempted": true,
+    "proofread_succeeded": true
+  },
   "error": null
 }
 ```
 
 ## Proofreading Process
 The API includes an automatic proofreading phase that:
-1. Runs by default unless explicitly disabled
+1. Runs by default unless explicitly disabled via metadata
 2. Improves text organization and readability
 3. Fixes obvious spelling mistakes
 4. Adds proper punctuation
 5. Can use provided context to better understand technical terms
 
-To disable proofreading, set `disable_proofread: true` in the metadata. If proofreading fails for any reason, the API will automatically fall back to the original transcription without interrupting the process.
+### Controlling Proofreading
+1. **Default Behavior**: Proofreading is enabled by default
+2. **Disable Proofreading**: Set `metadata.disable_proofread: true`
+3. **Add Context**: Use `proofreadingContext` parameter to improve accuracy
 
 ## Best Practices
 1. **Proofreading Context:**
@@ -218,6 +226,10 @@ To disable proofreading, set `disable_proofread: true` in the metadata. If proof
 const formData = new FormData();
 formData.append('file', fs.createReadStream('audio.wav'));
 formData.append('preferredLanguage', 'he');
+formData.append('proofreadingContext', 'Technical meeting about AI development');
+formData.append('metadata', JSON.stringify({
+  disable_proofread: false  // Optional, defaults to false
+}));
 
 const response = await fetch('http://md-html-template.vercel.app/api/transcribe', {
   method: 'POST',
@@ -237,7 +249,13 @@ const checkStatus = async () => {
       headers: { 'Authorization': `Bearer ${apiKey}` }
     }
   );
-  return await statusResponse.json();
+  const status = await statusResponse.json();
+  
+  if (status.proofread) {
+    console.log('Proofread version:', status.proofread);
+  }
+  console.log('Original transcription:', status.transcription);
+  return status;
 };
 ```
 
@@ -247,7 +265,9 @@ import requests
 
 files = {
     'file': open('audio.wav', 'rb'),
-    'preferredLanguage': (None, 'he')
+    'preferredLanguage': (None, 'he'),
+    'proofreadingContext': (None, 'Technical discussion about React and TypeScript'),
+    'metadata': (None, '{"disable_proofread": true}')
 }
 
 response = requests.post(

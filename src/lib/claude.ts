@@ -192,7 +192,7 @@ async function callClaude(messages: Message[], submissionId: string): Promise<Cl
   });
 
   const claudePromise = anthropic.messages.create({
-    model: "claude-3-5-sonnet-20241022",
+    model: "claude-3-7-sonnet-latest",
     messages: messages,
     temperature: 0.7,
     max_tokens: 8192
@@ -365,13 +365,26 @@ export async function processSubmission(submissionId: string) {
     console.log('Form data path:', submission.content?.form_data);
 
     // Ensure form_data exists and is an object
-    let formData = {};
+    let formData: Record<string, any> = {};
     try {
       if (typeof submission.content?.form_data === 'object' && submission.content.form_data !== null) {
         formData = submission.content.form_data;
       } else if (typeof submission.content === 'object' && submission.content !== null) {
         formData = submission.content;
       }
+      
+      // סינון השדה rawRequest מהנתונים שנשלחים לקלוד
+      if ('rawRequest' in formData) {
+        console.log('Removing rawRequest field before sending to Claude');
+        delete formData.rawRequest;
+      }
+      
+      // סינון גם את parsedRequest שנוצר מ-rawRequest
+      if ('parsedRequest' in formData) {
+        console.log('Removing parsedRequest field before sending to Claude');
+        delete formData.parsedRequest;
+      }
+      
     } catch (error) {
       console.error('Error processing form data:', error);
       console.log('Using empty form data object as fallback');

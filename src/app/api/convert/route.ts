@@ -12,7 +12,7 @@ const supabase = createClient(
 
 export const runtime = 'nodejs';
 // Increase timeout for large files
-export const maxDuration = 600; // 10 minutes
+export const maxDuration = 300; // 5 minutes (max allowed in Vercel Pro)
 
 // Configure chunk size for streaming (10MB)
 const CHUNK_SIZE = 10 * 1024 * 1024;

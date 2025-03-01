@@ -211,9 +211,151 @@ async function parseRequestBody(request: Request): Promise<FormData> {
         formData.parsedRequest = formData.rawRequest;
       }
     }
+    
+    // בדיקה נוספת אם יש שדות תמונה ישירות בטופס שאינם חלק מה-rawRequest
+    for (const key in formData) {
+      if (key !== 'rawRequest' && key !== 'parsedRequest' && typeof formData[key] === 'string') {
+        const value = formData[key] as string;
+        
+        // בדיקה האם השדה מכיל תמונה
+        const isUrl = value.startsWith('http://') || value.startsWith('https://');
+        
+        // בדיקה אם זו תמונה base64
+        if (!isUrl && 
+            ((value.includes('data:image/') && value.includes(';base64,')) ||
+             value.startsWith('/9j/') || // JPEG בסיס 64
+             value.startsWith('iVBOR') || // PNG בסיס 64
+             (value.length > 1000 && value.match(/^[A-Za-z0-9+/=]{1000,}$/)))) {
+          
+          console.log(`[JotForm Webhook] Found image data in field ${key}, length: ${value.length}`);
+          const originalLength = value.length;
+          formData[key] = '[IMAGE DATA REMOVED]';
+          const savedBytes = originalLength - formData[key].length;
+          console.log(`[JotForm Webhook] Image data cleaned from field ${key}. Saved ${savedBytes} bytes (${Math.round(savedBytes/1024)}KB)`);
+        }
+      }
+    }
   }
 
   return formData;
+}
+
+// פונקציה לניקוי תמונות מה-rawRequest
+function cleanImagesFromRawRequest(formData: any) {
+  if (!formData || !formData.rawRequest) return formData;
+  
+  // שמירת אורך ה-rawRequest המקורי לצורך לוג
+  const originalLength = formData.rawRequest.length;
+  let cleanedFieldsCount = 0;
+  
+  // פונקציית עזר לבדיקה אם מחרוזת היא URL
+  function isUrl(str: string): boolean {
+    try {
+      const url = new URL(str);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
+  // פונקציית עזר לבדיקה אם מחרוזת מכילה תמונה מקודדת ב-base64
+  function isBase64Image(str: string): boolean {
+    // בדיקת פורמט של base64 מלא
+    if (str.includes('data:image/') && str.includes(';base64,')) {
+      return true;
+    }
+    
+    // בדיקה לקידודים נפוצים של תמונות ללא התחלה מפורשת
+    if (str.startsWith('/9j/') || // JPEG בבסיס 64
+        str.startsWith('iVBOR')) { // PNG בבסיס 64
+      return true;
+    }
+    
+    // בדיקה למחרוזות ארוכות שנראות כמו base64
+    // רק אם הן לא URL וגם מכילות תווים אופייניים ל-base64
+    if (!isUrl(str) && 
+        str.length > 1000 && 
+        str.match(/^[A-Za-z0-9+/=]{1000,}$/)) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  // פונקציה רקורסיבית לניקוי תמונות מכל המבנה
+  function cleanImageData(obj: any, path: string = ''): any {
+    // אם האובייקט הוא null או undefined, החזר אותו כמו שהוא
+    if (obj === null || obj === undefined) return obj;
+
+    // אם זו מחרוזת שמכילה נתוני תמונה
+    if (typeof obj === 'string') {
+      // אם זה URL, לא לנקות
+      if (isUrl(obj)) {
+        return obj;
+      }
+      
+      // בדיקה אם זו תמונה מקודדת ב-base64
+      if (isBase64Image(obj)) {
+        const fieldInfo = path ? ` in field ${path}` : '';
+        console.log(`[JotForm Webhook] Found image data${fieldInfo}, length: ${obj.length}`);
+        cleanedFieldsCount++;
+        return '[IMAGE DATA REMOVED]';
+      }
+      return obj;
+    }
+
+    // אם זה מערך, עבור על כל איבר
+    if (Array.isArray(obj)) {
+      return obj.map((item, index) => cleanImageData(item, path ? `${path}[${index}]` : `[${index}]`));
+    }
+
+    // אם זה אובייקט, עבור על כל שדה
+    if (typeof obj === 'object') {
+      const result: { [key: string]: any } = {};
+      for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+          result[key] = cleanImageData(obj[key], path ? `${path}.${key}` : key);
+        }
+      }
+      return result;
+    }
+
+    // אחרת החזר כמו שזה
+    return obj;
+  }
+
+  try {
+    // בדיקה אם rawRequest הוא מחרוזת JSON, ואם כן - ננסה לפרסר אותו
+    if (typeof formData.rawRequest === 'string') {
+      try {
+        let rawObj = JSON.parse(formData.rawRequest);
+        const cleanedObj = cleanImageData(rawObj);
+        
+        // המר חזרה למחרוזת
+        const newRawRequest = JSON.stringify(cleanedObj);
+        
+        // אם היה שינוי, עדכן את ה-rawRequest
+        if (newRawRequest.length < originalLength) {
+          formData.rawRequest = newRawRequest;
+          const savedBytes = originalLength - formData.rawRequest.length;
+          console.log(`[JotForm Webhook] Images cleaned from rawRequest. Fields cleaned: ${cleanedFieldsCount}, Original length: ${originalLength}, New length: ${formData.rawRequest.length}, Saved: ${savedBytes} bytes (${Math.round(savedBytes/1024)}KB)`);
+        }
+      } catch (e) {
+        console.error('[JotForm Webhook] Error parsing rawRequest JSON:', e);
+      }
+    }
+
+    // נקה גם את parsedRequest אם קיים
+    if (formData.parsedRequest) {
+      const cleanedParsedRequest = cleanImageData(formData.parsedRequest);
+      formData.parsedRequest = cleanedParsedRequest;
+    }
+
+    return formData;
+  } catch (error) {
+    console.error('[JotForm Webhook] Error cleaning images from rawRequest:', error);
+    return formData;
+  }
 }
 
 // Add triggerProcessWithRetry function
@@ -268,6 +410,9 @@ export async function POST(request: Request) {
     let formData;
     try {
       formData = await parseRequestBody(request);
+      
+      // ניקוי תמונות מה-rawRequest לפני שמירה במסד הנתונים
+      formData = cleanImagesFromRawRequest(formData);
     } catch (error) {
       console.error('[JotForm Webhook] Failed to parse request body:', error);
       return NextResponse.json({ 
