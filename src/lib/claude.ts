@@ -282,6 +282,9 @@ export async function processSubmission(submissionId: string) {
   let submissionUUID: string | null = null;
   let messages: Message[] = [];
   let msg: ClaudeMessage;
+  // מערך נוסף לשמירת התשובות של קלוד (עבור המצב המאוחד)
+  let previousResponses: string[] = [];
+  let useOptimizedPrompting = false;
   
   try {
     await updateProgress(submissionId, 'init', 'מתחיל עיבוד', null, 0, 4);
@@ -324,6 +327,10 @@ export async function processSubmission(submissionId: string) {
       .select('*')
       .eq('form_id', submission.form_id)
       .single();
+
+    // בדיקה האם להשתמש בגישה המאוחדת
+    useOptimizedPrompting = template?.use_optimized_prompting || false;
+    console.log(`Using ${useOptimizedPrompting ? 'optimized' : 'standard'} prompting mode`);
 
     // Update progress - fetching prompts
     await updateProgress(submissionId, 'prompts', 'מכין שאלות', null, 2, 4);
@@ -441,6 +448,9 @@ export async function processSubmission(submissionId: string) {
     );
     
     claudeResponses.push(msg);
+    
+    // שמירת התשובה במערך התשובות הקודמות (למצב המאוחד)
+    previousResponses.push(firstResponse);
 
     // Process remaining prompts with validation
     for (let i = 1; i < prompts.length; i++) {
@@ -467,12 +477,39 @@ export async function processSubmission(submissionId: string) {
       console.log('📊 Current conversation state:', messages);
       console.log('📤 Next prompt:', prompts[i]);
       
-      messages.push(
-        { role: 'assistant', content: lastResponse },
-        { role: 'user', content: prompts[i] }
-      );
+      const isLastPrompt = i === prompts.length - 1;
 
-      console.log('📨 Sending full conversation to Claude:', messages);
+      // בדיקה אם להשתמש בגישה המאוחדת ולאתחל את ההיסטוריה
+      if (useOptimizedPrompting) {
+        // במצב האופטימלי, אנחנו בונים את ההודעה בצורה שונה לפרומפט האחרון
+        if (isLastPrompt) {
+          // בפרומפט האחרון, אנחנו מעבירים את כל התשובות הקודמות יחד
+          let finalPromptContent = "מידע מהטופס:\n" + answers + "\n\n";
+          
+          // הוספת כל התשובות הקודמות
+          previousResponses.forEach((response, index) => {
+            finalPromptContent += `תשובה לפרומפט ${index + 1}:\n${response}\n\n`;
+          });
+          
+          // הוספת הפרומפט האחרון
+          finalPromptContent += "פרומפט אחרון:\n" + prompts[i];
+          
+          // איפוס רשימת ההודעות ושליחה של ההודעה המאוחדת
+          messages = [{ role: "user", content: finalPromptContent }];
+          console.log('📤 Sending final consolidated prompt to Claude');
+        } else {
+          // אם לא מדובר בפרומפט האחרון, שלח רק את הפלט מהטופס והפרומפט הנוכחי
+          messages = [{ role: "user", content: answers + '\n' + prompts[i] }];
+          console.log('📤 Sending isolated prompt to Claude (optimized mode)');
+        }
+      } else {
+        // במצב הרגיל, המשך כרגיל ושמור את כל היסטוריית השיחה
+        messages.push(
+          { role: 'assistant', content: lastResponse },
+          { role: 'user', content: prompts[i] }
+        );
+        console.log('📨 Sending full conversation to Claude (standard mode)');
+      }
 
       // Claude call with retry
       msg = await retryWithExponentialBackoff(async () => {
@@ -486,6 +523,12 @@ export async function processSubmission(submissionId: string) {
       });
       
       claudeResponses.push(msg);
+      
+      // שמירת התשובה במערך התשובות הקודמות (למצב המאוחד)
+      if (!isLastPrompt) {
+        previousResponses.push(response);
+      }
+      
       console.log('📈 Total tokens used:', inputTokens + outputTokens);
     }
 
@@ -517,7 +560,9 @@ export async function processSubmission(submissionId: string) {
         input: inputTokens,
         output: outputTokens,
         total: inputTokens + outputTokens
-      }
+      },
+      promptingMode: useOptimizedPrompting ? 'optimized' : 'standard',
+      previousResponses: previousResponses
     };
 
     await supabaseAdmin

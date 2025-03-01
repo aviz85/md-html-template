@@ -71,6 +71,7 @@ interface Template {
   send_whatsapp?: boolean
   whatsapp_message?: string
   preprocessing_webhook_url?: string
+  use_optimized_prompting?: boolean
 }
 
 interface SubmissionStatus {
@@ -478,7 +479,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         setWhatsappMessage(template.whatsapp_message || "")
         setTemplate({
           ...template,
-          preprocessing_webhook_url: template.preprocessing_webhook_url || ""
+          preprocessing_webhook_url: template.preprocessing_webhook_url || "",
+          use_optimized_prompting: template.use_optimized_prompting || false
         })
         
         setElementStyles(template.element_styles || {
@@ -836,7 +838,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           webhook_url: webhookUrl,
           send_whatsapp: sendWhatsapp,
           whatsapp_message: whatsappMessage,
-          preprocessing_webhook_url: template?.preprocessing_webhook_url || ""
+          preprocessing_webhook_url: template?.preprocessing_webhook_url || "",
+          use_optimized_prompting: template?.use_optimized_prompting || false
         })
         .select()
         .single();
@@ -1611,6 +1614,27 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             />
             <p className="text-sm text-muted-foreground mt-1">
               וובהוק זה יקבל את תוכן הטופס אחרי תמלול ויאפשר לבצע עיבוד מקדים לפני העברה לקלוד
+            </p>
+          </div>
+
+          <div className="my-4">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="use_optimized_prompting"
+                checked={template?.use_optimized_prompting || false}
+                onChange={(e) => 
+                  setTemplate(prev => prev ? { ...prev, use_optimized_prompting: e.target.checked } : null)
+                }
+                className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
+              />
+              <label htmlFor="use_optimized_prompting" className="mr-2 text-sm font-medium">
+                השתמש בשיטת פרומפטים מאוחדת (חסכונית)
+              </label>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1 mr-6">
+              כאשר מופעל, רק בפרומפט האחרון יישלחו כל התשובות הקודמות. בכל פרומפט אחר, יישלח רק התוכן הנוכחי ללא היסטוריה.
+              שיטה זו חוסכת בטוקנים אך עלולה להשפיע על איכות התשובות.
             </p>
           </div>
         </div>
