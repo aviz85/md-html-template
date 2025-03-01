@@ -277,15 +277,15 @@ function estimateCurrentCachingBenefit(
   }
 }
 
-async function callClaude(messages: Message[], submissionId: string): Promise<ClaudeMessage> {
+async function callClaude(messages: Message[], submissionId: string, useCache: boolean = true): Promise<ClaudeMessage> {
   const timeoutPromise = new Promise<ClaudeMessage>((_, reject) => {
     setTimeout(() => reject(new Error('Timeout: Claude response took longer than 10 minutes')), CLAUDE_TIMEOUT);
   });
 
-  // אם יש יותר מהודעה אחת, נתמוך בקאשינג רק להודעות חוץ מהאחרונה
+  // אם יש יותר מהודעה אחת ומצב הקאשינג מאופשר, נתמוך בקאשינג
   let formattedMessages: FormattedMessage[] = [];
   
-  if (messages.length > 1) {
+  if (messages.length > 1 && useCache) {
     // ההודעה הראשונה (המידע מהטופס + פרומפט ראשון) תמיד תשמר לקאשינג
     formattedMessages.push({
       role: messages[0].role,
@@ -352,20 +352,21 @@ async function callClaude(messages: Message[], submissionId: string): Promise<Cl
       ]
     });
   } else {
-    // רק הודעה אחת, נשתמש בה כפי שהיא ללא קאשינג
-    formattedMessages = [
-      {
-        role: messages[0].role,
+    // רק הודעה אחת או קאשינג מבוטל, נשתמש בהודעות ללא קאשינג
+    for (const message of messages) {
+      formattedMessages.push({
+        role: message.role,
         content: [
           {
             type: "text",
-            text: messages[0].content
+            text: message.content
           }
         ]
-      }
-    ];
+      });
+    }
   }
 
+  console.log(`Calling Claude with caching ${useCache ? 'enabled' : 'disabled'}`);
   console.log('Formatted messages for Claude:', JSON.stringify(formattedMessages, null, 2));
 
   const claudePromise = anthropic.messages.create({
@@ -474,6 +475,7 @@ export async function processSubmission(submissionId: string) {
   // מעקב אחרי קאשינג
   let totalCacheCreationTokens = 0;
   let totalCacheReadTokens = 0;
+  let useCaching = true; // ברירת מחדל - קאשינג פעיל
   
   try {
     await updateProgress(submissionId, 'init', 'מתחיל עיבוד', null, 0, 4);
@@ -521,41 +523,65 @@ export async function processSubmission(submissionId: string) {
     useOptimizedPrompting = template?.use_optimized_prompting || false;
     console.log(`Using ${useOptimizedPrompting ? 'optimized' : 'standard'} prompting mode`);
     
-    // אומדן היסטוריית השימוש בתבנית זו
-    const { data: usage, error: usageError } = await supabaseAdmin
-      .from('form_submissions')
-      .select('count')
-      .eq('form_id', submission.form_id)
-      .eq('status', 'completed');
-    
-    const estimatedTemplateUses = (usage && !usageError && usage.length > 0) 
-      ? parseInt(usage[0].count) + 1 
-      : 1;
-    console.log(`Estimated template usage history: ${estimatedTemplateUses} submissions`);
-    
-    // בדיקת כדאיות הקאשינג לתבנית זו (רק לצורך לוג)
-    // הערכה ראשונית בהתבסס על גודל ממוצע של פרומפט
-    const averagePromptTokens = 2500; // הערכה גסה
-    const cachingEstimate = estimateCachingCost(averagePromptTokens, estimatedTemplateUses);
-    console.log(`\n💰 Caching cost-benefit estimation for this template:`);
-    console.log(`  - Estimated submissions: ${estimatedTemplateUses}`);
-    console.log(`  - Without caching: $${cachingEstimate.withoutCaching.toFixed(4)}`);
-    console.log(`  - With caching: $${cachingEstimate.withCaching.toFixed(4)}`);
-    console.log(`  - ${cachingEstimate.recommendation}`);
-    
-    if (estimatedTemplateUses > 1) {
-      const savingMessage = `Caching will save approximately ${cachingEstimate.savingPercentage.toFixed(1)}% (${cachingEstimate.saving.toFixed(4)}$) on this template`;
-      console.log(`  - ${savingMessage}`);
+    // בדיקה האם יש הגדרה מפורשת לקאשינג בתבנית
+    if (template?.use_caching !== undefined) {
+      useCaching = template.use_caching;
+      console.log(`Caching is explicitly ${useCaching ? 'enabled' : 'disabled'} in template settings`);
+    } else {
+      // אם אין הגדרה מפורשת, נחליט אוטומטית לפי היסטוריית השימוש
       
-      // נשמור את ההערכה בלוג
-      await addLog(submissionId, 'Caching benefit estimation', {
-        estimatedTemplateUses,
-        withoutCaching: cachingEstimate.withoutCaching,
-        withCaching: cachingEstimate.withCaching,
-        saving: cachingEstimate.saving,
-        savingPercentage: cachingEstimate.savingPercentage,
-        recommendation: cachingEstimate.recommendation
-      });
+      // אומדן היסטוריית השימוש בתבנית זו
+      const { data: usage, error: usageError } = await supabaseAdmin
+        .from('form_submissions')
+        .select('count')
+        .eq('form_id', submission.form_id)
+        .eq('status', 'completed');
+      
+      const estimatedTemplateUses = (usage && !usageError && usage.length > 0) 
+        ? Number(usage[0].count) + 1 
+        : 1;
+      console.log(`Estimated template usage history: ${estimatedTemplateUses} submissions`);
+      
+      // בדיקת כדאיות הקאשינג לתבנית זו
+      // הערכה ראשונית בהתבסס על גודל ממוצע של פרומפט
+      const averagePromptTokens = 2500; // הערכה גסה
+      const cachingEstimate = estimateCachingCost(averagePromptTokens, estimatedTemplateUses);
+      
+      // קבלת החלטה אוטומטית לגבי קאשינג
+      // אם יש יותר משימוש אחד צפוי, או שכבר קרוב לנקודת האיזון, כדאי להשתמש בקאשינג
+      const breakEvenThreshold = 1.25; // כמעט בנקודת איזון
+      const usesThreshold = 2; // יותר משימוש בודד
+      
+      if (estimatedTemplateUses >= usesThreshold || estimatedTemplateUses >= breakEvenThreshold) {
+        useCaching = true;
+        console.log(`Caching automatically ENABLED - template expected to be used ${estimatedTemplateUses} times`);
+      } else {
+        useCaching = false;
+        console.log(`Caching automatically DISABLED - template expected to be used only ${estimatedTemplateUses} times`);
+      }
+      
+      console.log(`\n💰 Caching cost-benefit estimation for this template:`);
+      console.log(`  - Estimated submissions: ${estimatedTemplateUses}`);
+      console.log(`  - Without caching: $${cachingEstimate.withoutCaching.toFixed(4)}`);
+      console.log(`  - With caching: $${cachingEstimate.withCaching.toFixed(4)}`);
+      console.log(`  - ${cachingEstimate.recommendation}`);
+      console.log(`  - Decision: Caching ${useCaching ? 'ENABLED' : 'DISABLED'}`);
+      
+      if (estimatedTemplateUses > 1) {
+        const savingMessage = `Caching will save approximately ${cachingEstimate.savingPercentage.toFixed(1)}% (${cachingEstimate.saving.toFixed(4)}$) on this template`;
+        console.log(`  - ${savingMessage}`);
+        
+        // נשמור את ההערכה בלוג
+        await addLog(submissionId, 'Caching benefit estimation', {
+          estimatedTemplateUses,
+          withoutCaching: cachingEstimate.withoutCaching,
+          withCaching: cachingEstimate.withCaching,
+          saving: cachingEstimate.saving,
+          savingPercentage: cachingEstimate.savingPercentage,
+          recommendation: cachingEstimate.recommendation,
+          cachingEnabled: useCaching
+        });
+      }
     }
 
     // Update progress - fetching prompts
@@ -652,7 +678,7 @@ export async function processSubmission(submissionId: string) {
     messages = [{ role: "user", content: initialMessage }];
     let claudeResponses = [];
 
-    // First Claude call with retry
+    // First Claude call with retry - עם תמיכה בקאשינג
     msg = await retryWithExponentialBackoff(async () => {
       await updateProgress(
         submissionId, 
@@ -661,7 +687,7 @@ export async function processSubmission(submissionId: string) {
         { initialMessage }
       );
       
-      return await callClaude(messages, submissionId);
+      return await callClaude(messages, submissionId, useCaching);
     });
 
     const firstResponse = msg.content.find(block => 'text' in block)?.text || '';
@@ -745,9 +771,9 @@ export async function processSubmission(submissionId: string) {
         console.log('📨 Sending full conversation to Claude (standard mode with caching)');
       }
 
-      // Claude call with retry
+      // Claude call with retry - עם תמיכה בקאשינג
       msg = await retryWithExponentialBackoff(async () => {
-        return await callClaude(messages, submissionId);
+        return await callClaude(messages, submissionId, useCaching);
       });
 
       const response = msg.content.find(block => 'text' in block)?.text || '';
@@ -864,7 +890,7 @@ export async function processSubmission(submissionId: string) {
         cacheRead: totalCacheReadTokens
       },
       promptingMode: useOptimizedPrompting ? 'optimized' : 'standard',
-      cachingEnabled: true,
+      cachingEnabled: useCaching,  // עדכון להיות תלוי בהחלטה האמיתית
       previousResponses: previousResponses,
       cachingSavings  // הוספת מידע על החיסכון
     };
