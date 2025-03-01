@@ -195,6 +195,88 @@ async function getPrompts(formId: string, submissionId?: string) {
   }
 }
 
+// פונקציה להערכת כדאיות הקאשינג
+function estimateCachingCost(
+  promptTokens: number, 
+  estimatedUsageCount: number = 1, 
+  regularRate: number = 3.0, 
+  cacheCreateRate: number = 3.75,
+  cacheReadRate: number = 0.3
+): { 
+  withoutCaching: number, 
+  withCaching: number, 
+  breakEvenPoint: number, 
+  saving: number, 
+  savingPercentage: number,
+  recommendation: string
+} {
+  // עלות ללא קאשינג
+  const withoutCaching = (promptTokens / 1000000) * regularRate * estimatedUsageCount;
+  
+  // עלות עם קאשינג (יקר בפעם הראשונה, זול בפעמים הבאות)
+  const cachingFirstUse = (promptTokens / 1000000) * cacheCreateRate;
+  const cachingSubsequentUses = (promptTokens / 1000000) * cacheReadRate * (estimatedUsageCount - 1);
+  const withCaching = cachingFirstUse + cachingSubsequentUses;
+  
+  // נקודת איזון - מספר השימושים שבו הקאשינג מתחיל להשתלם
+  const breakEvenPoint = (cacheCreateRate - regularRate) / (regularRate - cacheReadRate);
+  
+  // חיסכון
+  const saving = withoutCaching - withCaching;
+  const savingPercentage = (saving / withoutCaching) * 100;
+  
+  // המלצה
+  let recommendation = '';
+  if (estimatedUsageCount <= 1) {
+    recommendation = 'קאשינג אינו מומלץ לשימוש חד פעמי (יקר יותר ב-25%)';
+  } else if (estimatedUsageCount < breakEvenPoint + 1) {
+    recommendation = `קאשינג עדיין לא משתלם. צריך לפחות ${Math.ceil(breakEvenPoint + 1)} שימושים להפוך למשתלם.`;
+  } else {
+    recommendation = `קאשינג משתלם! חיסכון של ${savingPercentage.toFixed(1)}% (${saving.toFixed(3)}$)`;
+  }
+  
+  return {
+    withoutCaching,
+    withCaching,
+    breakEvenPoint,
+    saving,
+    savingPercentage,
+    recommendation
+  };
+}
+
+// הוספת פונקציה לתחזית כדאיות פרומפטים נוכחיים
+function estimateCurrentCachingBenefit(
+  messages: Message[], 
+  estimatedTemplateUsers: number = 1
+): void {
+  // חישוב גודל משוער של כל ההיסטוריה (בייתים)
+  const fullHistorySize = messages.reduce((total, msg) => total + msg.content.length, 0);
+  
+  // המרה לטוקנים (הערכה גסה - כ-4 תווים לטוקן)
+  const estimatedTokens = Math.ceil(fullHistorySize / 4);
+  
+  console.log('\n📊 Caching Cost-Benefit Analysis:');
+  console.log(`Estimated prompt size: ~${estimatedTokens} tokens`);
+  
+  // חישוב לפי מספר משתמשים שונים
+  [1, 2, 5, 10, 20, 50].forEach(userCount => {
+    const estimate = estimateCachingCost(estimatedTokens, userCount);
+    console.log(`\nWith ${userCount} similar form submissions:`);
+    console.log(`  - Without caching: $${estimate.withoutCaching.toFixed(4)}`);
+    console.log(`  - With caching: $${estimate.withCaching.toFixed(4)}`);
+    console.log(`  - ${estimate.recommendation}`);
+  });
+  
+  // חישוב לפי המשתמשים הצפויים
+  if (estimatedTemplateUsers > 1) {
+    const targetEstimate = estimateCachingCost(estimatedTokens, estimatedTemplateUsers);
+    console.log(`\n🎯 For your expected ${estimatedTemplateUsers} submissions:`);
+    console.log(`  - Estimated saving: $${targetEstimate.saving.toFixed(4)} (${targetEstimate.savingPercentage.toFixed(1)}%)`);
+    console.log(`  - ${targetEstimate.recommendation}`);
+  }
+}
+
 async function callClaude(messages: Message[], submissionId: string): Promise<ClaudeMessage> {
   const timeoutPromise = new Promise<ClaudeMessage>((_, reject) => {
     setTimeout(() => reject(new Error('Timeout: Claude response took longer than 10 minutes')), CLAUDE_TIMEOUT);
@@ -438,6 +520,41 @@ export async function processSubmission(submissionId: string) {
     // בדיקה האם להשתמש בגישה המאוחדת
     useOptimizedPrompting = template?.use_optimized_prompting || false;
     console.log(`Using ${useOptimizedPrompting ? 'optimized' : 'standard'} prompting mode`);
+    
+    // אומדן היסטוריית השימוש בתבנית זו
+    const { data: usage, error: usageError } = await supabaseAdmin
+      .from('form_submissions')
+      .select('count')
+      .eq('form_id', submission.form_id)
+      .eq('status', 'completed');
+    
+    const estimatedTemplateUses = (usage && !usageError) ? parseInt(usage.count) + 1 : 1;
+    console.log(`Estimated template usage history: ${estimatedTemplateUses} submissions`);
+    
+    // בדיקת כדאיות הקאשינג לתבנית זו (רק לצורך לוג)
+    // הערכה ראשונית בהתבסס על גודל ממוצע של פרומפט
+    const averagePromptTokens = 2500; // הערכה גסה
+    const cachingEstimate = estimateCachingCost(averagePromptTokens, estimatedTemplateUses);
+    console.log(`\n💰 Caching cost-benefit estimation for this template:`);
+    console.log(`  - Estimated submissions: ${estimatedTemplateUses}`);
+    console.log(`  - Without caching: $${cachingEstimate.withoutCaching.toFixed(4)}`);
+    console.log(`  - With caching: $${cachingEstimate.withCaching.toFixed(4)}`);
+    console.log(`  - ${cachingEstimate.recommendation}`);
+    
+    if (estimatedTemplateUses > 1) {
+      const savingMessage = `Caching will save approximately ${cachingEstimate.savingPercentage.toFixed(1)}% (${cachingEstimate.saving.toFixed(4)}$) on this template`;
+      console.log(`  - ${savingMessage}`);
+      
+      // נשמור את ההערכה בלוג
+      await addLog(submissionId, 'Caching benefit estimation', {
+        estimatedTemplateUses,
+        withoutCaching: cachingEstimate.withoutCaching,
+        withCaching: cachingEstimate.withCaching,
+        saving: cachingEstimate.saving,
+        savingPercentage: cachingEstimate.savingPercentage,
+        recommendation: cachingEstimate.recommendation
+      });
+    }
 
     // Update progress - fetching prompts
     await updateProgress(submissionId, 'prompts', 'מכין שאלות', null, 2, 4);
@@ -693,6 +810,46 @@ export async function processSubmission(submissionId: string) {
     if (!isValidMarkdown(lastResponse)) {
       console.warn('⚠️ Invalid markdown detected in Claude response');
     }
+    
+    // כעת נחשב את החיסכון בפועל מהקאשינג
+    let cachingSavings = null;
+    if (totalCacheReadTokens > 0) {
+      // חיסכון בעלות: טוקנים שנקראו מהקאש (במחיר הנמוך) לעומת עלות רגילה
+      const regularCost = (totalCacheReadTokens / 1000000) * 3.0; // $3 למיליון טוקנים
+      const cacheCost = (totalCacheReadTokens / 1000000) * 0.3;   // $0.3 למיליון טוקנים
+      const costSaving = regularCost - cacheCost;
+      const savingPercentage = (costSaving / regularCost) * 100;
+      
+      // חיסכון במספר הטוקנים שנשלחו לAPI
+      const totalSentTokens = inputTokens - totalCacheReadTokens + totalCacheCreationTokens;
+      const tokenSavingPercentage = (totalCacheReadTokens / inputTokens) * 100;
+      
+      cachingSavings = {
+        tokensSaved: totalCacheReadTokens,
+        tokensSavedPercentage: tokenSavingPercentage,
+        costRegular: regularCost,
+        costWithCache: cacheCost,
+        moneySaved: costSaving,
+        moneySavedPercentage: savingPercentage,
+        // אם העלות הנוספת של יצירת הקאש גדולה מהחיסכון בקריאה ממנו
+        overallCost: regularCost - cacheCost + (totalCacheCreationTokens / 1000000) * (3.75 - 3.0)
+      };
+      
+      console.log('\n💰 Caching Savings Analysis:');
+      console.log(`  - Tokens read from cache: ${totalCacheReadTokens} (${tokenSavingPercentage.toFixed(1)}% of input tokens)`);
+      console.log(`  - Cost without caching: $${regularCost.toFixed(4)}`);
+      console.log(`  - Cost with caching: $${cacheCost.toFixed(4)}`);
+      console.log(`  - Money saved: $${costSaving.toFixed(4)} (${savingPercentage.toFixed(1)}%)`);
+      console.log(`  - Extra cost for cache creation: $${((totalCacheCreationTokens / 1000000) * (3.75 - 3.0)).toFixed(4)}`);
+      
+      // האם היה שווה להשתמש בקאשינג?
+      const netSaving = costSaving - ((totalCacheCreationTokens / 1000000) * (3.75 - 3.0));
+      if (netSaving > 0) {
+        console.log(`  - 🟢 Net saving: $${netSaving.toFixed(4)} - Caching was beneficial!`);
+      } else {
+        console.log(`  - 🔴 Net cost: $${-netSaving.toFixed(4)} - Caching was more expensive this time.`);
+      }
+    }
 
     // Update final status to completed regardless of what happens next
     const result = {
@@ -706,7 +863,8 @@ export async function processSubmission(submissionId: string) {
       },
       promptingMode: useOptimizedPrompting ? 'optimized' : 'standard',
       cachingEnabled: true,
-      previousResponses: previousResponses
+      previousResponses: previousResponses,
+      cachingSavings  // הוספת מידע על החיסכון
     };
 
     await supabaseAdmin
