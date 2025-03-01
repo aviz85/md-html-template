@@ -50,6 +50,15 @@ type Message = {
   content: string
 }
 
+type FormattedMessage = {
+  role: MessageRole,
+  content: Array<{
+    type: string,
+    text: string,
+    cache_control?: { type: string }
+  }> | string
+}
+
 // Add at the top with other types
 type ClaudeMessage = Anthropic.Messages.Message;
 
@@ -191,9 +200,95 @@ async function callClaude(messages: Message[], submissionId: string): Promise<Cl
     setTimeout(() => reject(new Error('Timeout: Claude response took longer than 10 minutes')), CLAUDE_TIMEOUT);
   });
 
+  // אם יש יותר מהודעה אחת, נתמוך בקאשינג רק להודעות חוץ מהאחרונה
+  let formattedMessages: FormattedMessage[] = [];
+  
+  if (messages.length > 1) {
+    // ההודעה הראשונה (המידע מהטופס + פרומפט ראשון) תמיד תשמר לקאשינג
+    formattedMessages.push({
+      role: messages[0].role,
+      content: [
+        {
+          type: "text",
+          text: messages[0].content,
+          cache_control: { type: "ephemeral" }
+        }
+      ]
+    });
+    
+    // הודעות אמצע - כל זוג של תשובה ופרומפט הבא
+    for (let i = 1; i < messages.length - 2; i += 2) {
+      if (messages[i] && messages[i + 1]) {
+        // תשובת קלוד
+        formattedMessages.push({
+          role: messages[i].role,
+          content: [
+            {
+              type: "text",
+              text: messages[i].content,
+              cache_control: { type: "ephemeral" }
+            }
+          ]
+        });
+        
+        // פרומפט משתמש הבא
+        formattedMessages.push({
+          role: messages[i + 1].role,
+          content: [
+            {
+              type: "text",
+              text: messages[i + 1].content,
+              cache_control: { type: "ephemeral" }
+            }
+          ]
+        });
+      }
+    }
+    
+    // הוספת ההודעה הלפני אחרונה - אם זו תשובה של קלוד
+    if (messages.length > 2 && messages[messages.length - 2].role === "assistant") {
+      formattedMessages.push({
+        role: "assistant",
+        content: [
+          {
+            type: "text",
+            text: messages[messages.length - 2].content,
+            cache_control: { type: "ephemeral" }
+          }
+        ]
+      });
+    }
+    
+    // הוספת ההודעה האחרונה ללא קאשינג - תמיד פרומפט משתמש
+    formattedMessages.push({
+      role: messages[messages.length - 1].role,
+      content: [
+        {
+          type: "text",
+          text: messages[messages.length - 1].content
+        }
+      ]
+    });
+  } else {
+    // רק הודעה אחת, נשתמש בה כפי שהיא ללא קאשינג
+    formattedMessages = [
+      {
+        role: messages[0].role,
+        content: [
+          {
+            type: "text",
+            text: messages[0].content
+          }
+        ]
+      }
+    ];
+  }
+
+  console.log('Formatted messages for Claude:', JSON.stringify(formattedMessages, null, 2));
+
   const claudePromise = anthropic.messages.create({
     model: "claude-3-7-sonnet-latest",
-    messages: messages,
+    messages: formattedMessages,
     temperature: 0.7,
     max_tokens: 8192
   });
@@ -203,6 +298,15 @@ async function callClaude(messages: Message[], submissionId: string): Promise<Cl
     // Track tokens separately
     inputTokens += response.usage?.input_tokens || 0;
     outputTokens += response.usage?.output_tokens || 0;
+    
+    // הוספת מעקב אחרי קאשינג
+    if (response.usage?.cache_creation_input_tokens) {
+      console.log(`Cache created: ${response.usage.cache_creation_input_tokens} tokens cached`);
+    }
+    if (response.usage?.cache_read_input_tokens) {
+      console.log(`Cache hit: ${response.usage.cache_read_input_tokens} tokens read from cache`);
+    }
+    
     return response;
   } catch (error) {
     if (error instanceof Error && error.message.includes('Timeout')) {
@@ -285,6 +389,9 @@ export async function processSubmission(submissionId: string) {
   // מערך נוסף לשמירת התשובות של קלוד (עבור המצב המאוחד)
   let previousResponses: string[] = [];
   let useOptimizedPrompting = false;
+  // מעקב אחרי קאשינג
+  let totalCacheCreationTokens = 0;
+  let totalCacheReadTokens = 0;
   
   try {
     await updateProgress(submissionId, 'init', 'מתחיל עיבוד', null, 0, 4);
@@ -440,6 +547,14 @@ export async function processSubmission(submissionId: string) {
 
     const firstResponse = msg.content.find(block => 'text' in block)?.text || '';
     
+    // עדכון מעקב אחרי קאשינג
+    if (msg.usage?.cache_creation_input_tokens) {
+      totalCacheCreationTokens += msg.usage.cache_creation_input_tokens;
+    }
+    if (msg.usage?.cache_read_input_tokens) {
+      totalCacheReadTokens += msg.usage.cache_read_input_tokens;
+    }
+    
     await updateProgress(
       submissionId, 
       'claude', 
@@ -508,7 +623,7 @@ export async function processSubmission(submissionId: string) {
           { role: 'assistant', content: lastResponse },
           { role: 'user', content: prompts[i] }
         );
-        console.log('📨 Sending full conversation to Claude (standard mode)');
+        console.log('📨 Sending full conversation to Claude (standard mode with caching)');
       }
 
       // Claude call with retry
@@ -517,6 +632,17 @@ export async function processSubmission(submissionId: string) {
       });
 
       const response = msg.content.find(block => 'text' in block)?.text || '';
+      
+      // עדכון מעקב אחרי קאשינג
+      if (msg.usage?.cache_creation_input_tokens) {
+        totalCacheCreationTokens += msg.usage.cache_creation_input_tokens;
+        console.log(`🔄 Cache created: ${msg.usage.cache_creation_input_tokens} tokens cached`);
+      }
+      if (msg.usage?.cache_read_input_tokens) {
+        totalCacheReadTokens += msg.usage.cache_read_input_tokens;
+        console.log(`✅ Cache hit: ${msg.usage.cache_read_input_tokens} tokens read from cache`);
+      }
+      
       console.log('📥 Claude response:', {
         role: 'assistant',
         content: response
@@ -529,7 +655,20 @@ export async function processSubmission(submissionId: string) {
         previousResponses.push(response);
       }
       
-      console.log('📈 Total tokens used:', inputTokens + outputTokens);
+      // מידע על צריכת טוקנים
+      const regularInputTokens = msg.usage?.input_tokens || 0;
+      const outputTokenUsage = msg.usage?.output_tokens || 0;
+      const cacheCreationTokens = msg.usage?.cache_creation_input_tokens || 0;
+      const cacheReadTokens = msg.usage?.cache_read_input_tokens || 0;
+      
+      console.log('📈 Token usage for this prompt:');
+      console.log(`   - Regular input tokens: ${regularInputTokens}`);
+      console.log(`   - Output tokens: ${outputTokenUsage}`);
+      console.log(`   - Cache creation tokens: ${cacheCreationTokens}`);
+      console.log(`   - Cache read tokens: ${cacheReadTokens}`);
+      console.log(`   - Total for this turn: ${regularInputTokens + outputTokenUsage + cacheCreationTokens}`);
+      console.log(`   - Cached content: ${cacheReadTokens > 0 ? `${cacheReadTokens} tokens (saved)` : 'None'}`);
+      console.log(`📊 Total tokens used so far: ${inputTokens + outputTokens}`);
     }
 
     // Final response
@@ -537,6 +676,8 @@ export async function processSubmission(submissionId: string) {
     console.log('\n✨ Final conversation summary:');
     console.log('Total messages:', messages.length);
     console.log('Total tokens:', inputTokens + outputTokens);
+    console.log('Total cache creation tokens:', totalCacheCreationTokens);
+    console.log('Total cache read tokens:', totalCacheReadTokens);
     console.log('Final response:', lastResponse);
 
     // Validate markdown in responses
@@ -559,9 +700,12 @@ export async function processSubmission(submissionId: string) {
       tokenCount: {
         input: inputTokens,
         output: outputTokens,
-        total: inputTokens + outputTokens
+        total: inputTokens + outputTokens,
+        cacheCreation: totalCacheCreationTokens,
+        cacheRead: totalCacheReadTokens
       },
       promptingMode: useOptimizedPrompting ? 'optimized' : 'standard',
+      cachingEnabled: true,
       previousResponses: previousResponses
     };
 
