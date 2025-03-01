@@ -392,10 +392,19 @@ export async function processSubmission(submissionId: string) {
     
     console.log('Processed form data:', formData);
     
-    const answers = Object.entries(formData)
-      .filter(([key]) => !technicalFields.includes(key))
-      .map(([key, value]) => `${key}: ${value}`)
-      .join('\n');
+    let answers;
+    // אם יש שדה pretty, נשתמש רק בו
+    if (formData.pretty) {
+      console.log('Using only pretty field for Claude input');
+      answers = formData.pretty;
+    } else {
+      // אחרת נשתמש בכל השדות כמו קודם
+      console.log('No pretty field found, using all form fields');
+      answers = Object.entries(formData)
+        .filter(([key]) => !technicalFields.includes(key))
+        .map(([key, value]) => `${key}: ${value}`)
+        .join('\n');
+    }
 
     console.log('Formatted answers:', answers);
 
