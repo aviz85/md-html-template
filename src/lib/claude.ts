@@ -53,9 +53,9 @@ type Message = {
 type FormattedMessage = {
   role: MessageRole,
   content: Array<{
-    type: string,
+    type: "text",
     text: string,
-    cache_control?: { type: string }
+    cache_control?: { type: "ephemeral" }
   }> | string
 }
 
@@ -288,13 +288,13 @@ async function callClaude(messages: Message[], submissionId: string): Promise<Cl
 
   const claudePromise = anthropic.messages.create({
     model: "claude-3-7-sonnet-latest",
-    messages: formattedMessages,
+    messages: formattedMessages as any,
     temperature: 0.7,
     max_tokens: 8192
   });
 
   try {
-    const response = await Promise.race([claudePromise, timeoutPromise]);
+    const response = await Promise.race([claudePromise, timeoutPromise]) as Anthropic.Messages.Message;
     // Track tokens separately
     inputTokens += response.usage?.input_tokens || 0;
     outputTokens += response.usage?.output_tokens || 0;
