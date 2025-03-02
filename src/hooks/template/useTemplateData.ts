@@ -38,9 +38,15 @@ export function useTemplateData(templateId?: string) {
       }
 
       if (data) {
-        setTemplate(data)
-        if (data.elementStyles) {
-          setElementStyles(data.elementStyles)
+        const styles = data.elementStyles || data.element_styles
+        
+        setTemplate({
+          ...data,
+          elementStyles: styles || elementStyles
+        })
+        
+        if (styles) {
+          setElementStyles(styles)
         }
       }
     } catch (error: any) {
@@ -63,7 +69,7 @@ export function useTemplateData(templateId?: string) {
         .from("templates")
         .update({
           ...template,
-          elementStyles
+          element_styles: elementStyles
         })
         .eq("id", template.id)
 

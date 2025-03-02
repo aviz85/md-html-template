@@ -568,7 +568,20 @@ function ResultsContent() {
       })
     };
 
-    const markdownComponents: Components = {
+    // Helper function to get element styles that works with both snake_case and camelCase properties
+    const getElementStyles = (element: string) => {
+      return template?.elementStyles?.[element as ElementType] || template?.element_styles?.[element];
+    };
+
+    // Helper to get nested header style properties with fallbacks
+    const getHeaderStyle = (prop: string) => {
+      return template?.elementStyles?.header?.[prop as keyof typeof template.elementStyles.header] || 
+             template?.element_styles?.header?.[prop] || 
+             undefined;
+    };
+
+    // Move markdownComponents inside, so it's recreated with the current template
+    const getMarkdownComponents = (): Components => ({
       img: ImageRenderer,
       // Add table components
       table: ({ node, ...props }) => {
@@ -625,8 +638,8 @@ function ResultsContent() {
       h1: ({ node, children, ...props }) => (
         <motion.h1 
           style={{ 
-            ...template?.element_styles?.h1,
-            margin: template?.element_styles?.h1?.margin
+            ...getElementStyles('h1'),
+            margin: getElementStyles('h1')?.margin
           }}
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -638,8 +651,8 @@ function ResultsContent() {
       h2: ({ node, children, ...props }) => (
         <motion.h2 
           style={{ 
-            ...template?.element_styles?.h2,
-            margin: template?.element_styles?.h2?.margin
+            ...getElementStyles('h2'),
+            margin: getElementStyles('h2')?.margin
           }}
           initial={{ opacity: 0, x: -15 }}
           animate={{ opacity: 1, x: 0 }}
@@ -651,8 +664,8 @@ function ResultsContent() {
       h3: ({ node, children, ...props }) => (
         <motion.h3 
           style={{ 
-            ...template?.element_styles?.h3,
-            margin: template?.element_styles?.h3?.margin
+            ...getElementStyles('h3'),
+            margin: getElementStyles('h3')?.margin
           }}
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
@@ -664,8 +677,8 @@ function ResultsContent() {
       h4: ({ node, children, ...props }) => (
         <motion.h4 
           style={{ 
-            ...template?.element_styles?.h4,
-            margin: template?.element_styles?.h4?.margin
+            ...getElementStyles('h4'),
+            margin: getElementStyles('h4')?.margin
           }}
           initial={{ opacity: 0, x: -5 }}
           animate={{ opacity: 1, x: 0 }}
@@ -677,8 +690,8 @@ function ResultsContent() {
       h5: ({ node, children, ...props }) => (
         <motion.h5 
           style={{ 
-            ...template?.element_styles?.h5,
-            margin: template?.element_styles?.h5?.margin
+            ...getElementStyles('h5'),
+            margin: getElementStyles('h5')?.margin
           }}
           initial={{ opacity: 0, x: -3 }}
           animate={{ opacity: 1, x: 0 }}
@@ -690,8 +703,8 @@ function ResultsContent() {
       h6: ({ node, children, ...props }) => (
         <motion.h6 
           style={{ 
-            ...template?.element_styles?.h6,
-            margin: template?.element_styles?.h6?.margin
+            ...getElementStyles('h6'),
+            margin: getElementStyles('h6')?.margin
           }}
           initial={{ opacity: 0, x: -2 }}
           animate={{ opacity: 1, x: 0 }}
@@ -702,7 +715,7 @@ function ResultsContent() {
       ),
       p: ({ node, children, ...props }) => (
         <motion.p 
-          style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}
+          style={{ ...getElementStyles('p'), marginBottom: '1rem', lineHeight: '1.7' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.6 }}
@@ -712,7 +725,7 @@ function ResultsContent() {
       ),
       ul: ({ node, children, ...props }) => (
         <motion.ul 
-          style={{ ...template?.element_styles?.list, marginLeft: '1.5rem', marginBottom: '1rem' }}
+          style={{ ...getElementStyles('list'), marginLeft: '1.5rem', marginBottom: '1rem' }}
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.7 }}
@@ -766,13 +779,13 @@ function ResultsContent() {
           </motion.a>
         );
       },
-    };
+    });
 
     return (
       <motion.div 
         className="my-8 fade-in"
         style={{
-          ...template?.element_styles?.main,
+          ...getElementStyles('main'),
           backgroundColor: template?.styles?.mainBackground
         }}
         initial={{ opacity: 0 }}
@@ -788,7 +801,7 @@ function ResultsContent() {
           <motion.div 
             className="prose prose-lg max-w-none mb-12"
             style={{
-              ...template?.element_styles?.prose,
+              ...getElementStyles('prose'),
               backgroundColor: template?.styles?.contentBackground
             }}
             initial="hidden"
@@ -796,12 +809,12 @@ function ResultsContent() {
             variants={contentVariants}
             custom={0}
           >
-            {template?.logo && template.element_styles?.header?.showLogo !== false && (
+            {template?.logo && getHeaderStyle('showLogo') !== false && (
               <motion.div 
                 style={{
-                  textAlign: template.element_styles?.header?.logoPosition?.includes('center') ? 'center' : 
-                            template.element_styles?.header?.logoPosition?.includes('left') ? 'left' : 'right',
-                  margin: template.element_styles?.header?.logoMargin || '1rem'
+                  textAlign: getHeaderStyle('logoPosition')?.includes('center') ? 'center' : 
+                            getHeaderStyle('logoPosition')?.includes('left') ? 'left' : 'right',
+                  margin: getHeaderStyle('logoMargin') || '1rem'
                 }}
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -810,7 +823,7 @@ function ResultsContent() {
                 <img 
                   src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${template.logo.file_path}`}
                   style={{
-                    height: template.element_styles?.header?.logoHeight || '100px',
+                    height: getHeaderStyle('logoHeight') || '100px',
                     width: 'auto',
                     maxWidth: '100%',
                     display: 'inline-block'
@@ -821,7 +834,7 @@ function ResultsContent() {
             )}
             <ReactMarkdown 
               rehypePlugins={[rehypeRaw]}
-              components={markdownComponents}
+              components={getMarkdownComponents()}
             >
               {processContent(template.opening_page_content)}
             </ReactMarkdown>
@@ -834,7 +847,7 @@ function ResultsContent() {
               key={index} 
               className={`prose prose-lg max-w-none ${index > 0 ? 'mt-12' : ''}`}
               style={{
-                ...template?.element_styles?.prose,
+                ...getElementStyles('prose'),
                 backgroundColor: template?.styles?.contentBackground
               }}
               initial="hidden"
@@ -842,12 +855,12 @@ function ResultsContent() {
               variants={contentVariants}
               custom={index + 1}
             >
-              {index === 0 && template?.logo && template.element_styles?.header?.showLogo !== false && !template?.opening_page_content && (
+              {index === 0 && template?.logo && getHeaderStyle('showLogo') !== false && !template?.opening_page_content && (
                 <motion.div 
                   style={{
-                    textAlign: template.element_styles?.header?.logoPosition?.includes('center') ? 'center' : 
-                              template.element_styles?.header?.logoPosition?.includes('left') ? 'left' : 'right',
-                    margin: template.element_styles?.header?.logoMargin || '1rem'
+                    textAlign: getHeaderStyle('logoPosition')?.includes('center') ? 'center' : 
+                              getHeaderStyle('logoPosition')?.includes('left') ? 'left' : 'right',
+                    margin: getHeaderStyle('logoMargin') || '1rem'
                   }}
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -856,7 +869,7 @@ function ResultsContent() {
                   <img 
                     src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${template.logo.file_path}`}
                     style={{
-                      height: template.element_styles?.header?.logoHeight || '100px',
+                      height: getHeaderStyle('logoHeight') || '100px',
                       width: 'auto',
                       maxWidth: '100%',
                       display: 'inline-block'
@@ -867,7 +880,7 @@ function ResultsContent() {
               )}
               <ReactMarkdown 
                 rehypePlugins={[rehypeRaw]}
-                components={markdownComponents}
+                components={getMarkdownComponents()}
               >
                 {processContent(content)}
               </ReactMarkdown>
@@ -877,7 +890,7 @@ function ResultsContent() {
           <motion.div 
             className="prose prose-lg max-w-none"
             style={{
-              ...template?.element_styles?.prose,
+              ...getElementStyles('prose'),
               backgroundColor: template?.styles?.contentBackground
             }}
             initial="hidden"
@@ -885,12 +898,12 @@ function ResultsContent() {
             variants={contentVariants}
             custom={1}
           >
-            {template?.logo && template.element_styles?.header?.showLogo !== false && !template?.opening_page_content && (
+            {template?.logo && getHeaderStyle('showLogo') !== false && !template?.opening_page_content && (
               <motion.div 
                 style={{
-                  textAlign: template.element_styles?.header?.logoPosition?.includes('center') ? 'center' : 
-                            template.element_styles?.header?.logoPosition?.includes('left') ? 'left' : 'right',
-                  margin: template.element_styles?.header?.logoMargin || '1rem'
+                  textAlign: getHeaderStyle('logoPosition')?.includes('center') ? 'center' : 
+                            getHeaderStyle('logoPosition')?.includes('left') ? 'left' : 'right',
+                  margin: getHeaderStyle('logoMargin') || '1rem'
                 }}
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -899,7 +912,7 @@ function ResultsContent() {
                 <img 
                   src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${template.logo.file_path}`}
                   style={{
-                    height: template.element_styles?.header?.logoHeight || '100px',
+                    height: getHeaderStyle('logoHeight') || '100px',
                     width: 'auto',
                     maxWidth: '100%',
                     display: 'inline-block'
@@ -910,7 +923,7 @@ function ResultsContent() {
             )}
             <ReactMarkdown 
               rehypePlugins={[rehypeRaw]}
-              components={markdownComponents}
+              components={getMarkdownComponents()}
             >
               {processContent(result.finalResponse)}
             </ReactMarkdown>
@@ -927,7 +940,7 @@ function ResultsContent() {
           >
             <ReactMarkdown 
               rehypePlugins={[rehypeRaw]}
-              components={markdownComponents}
+              components={getMarkdownComponents()}
             >
               {processContent(template.closing_page_content)}
             </ReactMarkdown>
@@ -972,18 +985,18 @@ function ResultsContent() {
   }
 
   const bodyStyles = {
-    backgroundColor: template?.element_styles?.body?.backgroundColor || 'transparent',
+    backgroundColor: getElementStyles('body')?.backgroundColor || 'transparent',
     minHeight: '100vh'
   };
 
   const mainStyles = {
-    backgroundColor: template?.element_styles?.main?.backgroundColor || 'transparent',
+    backgroundColor: getElementStyles('main')?.backgroundColor || 'transparent',
     padding: '2rem'
   };
 
   const containerStyles = {
     maxWidth: '800px',
-    backgroundColor: template?.element_styles?.prose?.backgroundColor || 'transparent',
+    backgroundColor: getElementStyles('prose')?.backgroundColor || 'transparent',
     padding: '2rem',
     borderRadius: '0.5rem'
   };
