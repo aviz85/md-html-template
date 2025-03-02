@@ -999,17 +999,17 @@ function ResultsContent() {
 
   const bodyStyles = {
     minHeight: '100vh',
-    backgroundColor: getElementStyles('body', template)?.backgroundColor || 'transparent'
+    backgroundColor: (getElementStyles('body', template) as React.CSSProperties)?.backgroundColor || 'transparent'
   };
 
   const mainStyles = {
-    backgroundColor: getElementStyles('main', template)?.backgroundColor || 'transparent',
+    backgroundColor: (getElementStyles('main', template) as React.CSSProperties)?.backgroundColor || 'transparent',
     padding: '2rem'
   };
 
   const containerStyles = {
     maxWidth: '800px',
-    backgroundColor: getElementStyles('prose', template)?.backgroundColor || 'transparent',
+    backgroundColor: (getElementStyles('prose', template) as React.CSSProperties)?.backgroundColor || 'transparent',
     padding: '2rem',
     borderRadius: '0.5rem'
   };
