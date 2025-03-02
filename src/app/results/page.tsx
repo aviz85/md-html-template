@@ -809,26 +809,20 @@ function ResultsContent() {
     return (
       <motion.div 
         className="my-8 fade-in"
-        style={{
-          ...(getElementStyles('main', template) as React.CSSProperties || {}),
-          backgroundColor: (getElementStyles('main', template) as React.CSSProperties)?.backgroundColor || 'transparent'
-        }}
+        style={getElementStyles('main', template) as React.CSSProperties || {}}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
-        {/* Add direct CSS from template */}
-        {template?.css && (
+        {/* Don't add direct CSS when element styles are already defined */}
+        {template?.css && !template?.elementStyles && !template?.element_styles && (
           <style dangerouslySetInnerHTML={{ __html: template.css }} />
         )}
         
         {template?.opening_page_content && (
           <motion.div 
             className="prose prose-lg max-w-none mb-12"
-            style={{
-              ...(getElementStyles('prose', template) as React.CSSProperties || {}),
-              backgroundColor: (getElementStyles('prose', template) as React.CSSProperties)?.backgroundColor || 'transparent'
-            }}
+            style={getElementStyles('prose', template) as React.CSSProperties || {}}
             initial="hidden"
             animate="visible"
             variants={contentVariants}
@@ -871,10 +865,7 @@ function ResultsContent() {
             <motion.div 
               key={index} 
               className={`prose prose-lg max-w-none ${index > 0 ? 'mt-12' : ''}`}
-              style={{
-                ...(getElementStyles('prose', template) as React.CSSProperties || {}),
-                backgroundColor: (getElementStyles('prose', template) as React.CSSProperties)?.backgroundColor || 'transparent'
-              }}
+              style={getElementStyles('prose', template) as React.CSSProperties || {}}
               initial="hidden"
               animate="visible"
               variants={contentVariants}
@@ -914,10 +905,7 @@ function ResultsContent() {
         ) : (
           <motion.div 
             className="prose prose-lg max-w-none"
-            style={{
-              ...(getElementStyles('prose', template) as React.CSSProperties || {}),
-              backgroundColor: (getElementStyles('prose', template) as React.CSSProperties)?.backgroundColor || 'transparent'
-            }}
+            style={getElementStyles('prose', template) as React.CSSProperties || {}}
             initial="hidden"
             animate="visible"
             variants={contentVariants}
@@ -1010,18 +998,18 @@ function ResultsContent() {
   }
 
   const bodyStyles = {
-    backgroundColor: (getElementStyles('body', template) as React.CSSProperties)?.backgroundColor || 'transparent',
-    minHeight: '100vh'
+    minHeight: '100vh',
+    backgroundColor: getElementStyles('body', template)?.backgroundColor || 'transparent'
   };
 
   const mainStyles = {
-    backgroundColor: (getElementStyles('main', template) as React.CSSProperties)?.backgroundColor || 'transparent',
+    backgroundColor: getElementStyles('main', template)?.backgroundColor || 'transparent',
     padding: '2rem'
   };
 
   const containerStyles = {
     maxWidth: '800px',
-    backgroundColor: (getElementStyles('prose', template) as React.CSSProperties)?.backgroundColor || 'transparent',
+    backgroundColor: getElementStyles('prose', template)?.backgroundColor || 'transparent',
     padding: '2rem',
     borderRadius: '0.5rem'
   };
@@ -1030,26 +1018,39 @@ function ResultsContent() {
     <div dir="rtl" className="min-h-screen" style={bodyStyles}>
       <main style={mainStyles}>
         <motion.div 
-          className="container mx-auto px-4" 
-          style={containerStyles}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          className="container mx-auto px-4 sm:px-6 lg:px-8 py-12"
+          style={{
+            ...bodyStyles,
+            padding: '0', // Override default padding
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
         >
-          <AnimatePresence mode="wait">
-            {userName && (
-              <motion.h1 
-                style={getElementStyles('h1', template) as React.CSSProperties || {}}
-                className="text-3xl font-bold mb-8"
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-              >
-                שלום {userName}
-              </motion.h1>
-            )}
-            {status === 'completed' && result && renderChat(result)}
-          </AnimatePresence>
+          <div 
+            className="max-w-5xl mx-auto"
+            style={mainStyles}
+          >
+            <div 
+              className="p-8 rounded-lg shadow-lg"
+              style={containerStyles}
+            >
+              <AnimatePresence mode="wait">
+                {userName && (
+                  <motion.h1 
+                    style={getElementStyles('h1', template) as React.CSSProperties || {}}
+                    className="text-3xl font-bold mb-8"
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                  >
+                    שלום {userName}
+                  </motion.h1>
+                )}
+                {status === 'completed' && result && renderChat(result)}
+              </AnimatePresence>
+            </div>
+          </div>
         </motion.div>
       </main>
     </div>
