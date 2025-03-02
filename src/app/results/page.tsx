@@ -21,34 +21,11 @@ type Logo = {
   file_path: string;
 };
 
-type ElementType = 'body' | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'list' | 'p' | 'specialParagraph' | 'header' | 'main' | 'prose';
-
 type Template = {
   id: string;
   name: string;
   css: string;
   element_styles: {
-    p?: React.CSSProperties;
-    h1?: React.CSSProperties;
-    h2?: React.CSSProperties;
-    h3?: React.CSSProperties;
-    h4?: React.CSSProperties;
-    h5?: React.CSSProperties;
-    h6?: React.CSSProperties;
-    body?: React.CSSProperties;
-    list?: React.CSSProperties;
-    main?: React.CSSProperties;
-    prose?: React.CSSProperties;
-    header?: {
-      showLogo?: boolean;
-      logoWidth?: string;
-      logoHeight?: string;
-      logoMargin?: string;
-      logoPosition?: string;
-    };
-    specialParagraph?: React.CSSProperties;
-  };
-  elementStyles?: {
     p?: React.CSSProperties;
     h1?: React.CSSProperties;
     h2?: React.CSSProperties;
@@ -85,43 +62,6 @@ type Template = {
   custom_contents?: Record<string, string>;
   opening_page_content?: string;
   closing_page_content?: string;
-};
-
-// Helper function to get element styles that works with both snake_case and camelCase properties
-const getElementStyles = (element: ElementType, template: Template | null) => {
-  if (!template) return undefined;
-  
-  if (element === 'header') {
-    return template?.elementStyles?.header || template?.element_styles?.header;
-  }
-  
-  // Check if the element exists in both structures to prevent type errors
-  const camelCaseStyle = template?.elementStyles && element in template.elementStyles 
-    ? template.elementStyles[element as keyof typeof template.elementStyles] as React.CSSProperties
-    : undefined;
-    
-  const snakeCaseStyle = template?.element_styles && element in template.element_styles
-    ? template.element_styles[element as keyof typeof template.element_styles] as React.CSSProperties
-    : undefined;
-    
-  return camelCaseStyle || snakeCaseStyle;
-};
-
-// Helper to get nested header style properties with fallbacks
-const getHeaderStyle = (prop: string, template: Template | null): string | undefined => {
-  if (!template) return undefined;
-  
-  // Safe access for nested properties with proper type handling
-  const camelCaseValue = template?.elementStyles?.header?.[prop as keyof (typeof template.elementStyles.header)] as string | undefined;
-  const snakeCaseValue = template?.element_styles?.header?.[prop as keyof (typeof template.element_styles.header)] as string | undefined;
-  
-  return camelCaseValue || snakeCaseValue;
-};
-
-// Helper to check if a header style value contains a substring
-const headerStyleIncludes = (prop: string, value: string, template: Template | null): boolean => {
-  const styleValue = getHeaderStyle(prop, template);
-  return typeof styleValue === 'string' && styleValue.includes(value);
 };
 
 // Extract shared components
@@ -628,15 +568,19 @@ function ResultsContent() {
       })
     };
 
-    // Move markdownComponents inside, so it's recreated with the current template
-    const getMarkdownComponents = (): Components => ({
+    const markdownComponents: Components = {
       img: ImageRenderer,
       // Add table components
-      table: ({ node, ...props }) => (
-        <div className="overflow-x-auto my-4">
-          <table className="min-w-full divide-y divide-gray-200 border" {...props} />
-        </div>
-      ),
+      table: ({ node, ...props }) => {
+        // Check if this is a table with headers
+        const hasHeaders = node?.children?.[0] && 'tagName' in node.children[0] && node.children[0].tagName === 'thead';
+        
+        return (
+          <div className="overflow-x-auto my-4">
+            <table className="min-w-full divide-y divide-gray-200 border" {...props} />
+          </div>
+        );
+      },
       thead: ({ node, ...props }) => (
         <thead className="bg-gray-50" {...props} />
       ),
@@ -680,7 +624,10 @@ function ResultsContent() {
       },
       h1: ({ node, children, ...props }) => (
         <motion.h1 
-          style={getElementStyles('h1', template) as React.CSSProperties || {}}
+          style={{ 
+            ...template?.element_styles?.h1,
+            margin: template?.element_styles?.h1?.margin
+          }}
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
@@ -690,7 +637,10 @@ function ResultsContent() {
       ),
       h2: ({ node, children, ...props }) => (
         <motion.h2 
-          style={getElementStyles('h2', template) as React.CSSProperties || {}}
+          style={{ 
+            ...template?.element_styles?.h2,
+            margin: template?.element_styles?.h2?.margin
+          }}
           initial={{ opacity: 0, x: -15 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
@@ -700,7 +650,10 @@ function ResultsContent() {
       ),
       h3: ({ node, children, ...props }) => (
         <motion.h3 
-          style={getElementStyles('h3', template) as React.CSSProperties || {}}
+          style={{ 
+            ...template?.element_styles?.h3,
+            margin: template?.element_styles?.h3?.margin
+          }}
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.5 }}
@@ -710,7 +663,10 @@ function ResultsContent() {
       ),
       h4: ({ node, children, ...props }) => (
         <motion.h4 
-          style={getElementStyles('h4', template) as React.CSSProperties || {}}
+          style={{ 
+            ...template?.element_styles?.h4,
+            margin: template?.element_styles?.h4?.margin
+          }}
           initial={{ opacity: 0, x: -5 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.6 }}
@@ -720,7 +676,10 @@ function ResultsContent() {
       ),
       h5: ({ node, children, ...props }) => (
         <motion.h5 
-          style={getElementStyles('h5', template) as React.CSSProperties || {}}
+          style={{ 
+            ...template?.element_styles?.h5,
+            margin: template?.element_styles?.h5?.margin
+          }}
           initial={{ opacity: 0, x: -3 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.7 }}
@@ -730,7 +689,10 @@ function ResultsContent() {
       ),
       h6: ({ node, children, ...props }) => (
         <motion.h6 
-          style={getElementStyles('h6', template) as React.CSSProperties || {}}
+          style={{ 
+            ...template?.element_styles?.h6,
+            margin: template?.element_styles?.h6?.margin
+          }}
           initial={{ opacity: 0, x: -2 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.8 }}
@@ -740,7 +702,7 @@ function ResultsContent() {
       ),
       p: ({ node, children, ...props }) => (
         <motion.p 
-          style={{ ...(getElementStyles('p', template) as React.CSSProperties || {}), marginBottom: '1rem', lineHeight: '1.7' }}
+          style={{ ...template?.element_styles?.p, marginBottom: '1rem', lineHeight: '1.7' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.6 }}
@@ -750,7 +712,7 @@ function ResultsContent() {
       ),
       ul: ({ node, children, ...props }) => (
         <motion.ul 
-          style={{ ...(getElementStyles('list', template) as React.CSSProperties || {}), marginLeft: '1.5rem', marginBottom: '1rem' }}
+          style={{ ...template?.element_styles?.list, marginLeft: '1.5rem', marginBottom: '1rem' }}
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.7 }}
@@ -804,36 +766,42 @@ function ResultsContent() {
           </motion.a>
         );
       },
-    });
+    };
 
     return (
       <motion.div 
         className="my-8 fade-in"
-        style={getElementStyles('main', template) as React.CSSProperties || {}}
+        style={{
+          ...template?.element_styles?.main,
+          backgroundColor: template?.styles?.mainBackground
+        }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
-        {/* Don't add direct CSS when element styles are already defined */}
-        {template?.css && !template?.elementStyles && !template?.element_styles && (
+        {/* Add direct CSS from template */}
+        {template?.css && (
           <style dangerouslySetInnerHTML={{ __html: template.css }} />
         )}
         
         {template?.opening_page_content && (
           <motion.div 
             className="prose prose-lg max-w-none mb-12"
-            style={getElementStyles('prose', template) as React.CSSProperties || {}}
+            style={{
+              ...template?.element_styles?.prose,
+              backgroundColor: template?.styles?.contentBackground
+            }}
             initial="hidden"
             animate="visible"
             variants={contentVariants}
             custom={0}
           >
-            {template?.logo && getHeaderStyle('showLogo', template) !== 'false' && (
+            {template?.logo && template.element_styles?.header?.showLogo !== false && (
               <motion.div 
                 style={{
-                  textAlign: headerStyleIncludes('logoPosition', 'center', template) ? 'center' : 
-                            headerStyleIncludes('logoPosition', 'left', template) ? 'left' : 'right',
-                  margin: getHeaderStyle('logoMargin', template) || '1rem'
+                  textAlign: template.element_styles?.header?.logoPosition?.includes('center') ? 'center' : 
+                            template.element_styles?.header?.logoPosition?.includes('left') ? 'left' : 'right',
+                  margin: template.element_styles?.header?.logoMargin || '1rem'
                 }}
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -842,7 +810,7 @@ function ResultsContent() {
                 <img 
                   src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${template.logo.file_path}`}
                   style={{
-                    height: getHeaderStyle('logoHeight', template) || '100px',
+                    height: template.element_styles?.header?.logoHeight || '100px',
                     width: 'auto',
                     maxWidth: '100%',
                     display: 'inline-block'
@@ -853,7 +821,7 @@ function ResultsContent() {
             )}
             <ReactMarkdown 
               rehypePlugins={[rehypeRaw]}
-              components={getMarkdownComponents()}
+              components={markdownComponents}
             >
               {processContent(template.opening_page_content)}
             </ReactMarkdown>
@@ -865,18 +833,21 @@ function ResultsContent() {
             <motion.div 
               key={index} 
               className={`prose prose-lg max-w-none ${index > 0 ? 'mt-12' : ''}`}
-              style={getElementStyles('prose', template) as React.CSSProperties || {}}
+              style={{
+                ...template?.element_styles?.prose,
+                backgroundColor: template?.styles?.contentBackground
+              }}
               initial="hidden"
               animate="visible"
               variants={contentVariants}
               custom={index + 1}
             >
-              {index === 0 && template?.logo && getHeaderStyle('showLogo', template) !== 'false' && !template?.opening_page_content && (
+              {index === 0 && template?.logo && template.element_styles?.header?.showLogo !== false && !template?.opening_page_content && (
                 <motion.div 
                   style={{
-                    textAlign: headerStyleIncludes('logoPosition', 'center', template) ? 'center' : 
-                              headerStyleIncludes('logoPosition', 'left', template) ? 'left' : 'right',
-                    margin: getHeaderStyle('logoMargin', template) || '1rem'
+                    textAlign: template.element_styles?.header?.logoPosition?.includes('center') ? 'center' : 
+                              template.element_styles?.header?.logoPosition?.includes('left') ? 'left' : 'right',
+                    margin: template.element_styles?.header?.logoMargin || '1rem'
                   }}
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -885,7 +856,7 @@ function ResultsContent() {
                   <img 
                     src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${template.logo.file_path}`}
                     style={{
-                      height: getHeaderStyle('logoHeight', template) || '100px',
+                      height: template.element_styles?.header?.logoHeight || '100px',
                       width: 'auto',
                       maxWidth: '100%',
                       display: 'inline-block'
@@ -896,7 +867,7 @@ function ResultsContent() {
               )}
               <ReactMarkdown 
                 rehypePlugins={[rehypeRaw]}
-                components={getMarkdownComponents()}
+                components={markdownComponents}
               >
                 {processContent(content)}
               </ReactMarkdown>
@@ -905,18 +876,21 @@ function ResultsContent() {
         ) : (
           <motion.div 
             className="prose prose-lg max-w-none"
-            style={getElementStyles('prose', template) as React.CSSProperties || {}}
+            style={{
+              ...template?.element_styles?.prose,
+              backgroundColor: template?.styles?.contentBackground
+            }}
             initial="hidden"
             animate="visible"
             variants={contentVariants}
             custom={1}
           >
-            {template?.logo && getHeaderStyle('showLogo', template) !== 'false' && !template?.opening_page_content && (
+            {template?.logo && template.element_styles?.header?.showLogo !== false && !template?.opening_page_content && (
               <motion.div 
                 style={{
-                  textAlign: headerStyleIncludes('logoPosition', 'center', template) ? 'center' : 
-                            headerStyleIncludes('logoPosition', 'left', template) ? 'left' : 'right',
-                  margin: getHeaderStyle('logoMargin', template) || '1rem'
+                  textAlign: template.element_styles?.header?.logoPosition?.includes('center') ? 'center' : 
+                            template.element_styles?.header?.logoPosition?.includes('left') ? 'left' : 'right',
+                  margin: template.element_styles?.header?.logoMargin || '1rem'
                 }}
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -925,7 +899,7 @@ function ResultsContent() {
                 <img 
                   src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${template.logo.file_path}`}
                   style={{
-                    height: getHeaderStyle('logoHeight', template) || '100px',
+                    height: template.element_styles?.header?.logoHeight || '100px',
                     width: 'auto',
                     maxWidth: '100%',
                     display: 'inline-block'
@@ -936,7 +910,7 @@ function ResultsContent() {
             )}
             <ReactMarkdown 
               rehypePlugins={[rehypeRaw]}
-              components={getMarkdownComponents()}
+              components={markdownComponents}
             >
               {processContent(result.finalResponse)}
             </ReactMarkdown>
@@ -953,7 +927,7 @@ function ResultsContent() {
           >
             <ReactMarkdown 
               rehypePlugins={[rehypeRaw]}
-              components={getMarkdownComponents()}
+              components={markdownComponents}
             >
               {processContent(template.closing_page_content)}
             </ReactMarkdown>
@@ -998,18 +972,18 @@ function ResultsContent() {
   }
 
   const bodyStyles = {
-    minHeight: '100vh',
-    backgroundColor: (getElementStyles('body', template) as React.CSSProperties)?.backgroundColor || 'transparent'
+    backgroundColor: template?.element_styles?.body?.backgroundColor || 'transparent',
+    minHeight: '100vh'
   };
 
   const mainStyles = {
-    backgroundColor: (getElementStyles('main', template) as React.CSSProperties)?.backgroundColor || 'transparent',
+    backgroundColor: template?.element_styles?.main?.backgroundColor || 'transparent',
     padding: '2rem'
   };
 
   const containerStyles = {
     maxWidth: '800px',
-    backgroundColor: (getElementStyles('prose', template) as React.CSSProperties)?.backgroundColor || 'transparent',
+    backgroundColor: template?.element_styles?.prose?.backgroundColor || 'transparent',
     padding: '2rem',
     borderRadius: '0.5rem'
   };
@@ -1018,39 +992,26 @@ function ResultsContent() {
     <div dir="rtl" className="min-h-screen" style={bodyStyles}>
       <main style={mainStyles}>
         <motion.div 
-          className="container mx-auto px-4 sm:px-6 lg:px-8 py-12"
-          style={{
-            ...bodyStyles,
-            padding: '0', // Override default padding
-          }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          className="container mx-auto px-4" 
+          style={containerStyles}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div 
-            className="max-w-5xl mx-auto"
-            style={mainStyles}
-          >
-            <div 
-              className="p-8 rounded-lg shadow-lg"
-              style={containerStyles}
-            >
-              <AnimatePresence mode="wait">
-                {userName && (
-                  <motion.h1 
-                    style={getElementStyles('h1', template) as React.CSSProperties || {}}
-                    className="text-3xl font-bold mb-8"
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                  >
-                    שלום {userName}
-                  </motion.h1>
-                )}
-                {status === 'completed' && result && renderChat(result)}
-              </AnimatePresence>
-            </div>
-          </div>
+          <AnimatePresence mode="wait">
+            {userName && (
+              <motion.h1 
+                style={template?.element_styles?.h1} 
+                className="text-3xl font-bold mb-8"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+              >
+                שלום {userName}
+              </motion.h1>
+            )}
+            {status === 'completed' && result && renderChat(result)}
+          </AnimatePresence>
         </motion.div>
       </main>
     </div>
