@@ -201,25 +201,36 @@ function estimateCachingCost(
   estimatedUsageCount: number = 1, 
   regularRate: number = 3.0, 
   cacheCreateRate: number = 3.75,
-  cacheReadRate: number = 0.3
+  cacheReadRate: number = 0.3,
+  maxCacheableRatio: number = 0.8 // משקף את המגבלה של מקסימום 4 בלוקים לקאשינג
 ): { 
   withoutCaching: number, 
   withCaching: number, 
   breakEvenPoint: number, 
   saving: number, 
   savingPercentage: number,
-  recommendation: string
+  recommendation: string,
+  limitedByMaxBlocks: boolean
 } {
   // עלות ללא קאשינג
   const withoutCaching = (promptTokens / 1000000) * regularRate * estimatedUsageCount;
   
-  // עלות עם קאשינג (יקר בפעם הראשונה, זול בפעמים הבאות)
-  const cachingFirstUse = (promptTokens / 1000000) * cacheCreateRate;
-  const cachingSubsequentUses = (promptTokens / 1000000) * cacheReadRate * (estimatedUsageCount - 1);
+  // חישוב כמה מהתוכן ניתן לקאשינג בפועל (מוגבל ל-4 בלוקים)
+  // אנחנו מניחים שבערך 80% מהטוקנים יכולים להיכנס לקאש בגלל מגבלת 4 הבלוקים
+  const cacheableTokens = promptTokens * maxCacheableRatio;
+  const uncacheableTokens = promptTokens - cacheableTokens;
+  
+  // עלות עם קאשינג, מתחשבת בחלק שלא ניתן לקאשינג
+  const cachingFirstUse = (cacheableTokens / 1000000) * cacheCreateRate + (uncacheableTokens / 1000000) * regularRate;
+  const cachingSubsequentUses = (cacheableTokens / 1000000) * cacheReadRate * (estimatedUsageCount - 1) + 
+                               (uncacheableTokens / 1000000) * regularRate * (estimatedUsageCount - 1);
   const withCaching = cachingFirstUse + cachingSubsequentUses;
   
   // נקודת איזון - מספר השימושים שבו הקאשינג מתחיל להשתלם
-  const breakEvenPoint = (cacheCreateRate - regularRate) / (regularRate - cacheReadRate);
+  // המשוואה המעודכנת מורכבת יותר בגלל החלוקה לתוכן שניתן לקאשינג ותוכן שלא
+  const savings_per_use = (cacheableTokens / 1000000) * (regularRate - cacheReadRate);
+  const initial_extra_cost = (cacheableTokens / 1000000) * (cacheCreateRate - regularRate);
+  const breakEvenPoint = initial_extra_cost / savings_per_use;
   
   // חיסכון
   const saving = withoutCaching - withCaching;
@@ -235,13 +246,19 @@ function estimateCachingCost(
     recommendation = `קאשינג משתלם! חיסכון של ${savingPercentage.toFixed(1)}% (${saving.toFixed(3)}$)`;
   }
   
+  // הוספת התייחסות למגבלת 4 הבלוקים בהמלצה
+  if (maxCacheableRatio < 1.0) {
+    recommendation += ` (בהתחשב שרק ${maxCacheableRatio * 100}% מהתוכן ניתן לקאשינג עקב מגבלת 4 בלוקים)`;
+  }
+  
   return {
     withoutCaching,
     withCaching,
     breakEvenPoint,
     saving,
     savingPercentage,
-    recommendation
+    recommendation,
+    limitedByMaxBlocks: maxCacheableRatio < 1.0
   };
 }
 
@@ -555,10 +572,48 @@ export async function processSubmission(submissionId: string) {
         : 1;
       console.log(`Estimated template usage history: ${estimatedTemplateUses} submissions`);
       
+      // נקבל הערכה של מספר הפרומפטים מהתבנית
+      let estimatedNumPrompts = 3; // ברירת מחדל
+      if (template?.template_gsheets_id) {
+        try {
+          // נסה לקבל מידע על מספר הפרומפטים (גישה לא חוסמת)
+          const API_KEY = process.env.GOOGLE_API_KEY;
+          if (API_KEY) {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${template.template_gsheets_id}/values/A:A?key=${API_KEY}`;
+            const response = await fetch(url, { signal: AbortSignal.timeout(3000) }); // טיימאאוט קצר
+            if (response.ok) {
+              const data = await response.json();
+              if (data.values && Array.isArray(data.values)) {
+                estimatedNumPrompts = data.values.length;
+                console.log(`Retrieved prompt count: ${estimatedNumPrompts} from Google Sheets`);
+              }
+            }
+          }
+        } catch (e) {
+          console.log(`Could not get prompt count, using default of ${estimatedNumPrompts}`);
+          // התעלם משגיאות - נשתמש בהערכה
+        }
+      }
+      
       // בדיקת כדאיות הקאשינג לתבנית זו
       // הערכה ראשונית בהתבסס על גודל ממוצע של פרומפט
       const averagePromptTokens = 2500; // הערכה גסה
-      const cachingEstimate = estimateCachingCost(averagePromptTokens, estimatedTemplateUses);
+      
+      // חישוב יחס קאשינג אפקטיבי בהתאם למספר הפרומפטים
+      // אם יש יותר מ-4 פרומפטים, לא כל ההיסטוריה תיכנס לקאש
+      const MAX_CACHE_BLOCKS = 4; // מגבלת מספר הבלוקים לקאשינג
+      const effectiveCacheRatio = Math.min(1.0, MAX_CACHE_BLOCKS / (estimatedNumPrompts * 2 - 1)); // כל פרומפט מייצר 2 הודעות חוץ מהאחרון
+      
+      console.log(`Estimated prompts: ${estimatedNumPrompts}, effective cache ratio: ${(effectiveCacheRatio * 100).toFixed(1)}%`);
+      
+      const cachingEstimate = estimateCachingCost(
+        averagePromptTokens, 
+        estimatedTemplateUses,
+        3.0, // regular rate
+        3.75, // cache creation rate
+        0.3, // cache read rate
+        effectiveCacheRatio // יחס התוכן שיכול להיכנס לקאש
+      );
       
       // קבלת החלטה אוטומטית לגבי קאשינג
       // אם יש יותר משימוש אחד צפוי, או שכבר קרוב לנקודת האיזון, כדאי להשתמש בקאשינג
@@ -566,8 +621,15 @@ export async function processSubmission(submissionId: string) {
       const usesThreshold = 2; // יותר משימוש בודד
       
       if (estimatedTemplateUses >= usesThreshold || estimatedTemplateUses >= breakEvenThreshold) {
-        useCaching = true;
-        console.log(`Caching automatically ENABLED - template expected to be used ${estimatedTemplateUses} times`);
+        // בדיקה נוספת: אם מגבלת 4 בלוקים משמעותית מאוד (פחות מ-50% מהתוכן נכנס לקאש)
+        // ויחס החיסכון נמוך, נשקול לבטל את הקאשינג
+        if (effectiveCacheRatio < 0.5 && cachingEstimate.savingPercentage < 10) {
+          useCaching = false;
+          console.log(`Caching automatically DISABLED - limited by 4 blocks rule (only ${(effectiveCacheRatio * 100).toFixed(1)}% cacheable)`);
+        } else {
+          useCaching = true;
+          console.log(`Caching automatically ENABLED - template expected to be used ${estimatedTemplateUses} times`);
+        }
       } else {
         useCaching = false;
         console.log(`Caching automatically DISABLED - template expected to be used only ${estimatedTemplateUses} times`);
@@ -575,6 +637,7 @@ export async function processSubmission(submissionId: string) {
       
       console.log(`\n💰 Caching cost-benefit estimation for this template:`);
       console.log(`  - Estimated submissions: ${estimatedTemplateUses}`);
+      console.log(`  - Max cacheable content: ${(effectiveCacheRatio * 100).toFixed(1)}% (${effectiveCacheRatio < 1 ? 'limited by 4 blocks rule' : 'full caching possible'})`);
       console.log(`  - Without caching: $${cachingEstimate.withoutCaching.toFixed(4)}`);
       console.log(`  - With caching: $${cachingEstimate.withCaching.toFixed(4)}`);
       console.log(`  - ${cachingEstimate.recommendation}`);
@@ -587,12 +650,14 @@ export async function processSubmission(submissionId: string) {
         // נשמור את ההערכה בלוג
         await addLog(submissionId, 'Caching benefit estimation', {
           estimatedTemplateUses,
+          maxCacheableRatio: effectiveCacheRatio,
           withoutCaching: cachingEstimate.withoutCaching,
           withCaching: cachingEstimate.withCaching,
           saving: cachingEstimate.saving,
           savingPercentage: cachingEstimate.savingPercentage,
           recommendation: cachingEstimate.recommendation,
-          cachingEnabled: useCaching
+          cachingEnabled: useCaching,
+          limitedByMaxBlocks: cachingEstimate.limitedByMaxBlocks
         });
       }
     }
