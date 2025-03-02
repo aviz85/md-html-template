@@ -94,5 +94,30 @@ export const TRANSLATIONS = {
   font-size: 18px;  /* יעקוף את הגדרת גודל הגופן שנקבעה למעלה */
   color: var(--color4);  /* יעקוף את הגדרת הצבע שנקבעה למעלה */
 */`,
-  backgroundColor: "צבע רקע"
+  backgroundColor: "צבע רקע",
+  templateNamePlaceholder: 'הכנס שם תבנית...',
+  gsheetsId: 'מזהה Google Sheets',
+  gsheetsIdPlaceholder: 'הכנס מזהה Google Sheets...',
+  formId: 'מזהה טופס',
+  formIdPlaceholder: 'הכנס מזהה טופס...',
+  contentPlaceholder: 'הכנס תוכן Markdown כאן...',
+  templateEditor: 'עורך תבניות',
+  save: 'שמור',
+  elements: 'אלמנטים',
+  styleSettings: 'הגדרות עיצוב',
+  elementStyles: 'סגנונות אלמנטים',
+  backgroundColors: 'צבעי רקע',
+  bodyBackground: 'רקע כללי',
+  mainBackground: 'רקע ראשי',
+  contentBackground: 'רקע תוכן',
+  logo: 'לוגו',
+  uploadLogo: 'העלה לוגו',
+  removeLogo: 'הסר לוגו',
+  mediaLibrary: 'ספריית מדיה',
+  mediaInstructions: 'הוראות שימוש במדיה',
+  imageDescription: 'תיאור תמונה',
+  manageMedia: 'נהל מדיה',
+  uploadMedia: 'העלה מדיה',
+  uploading: 'מעלה',
+  urlCopied: 'הקישור הועתק ללוח'
 } as const; 

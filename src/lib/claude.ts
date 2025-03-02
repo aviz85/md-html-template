@@ -286,6 +286,10 @@ async function callClaude(messages: Message[], submissionId: string, useCache: b
   let formattedMessages: FormattedMessage[] = [];
   
   if (messages.length > 1 && useCache) {
+    // הגבלה למקסימום 4 בלוקים של cache_control
+    const MAX_CACHE_BLOCKS = 4;
+    let cacheBlockCount = 0;
+
     // ההודעה הראשונה (המידע מהטופס + פרומפט ראשון) תמיד תשמר לקאשינג
     formattedMessages.push({
       role: messages[0].role,
@@ -297,6 +301,7 @@ async function callClaude(messages: Message[], submissionId: string, useCache: b
         }
       ]
     });
+    cacheBlockCount++;
     
     // הודעות אמצע - כל זוג של תשובה ופרומפט הבא
     for (let i = 1; i < messages.length - 2; i += 2) {
@@ -308,10 +313,12 @@ async function callClaude(messages: Message[], submissionId: string, useCache: b
             {
               type: "text",
               text: messages[i].content,
-              cache_control: { type: "ephemeral" }
+              // רק אם עדיין לא הגענו למקסימום הבלוקים
+              ...(cacheBlockCount < MAX_CACHE_BLOCKS ? { cache_control: { type: "ephemeral" } } : {})
             }
           ]
         });
+        if (cacheBlockCount < MAX_CACHE_BLOCKS) cacheBlockCount++;
         
         // פרומפט משתמש הבא
         formattedMessages.push({
@@ -320,10 +327,12 @@ async function callClaude(messages: Message[], submissionId: string, useCache: b
             {
               type: "text",
               text: messages[i + 1].content,
-              cache_control: { type: "ephemeral" }
+              // רק אם עדיין לא הגענו למקסימום הבלוקים
+              ...(cacheBlockCount < MAX_CACHE_BLOCKS ? { cache_control: { type: "ephemeral" } } : {})
             }
           ]
         });
+        if (cacheBlockCount < MAX_CACHE_BLOCKS) cacheBlockCount++;
       }
     }
     
@@ -335,10 +344,12 @@ async function callClaude(messages: Message[], submissionId: string, useCache: b
           {
             type: "text",
             text: messages[messages.length - 2].content,
-            cache_control: { type: "ephemeral" }
+            // רק אם עדיין לא הגענו למקסימום הבלוקים
+            ...(cacheBlockCount < MAX_CACHE_BLOCKS ? { cache_control: { type: "ephemeral" } } : {})
           }
         ]
       });
+      if (cacheBlockCount < MAX_CACHE_BLOCKS) cacheBlockCount++;
     }
     
     // הוספת ההודעה האחרונה ללא קאשינג - תמיד פרומפט משתמש
@@ -347,7 +358,9 @@ async function callClaude(messages: Message[], submissionId: string, useCache: b
       content: [
         {
           type: "text",
-          text: messages[messages.length - 1].content
+          text: messages[messages.length - 1].content,
+          // לשקול אפשרות קאשינג גם להודעה אחרונה אם יש בלוקים זמינים
+          ...(cacheBlockCount < MAX_CACHE_BLOCKS ? { cache_control: { type: "ephemeral" } } : {})
         }
       ]
     });
