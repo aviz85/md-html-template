@@ -451,60 +451,94 @@ async function parseRequestBody(request: Request): Promise<FormData> {
       throw new Error(`Failed to parse request body: ${e instanceof Error ? e.message : 'Unknown error'}`);
     }
   } else if (contentType.includes('multipart/form-data') || contentType.includes('application/x-www-form-urlencoded')) {
+    console.log('[JotForm Webhook] Processing form-urlencoded or multipart data');
     const formDataObj = await request.formData();
-    formData = Object.fromEntries(formDataObj.entries()) as FormData;
+    const entries = Object.fromEntries(formDataObj.entries());
+    console.log('[JotForm Webhook] Form data entries keys:', Object.keys(entries));
     
-    if (formData.rawRequest) {
+    // Check if this is an Elementor form submitted directly (not in rawRequest)
+    if (entries.form && entries.fields && entries.meta) {
+      console.log('[JotForm Webhook] Detected Elementor format in form-urlencoded data');
       try {
-        console.log('[JotForm Webhook] Attempting to parse rawRequest from form data...');
-        const rawRequestData = JSON.parse(formData.rawRequest as string);
+        // Parse the form, fields, and meta from their string representations
+        const form = typeof entries.form === 'string' ? JSON.parse(entries.form) : entries.form;
+        const fields = typeof entries.fields === 'string' ? JSON.parse(entries.fields) : entries.fields;
+        const meta = typeof entries.meta === 'string' ? JSON.parse(entries.meta) : entries.meta;
         
-        // Check if this is the Elementor form format
-        if (Array.isArray(rawRequestData) && 
-            rawRequestData.length > 0 && 
-            rawRequestData[0].form && 
-            rawRequestData[0].fields && 
-            rawRequestData[0].meta) {
-          console.log('[JotForm Webhook] Detected Elementor form format in rawRequest as array, converting...');
-          formData = convertNewFormFormat(rawRequestData[0]);
-          console.log('[JotForm Webhook] Successfully converted Elementor form format to JotForm format');
-        }
-        // Check for single object Elementor format
-        else if (rawRequestData.form && rawRequestData.fields && rawRequestData.meta) {
-          console.log('[JotForm Webhook] Detected Elementor form format in rawRequest as object, converting...');
-          formData = convertNewFormFormat(rawRequestData);
-          console.log('[JotForm Webhook] Successfully converted Elementor form format to JotForm format');
-        }
-        else {
-          formData.parsedRequest = rawRequestData;
-          console.log('[JotForm Webhook] Successfully parsed rawRequest from form data');
-        }
+        const elementorData = {
+          form,
+          fields,
+          meta
+        };
+        
+        console.log('[JotForm Webhook] Parsed Elementor data from form-urlencoded:', {
+          formId: form.id,
+          fieldCount: Object.keys(fields).length
+        });
+        
+        // Convert to the expected format
+        formData = convertNewFormFormat(elementorData);
+        console.log('[JotForm Webhook] Successfully converted Elementor format from form-urlencoded');
       } catch (e) {
-        console.error('[JotForm Webhook] Failed to parse rawRequest from form data:', e);
-        formData.parsedRequest = formData.rawRequest;
+        console.error('[JotForm Webhook] Failed to parse Elementor data from form-urlencoded:', e);
+        formData = entries as FormData;
       }
-    }
-    
-    // בדיקה נוספת אם יש שדות תמונה ישירות בטופס שאינם חלק מה-rawRequest
-    for (const key in formData) {
-      if (key !== 'rawRequest' && key !== 'parsedRequest' && typeof formData[key] === 'string') {
-        const value = formData[key] as string;
-        
-        // בדיקה האם השדה מכיל תמונה
-        const isUrl = value.startsWith('http://') || value.startsWith('https://');
-        
-        // בדיקה אם זו תמונה base64
-        if (!isUrl && 
-            ((value.includes('data:image/') && value.includes(';base64,')) ||
-             value.startsWith('/9j/') || // JPEG בסיס 64
-             value.startsWith('iVBOR') || // PNG בסיס 64
-             (value.length > 1000 && value.match(/^[A-Za-z0-9+/=]{1000,}$/)))) {
+    } else {
+      // Standard form data processing
+      formData = entries as FormData;
+      
+      if (formData.rawRequest) {
+        try {
+          console.log('[JotForm Webhook] Attempting to parse rawRequest from form data...');
+          const rawRequestData = JSON.parse(formData.rawRequest as string);
           
-          console.log(`[JotForm Webhook] Found image data in field ${key}, length: ${value.length}`);
-          const originalLength = value.length;
-          formData[key] = '[IMAGE DATA REMOVED]';
-          const savedBytes = originalLength - formData[key].length;
-          console.log(`[JotForm Webhook] Image data cleaned from field ${key}. Saved ${savedBytes} bytes (${Math.round(savedBytes/1024)}KB)`);
+          // Check if this is the Elementor form format
+          if (Array.isArray(rawRequestData) && 
+              rawRequestData.length > 0 && 
+              rawRequestData[0].form && 
+              rawRequestData[0].fields && 
+              rawRequestData[0].meta) {
+            console.log('[JotForm Webhook] Detected Elementor form format in rawRequest as array, converting...');
+            formData = convertNewFormFormat(rawRequestData[0]);
+            console.log('[JotForm Webhook] Successfully converted Elementor form format to JotForm format');
+          }
+          // Check for single object Elementor format
+          else if (rawRequestData.form && rawRequestData.fields && rawRequestData.meta) {
+            console.log('[JotForm Webhook] Detected Elementor form format in rawRequest as object, converting...');
+            formData = convertNewFormFormat(rawRequestData);
+            console.log('[JotForm Webhook] Successfully converted Elementor form format to JotForm format');
+          }
+          else {
+            formData.parsedRequest = rawRequestData;
+            console.log('[JotForm Webhook] Successfully parsed rawRequest from form data');
+          }
+        } catch (e) {
+          console.error('[JotForm Webhook] Failed to parse rawRequest from form data:', e);
+          formData.parsedRequest = formData.rawRequest;
+        }
+      }
+      
+      // בדיקה נוספת אם יש שדות תמונה ישירות בטופס שאינם חלק מה-rawRequest
+      for (const key in formData) {
+        if (key !== 'rawRequest' && key !== 'parsedRequest' && typeof formData[key] === 'string') {
+          const value = formData[key] as string;
+          
+          // בדיקה האם השדה מכיל תמונה
+          const isUrl = value.startsWith('http://') || value.startsWith('https://');
+          
+          // בדיקה אם זו תמונה base64
+          if (!isUrl && 
+              ((value.includes('data:image/') && value.includes(';base64,')) ||
+               value.startsWith('/9j/') || // JPEG בסיס 64
+               value.startsWith('iVBOR') || // PNG בסיס 64
+               (value.length > 1000 && value.match(/^[A-Za-z0-9+/=]{1000,}$/)))) {
+            
+            console.log(`[JotForm Webhook] Found image data in field ${key}, length: ${value.length}`);
+            const originalLength = value.length;
+            formData[key] = '[IMAGE DATA REMOVED]';
+            const savedBytes = originalLength - formData[key].length;
+            console.log(`[JotForm Webhook] Image data cleaned from field ${key}. Saved ${savedBytes} bytes (${Math.round(savedBytes/1024)}KB)`);
+          }
         }
       }
     }
@@ -1097,6 +1131,54 @@ export async function PUT(request: Request) {
       message: 'Unhandled error in converting Elementor form format',
       error: error instanceof Error ? error.message : 'Unknown error',
       errorDetails: error instanceof Error ? error.stack : 'No stack trace available'
+    }, { status: 500 });
+  }
+}
+
+// Test endpoint for debugging form-urlencoded submissions
+export async function PATCH(request: Request) {
+  try {
+    console.log('[Debug] Starting to process test request...');
+    
+    // Parse the request body
+    let formData;
+    try {
+      formData = await parseRequestBody(request);
+      console.log('[Debug] Successfully parsed request body');
+      console.log('[Debug] Form data structure:', {
+        formID: formData.formID,
+        submissionID: formData.submissionID,
+        keys: Object.keys(formData),
+        formProvider: formData.formProvider
+      });
+      
+      // Return the parsed data for inspection
+      return NextResponse.json({
+        status: 'success',
+        message: 'Request parsed successfully',
+        data: {
+          formID: formData.formID,
+          submissionID: formData.submissionID,
+          formProvider: formData.formProvider,
+          keys: Object.keys(formData),
+          pretty: formData.pretty?.substring(0, 200) + (formData.pretty?.length > 200 ? '...' : '')
+        }
+      });
+      
+    } catch (error) {
+      console.error('[Debug] Failed to parse request body:', error);
+      return NextResponse.json({ 
+        status: 'error',
+        error: 'Failed to parse request body',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }, { status: 200 });
+    }
+  } catch (error) {
+    console.error('[Debug] Unexpected error:', error);
+    return NextResponse.json({
+      status: 'error',
+      error: 'Unexpected error',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 } 
