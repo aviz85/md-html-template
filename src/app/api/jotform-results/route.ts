@@ -456,8 +456,98 @@ async function parseRequestBody(request: Request): Promise<FormData> {
     const entries = Object.fromEntries(formDataObj.entries());
     console.log('[JotForm Webhook] Form data entries keys:', Object.keys(entries));
     
-    // Check if this is an Elementor form submitted directly (not in rawRequest)
-    if (entries.form && entries.fields && entries.meta) {
+    // Check if entries have nested keys like 'form[id]', 'fields[field_xxx][property]'
+    const hasNestedElementorFormat = 
+      Object.keys(entries).some(key => key.startsWith('form[')) && 
+      Object.keys(entries).some(key => key.startsWith('fields['));
+    
+    if (hasNestedElementorFormat) {
+      console.log('[JotForm Webhook] Detected Elementor format with nested keys');
+      try {
+        // Build the proper structure from nested form-urlencoded keys
+        const elementorData: NewFormFormat = {
+          form: { id: '', name: '' },
+          fields: {},
+          meta: {}
+        };
+        
+        // Process form data
+        Object.keys(entries).forEach(key => {
+          // Match form[property]
+          const formMatch = key.match(/^form\[(.*?)\]$/);
+          if (formMatch) {
+            const property = formMatch[1];
+            elementorData.form[property as keyof typeof elementorData.form] = String(entries[key]);
+          }
+          
+          // Match fields[field_id][property]
+          const fieldMatch = key.match(/^fields\[(.*?)\]\[(.*?)\](\[(.*?)\])?$/);
+          if (fieldMatch) {
+            const fieldId = fieldMatch[1];
+            const property = fieldMatch[2];
+            const nestedIndex = fieldMatch[4]; // For arrays like raw_value[0]
+            
+            // Initialize field if it doesn't exist
+            if (!elementorData.fields[fieldId]) {
+              elementorData.fields[fieldId] = {
+                id: fieldId,
+                type: '',
+                title: '',
+                value: '',
+                raw_value: '',
+                required: ''
+              };
+            }
+            
+            // Handle nested arrays (like raw_value[0])
+            if (nestedIndex !== undefined) {
+              if (!Array.isArray(elementorData.fields[fieldId][property as keyof typeof elementorData.fields[string]])) {
+                elementorData.fields[fieldId][property as keyof typeof elementorData.fields[string]] = [] as any;
+              }
+              
+              const arr = elementorData.fields[fieldId][property as keyof typeof elementorData.fields[string]] as any[];
+              arr[parseInt(nestedIndex, 10)] = entries[key];
+            } else {
+              // Regular field property
+              elementorData.fields[fieldId][property as keyof typeof elementorData.fields[string]] = String(entries[key]);
+            }
+          }
+          
+          // Match meta[property][subproperty]
+          const metaMatch = key.match(/^meta\[(.*?)\]\[(.*?)\]$/);
+          if (metaMatch) {
+            const metaId = metaMatch[1];
+            const property = metaMatch[2];
+            
+            // Initialize meta entry if it doesn't exist
+            if (!elementorData.meta[metaId]) {
+              elementorData.meta[metaId] = {
+                title: '',
+                value: ''
+              };
+            }
+            
+            elementorData.meta[metaId][property as keyof typeof elementorData.meta[string]] = String(entries[key]);
+          }
+        });
+        
+        console.log('[JotForm Webhook] Reconstructed Elementor data:', {
+          formId: elementorData.form.id,
+          formName: elementorData.form.name,
+          fieldCount: Object.keys(elementorData.fields).length,
+          metaCount: Object.keys(elementorData.meta).length
+        });
+        
+        // Convert to the expected format
+        formData = convertNewFormFormat(elementorData);
+        console.log('[JotForm Webhook] Successfully converted Elementor nested format');
+      } catch (e) {
+        console.error('[JotForm Webhook] Failed to parse nested Elementor data:', e);
+        formData = entries as FormData;
+      }
+    }
+    // Check if this is an Elementor form with traditional JSON fields
+    else if (entries.form && entries.fields && entries.meta) {
       console.log('[JotForm Webhook] Detected Elementor format in form-urlencoded data');
       try {
         // Parse the form, fields, and meta from their string representations
