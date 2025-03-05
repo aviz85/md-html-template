@@ -123,5 +123,10 @@ export const TRANSLATIONS = {
   templateSavedWithWarnings: "התבנית נשמרה עם אזהרות",
   templateHasWarnings: "התבנית נשמרה אך יש בה אזהרות:",
   failedToDeleteTemplate: "נכשל במחיקת התבנית",
-  templateDeletedSuccessfully: "התבנית נמחקה בהצלחה"
+  templateDeletedSuccessfully: "התבנית נמחקה בהצלחה",
+  searchTemplates: "חיפוש תבניות...",
+  noTemplatesFound: "לא נמצאו תבניות",
+  noTemplates: "אין תבניות זמינות",
+  showing: "מציג",
+  of: "מתוך",
 } as const; 

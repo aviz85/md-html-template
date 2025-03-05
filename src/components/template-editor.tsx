@@ -809,16 +809,24 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
   const handleSave = async () => {
     try {
-      // Check for validation issues but don't block saving
+      // Improved validation system with categorized warnings
       let hasValidationWarnings = false;
-      let warningMessage = TRANSLATIONS.templateHasWarnings || "התבנית נשמרה אך יש בה אזהרות:";
-      const warnings = [];
+      const warningCategories: Record<string, string[]> = {
+        nameIssues: [],
+        formIssues: [],
+        integrationIssues: [],
+        contentIssues: [],
+        styleIssues: [],
+        emailIssues: [],
+        whatsappIssues: [],
+        generalIssues: []
+      };
       
       // Validate template name
       const nameValidation = validateTemplateName(templateName);
       if (!nameValidation.isValid && nameValidation.error) {
         hasValidationWarnings = true;
-        warnings.push(nameValidation.error);
+        warningCategories.nameIssues.push(nameValidation.error);
       }
       
       // Validate Google Sheets ID if provided
@@ -826,7 +834,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         const gsheetsValidation = validateGSheetsId(templateGsheetsId);
         if (!gsheetsValidation.isValid && gsheetsValidation.error) {
           hasValidationWarnings = true;
-          warnings.push(gsheetsValidation.error);
+          warningCategories.integrationIssues.push(`Google Sheets ID: ${gsheetsValidation.error}`);
         }
       }
       
@@ -835,17 +843,66 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         const formValidation = validateFormId(formId);
         if (!formValidation.isValid && formValidation.error) {
           hasValidationWarnings = true;
-          warnings.push(formValidation.error);
+          warningCategories.formIssues.push(`Form ID: ${formValidation.error}`);
         }
       }
       
       // Validate email if send email is enabled
-      if (sendEmail && emailFrom) {
-        const emailValidation = validateEmailAddress(emailFrom);
-        if (!emailValidation.isValid && emailValidation.error) {
+      if (sendEmail) {
+        // Validate email address
+        if (emailFrom) {
+          const emailValidation = validateEmailAddress(emailFrom);
+          if (!emailValidation.isValid && emailValidation.error) {
+            hasValidationWarnings = true;
+            warningCategories.emailIssues.push(`Email address: ${emailValidation.error}`);
+          }
+        } else {
           hasValidationWarnings = true;
-          warnings.push(emailValidation.error);
+          warningCategories.emailIssues.push("Email address is required when email sending is enabled");
         }
+        
+        // Validate email subject
+        if (!emailSubject || emailSubject.trim() === '') {
+          hasValidationWarnings = true;
+          warningCategories.emailIssues.push("Email subject is empty");
+        }
+        
+        // Validate email body
+        if (!emailBody || emailBody.trim() === '') {
+          hasValidationWarnings = true;
+          warningCategories.emailIssues.push("Email body is empty");
+        }
+      }
+      
+      // Validate WhatsApp configuration
+      if (sendWhatsapp) {
+        if (!whatsappMessage || whatsappMessage.trim() === '') {
+          hasValidationWarnings = true;
+          warningCategories.whatsappIssues.push("WhatsApp message is empty");
+        } else if (!whatsappMessage.includes("{{id}}")) {
+          hasValidationWarnings = true;
+          warningCategories.whatsappIssues.push("WhatsApp message doesn't contain the {{id}} placeholder");
+        }
+      }
+      
+      // Validate content
+      if (!headerContent || headerContent.trim() === '') {
+        hasValidationWarnings = true;
+        warningCategories.contentIssues.push("Header content is empty");
+      }
+      
+      if (!footerContent || footerContent.trim() === '') {
+        hasValidationWarnings = true;
+        warningCategories.contentIssues.push("Footer content is empty");
+      }
+      
+      // Validate element styles
+      const styleValidationErrors = validateStyles(elementStyles);
+      if (styleValidationErrors.length > 0) {
+        hasValidationWarnings = true;
+        styleValidationErrors.forEach(error => {
+          warningCategories.styleIssues.push(error);
+        });
       }
       
       // Save template
@@ -950,12 +1007,26 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         if (contentsError) throw contentsError
       }
 
-      // Show success toast with warning if applicable
+      // Show success toast with detailed warnings if applicable
       if (hasValidationWarnings) {
+        // Format warning message with categories
+        let formattedWarnings = TRANSLATIONS.templateHasWarnings || "התבנית נשמרה אך יש בה אזהרות:";
+        
+        // Add warnings by category
+        Object.entries(warningCategories).forEach(([category, warnings]) => {
+          if (warnings.length > 0) {
+            const categoryTitle = getCategoryTitle(category);
+            formattedWarnings += `\n\n${categoryTitle}:`;
+            warnings.forEach(warning => {
+              formattedWarnings += `\n• ${warning}`;
+            });
+          }
+        });
+        
         toast({
           variant: "default",
           title: TRANSLATIONS.templateSavedWithWarnings || "התבנית נשמרה עם אזהרות",
-          description: warningMessage + "\n" + warnings.join(", "),
+          description: formattedWarnings,
         });
       } else {
         toast({
@@ -969,11 +1040,44 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       }
     } catch (error) {
       console.error('Error saving template:', error);
+      
+      // Enhanced error message
+      let errorMessage: string = TRANSLATIONS.failedToSaveTemplate;
+      
+      // Extract specific error details if available
+      if (error instanceof Error) {
+        errorMessage = `${TRANSLATIONS.failedToSaveTemplate}: ${error.message}`;
+        
+        // Check for common database errors
+        if (error.message.includes('unique constraint')) {
+          errorMessage = TRANSLATIONS.duplicateTemplateName || 'Template name already exists. Please choose a different name.';
+        } else if (error.message.includes('foreign key constraint')) {
+          errorMessage = 'Referenced record not found. Please check your input data.';
+        } else if (error.message.includes('not-null constraint')) {
+          errorMessage = 'Missing required field. Please check all required fields are filled.';
+        }
+      }
+      
       toast({
         variant: "destructive",
         title: TRANSLATIONS.error,
-        description: error instanceof Error ? error.message : TRANSLATIONS.failedToSaveTemplate
+        description: errorMessage
       });
+    }
+  }
+
+  // Helper function to get human-readable category titles
+  const getCategoryTitle = (category: string): string => {
+    switch (category) {
+      case 'nameIssues': return 'שם התבנית';
+      case 'formIssues': return 'בעיות בטופס';
+      case 'integrationIssues': return 'בעיות באינטגרציה';
+      case 'contentIssues': return 'בעיות בתוכן';
+      case 'styleIssues': return 'בעיות בעיצוב';
+      case 'emailIssues': return 'בעיות בהגדרות מייל';
+      case 'whatsappIssues': return 'בעיות בהגדרות WhatsApp';
+      case 'generalIssues': return 'בעיות כלליות';
+      default: return category;
     }
   }
 
