@@ -46,7 +46,7 @@ export function TemplateList({ templates, onSelect, onDelete }: TemplateListProp
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [templatesPerPage] = useState(5)
+  const [templatesPerPage] = useState(20)
 
   // Apply search filter to templates
   const filteredTemplates = templates.filter(template => 
