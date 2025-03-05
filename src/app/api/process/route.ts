@@ -356,7 +356,7 @@ async function handleRequest(req: Request) {
                   console.warn('⚠️ No phone number found in submission data');
                 } else {
                   console.log('📞 Starting WhatsApp process with phone:', customer.phone);
-                  await sendWhatsAppMessage(submissionId);
+                  await sendWhatsAppMessage(submission.submission_id);
                   console.log('✅ WhatsApp message sent successfully');
                 }
               } catch (whatsappError) {

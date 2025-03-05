@@ -70,6 +70,8 @@ export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
   try {
     while (true) {
       try {
+        console.log('WhatsApp Starting WhatsApp process:', submissionId);
+        
         // Update status to processing
         await supabaseAdmin
           .from('form_submissions')
@@ -81,12 +83,12 @@ export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
 
         await addWhatsAppLog(submissionId, 'info', 'Starting WhatsApp process');
         
-        // Fetch submission and template data
-        const { data: submission } = await supabaseAdmin
+        // Fetch submission with improved error handling and explicit log output
+        const { data: submission, error: submissionError } = await supabaseAdmin
           .from('form_submissions')
           .select(`
             *,
-            template:templates!left (
+            template:templates!inner (
               id,
               send_whatsapp,
               whatsapp_message
@@ -95,8 +97,15 @@ export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
           .eq('submission_id', submissionId)
           .single();
 
-        if (!submission) {
-          await addWhatsAppLog(submissionId, 'error', 'No submission found');
+        console.log('WhatsApp query result:', { 
+          hasSubmission: !!submission, 
+          submissionId,
+          error: submissionError ? submissionError.message : null 
+        });
+
+        if (!submission || submissionError) {
+          console.log('WhatsApp No submission found:', submissionId);
+          await addWhatsAppLog(submissionId, 'error', 'No submission found', { submissionId, error: submissionError });
           throw new Error('Submission not found');
         }
 
