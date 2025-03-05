@@ -809,6 +809,45 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
 
   const handleSave = async () => {
     try {
+      // Check for validation issues but don't block saving
+      let hasValidationWarnings = false;
+      let warningMessage = TRANSLATIONS.templateHasWarnings || "התבנית נשמרה אך יש בה אזהרות:";
+      const warnings = [];
+      
+      // Validate template name
+      const nameValidation = validateTemplateName(templateName);
+      if (!nameValidation.isValid && nameValidation.error) {
+        hasValidationWarnings = true;
+        warnings.push(nameValidation.error);
+      }
+      
+      // Validate Google Sheets ID if provided
+      if (templateGsheetsId) {
+        const gsheetsValidation = validateGSheetsId(templateGsheetsId);
+        if (!gsheetsValidation.isValid && gsheetsValidation.error) {
+          hasValidationWarnings = true;
+          warnings.push(gsheetsValidation.error);
+        }
+      }
+      
+      // Validate form ID if provided
+      if (formId) {
+        const formValidation = validateFormId(formId);
+        if (!formValidation.isValid && formValidation.error) {
+          hasValidationWarnings = true;
+          warnings.push(formValidation.error);
+        }
+      }
+      
+      // Validate email if send email is enabled
+      if (sendEmail && emailFrom) {
+        const emailValidation = validateEmailAddress(emailFrom);
+        if (!emailValidation.isValid && emailValidation.error) {
+          hasValidationWarnings = true;
+          warnings.push(emailValidation.error);
+        }
+      }
+      
       // Save template
       const { data: savedTemplate, error: templateError } = await supabase
         .from('templates')
@@ -911,21 +950,30 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         if (contentsError) throw contentsError
       }
 
-      toast({
-        title: TRANSLATIONS.success,
-        description: TRANSLATIONS.templateSavedSuccessfully
-      })
+      // Show success toast with warning if applicable
+      if (hasValidationWarnings) {
+        toast({
+          variant: "warning",
+          title: TRANSLATIONS.templateSavedWithWarnings || "התבנית נשמרה עם אזהרות",
+          description: warningMessage + "\n" + warnings.join(", "),
+        });
+      } else {
+        toast({
+          title: TRANSLATIONS.success,
+          description: TRANSLATIONS.templateSavedSuccessfully
+        });
+      }
 
       if (onSave) {
-        onSave()
+        onSave();
       }
     } catch (error) {
-      console.error('Error saving template:', error)
+      console.error('Error saving template:', error);
       toast({
         variant: "destructive",
         title: TRANSLATIONS.error,
         description: error instanceof Error ? error.message : TRANSLATIONS.failedToSaveTemplate
-      })
+      });
     }
   }
 

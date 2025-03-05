@@ -119,5 +119,7 @@ export const TRANSLATIONS = {
   manageMedia: 'נהל מדיה',
   uploadMedia: 'העלה מדיה',
   uploading: 'מעלה',
-  urlCopied: 'הקישור הועתק ללוח'
+  urlCopied: 'הקישור הועתק ללוח',
+  templateSavedWithWarnings: "התבנית נשמרה עם אזהרות",
+  templateHasWarnings: "התבנית נשמרה אך יש בה אזהרות:"
 } as const; 
