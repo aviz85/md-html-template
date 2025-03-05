@@ -83,53 +83,30 @@ export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
 
         await addWhatsAppLog(submissionId, 'info', 'Starting WhatsApp process');
         
-        // Fetch submission with improved error handling and explicit log output
-        const { data: submission, error: submissionError } = await supabaseAdmin
-          .from('form_submissions')
+        // Fetch submission using the new view
+        console.log('WhatsApp Attempting to fetch submission:', submissionId);
+        
+        const { data: submissionWithTemplate, error: queryError } = await supabaseAdmin
+          .from('submission_with_template')
           .select('*')
           .eq('submission_id', submissionId)
           .single();
 
-        if (!submission || submissionError) {
+        if (!submissionWithTemplate || queryError) {
           console.log('WhatsApp No submission found:', submissionId);
-          console.log('WhatsApp Query error:', submissionError);
-          await addWhatsAppLog(submissionId, 'error', 'No submission found', { submissionId, error: submissionError });
+          console.log('WhatsApp Query error:', queryError);
+          await addWhatsAppLog(submissionId, 'error', 'No submission found', { submissionId, error: queryError });
           throw new Error('Submission not found');
         }
 
-        // Then fetch the template using form_id
-        console.log('WhatsApp Fetching template for form_id:', submission.form_id);
-        const { data: template, error: templateError } = await supabaseAdmin
-          .from('templates')
-          .select('id, send_whatsapp, whatsapp_message')
-          .eq('form_id', submission.form_id)
-          .single();
-
-        if (!template || templateError) {
-          console.log('WhatsApp No template found for form_id:', submission.form_id);
-          console.log('WhatsApp Template query error:', templateError);
-          await addWhatsAppLog(submissionId, 'error', 'No template found', { 
-            submissionId, 
-            formId: submission.form_id,
-            error: templateError 
-          });
-          throw new Error('Template not found');
-        }
-
         console.log('WhatsApp Query result:', { 
-          hasSubmission: !!submission, 
-          hasTemplate: !!template,
+          hasSubmission: !!submissionWithTemplate, 
           submissionId,
-          formId: submission.form_id
+          formId: submissionWithTemplate.form_id,
+          hasWhatsApp: !!submissionWithTemplate.send_whatsapp
         });
 
-        // Combine submission and template for use later in the function
-        const submissionWithTemplate = {
-          ...submission,
-          template
-        };
-
-        if (!submissionWithTemplate.template?.send_whatsapp) {
+        if (!submissionWithTemplate.send_whatsapp) {
           await addWhatsAppLog(submissionId, 'info', 'WhatsApp sending not enabled');
           return;
         }
@@ -137,7 +114,7 @@ export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
         // Validate configuration
         const instanceId = DEFAULT_INSTANCE_ID;
         const apiToken = DEFAULT_API_TOKEN;
-        const { whatsapp_message } = submissionWithTemplate.template;
+        const whatsapp_message = submissionWithTemplate.whatsapp_message;
         
         if (!instanceId || !apiToken || !whatsapp_message) {
           await addWhatsAppLog(submissionId, 'error', 'Missing configuration', {
