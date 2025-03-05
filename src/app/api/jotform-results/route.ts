@@ -23,6 +23,177 @@ interface FormData {
   [key: string]: any;
 }
 
+// Add interface for new form format
+interface NewFormFormat {
+  form: {
+    id: string;
+    name: string;
+  };
+  fields: {
+    [key: string]: {
+      id: string;
+      type: string;
+      title: string;
+      value: string;
+      raw_value: string | string[];
+      required: string;
+    };
+  };
+  meta: {
+    [key: string]: {
+      title: string;
+      value: string;
+    };
+  };
+}
+
+// Converter function for Elementor form format
+function convertNewFormFormat(data: NewFormFormat | NewFormFormat[]): FormData {
+  // Handle both array and single object format
+  const formItem: NewFormFormat = Array.isArray(data) ? data[0] : data;
+  
+  console.log('[Elementor Converter] Starting conversion process');
+  console.log('[Elementor Converter] Input format:', Array.isArray(data) ? 'Array' : 'Object');
+  console.log('[Elementor Converter] Form data:', {
+    id: formItem.form.id,
+    name: formItem.form.name,
+    fieldCount: Object.keys(formItem.fields).length,
+    metaCount: Object.keys(formItem.meta).length
+  });
+  
+  if (!formItem || !formItem.form || !formItem.fields) {
+    console.error('[Elementor Converter] Invalid format - missing required properties');
+    throw new Error('Invalid Elementor form data: Missing required structure');
+  }
+  
+  // Create basic FormData structure
+  const formData: FormData = {
+    formID: formItem.form.id,
+    submissionID: formItem.form.id + '_' + Date.now(), // Generate a submission ID if not provided
+    submission_id: formItem.form.id + '_' + Date.now(),
+    parsedRequest: formItem,
+    formProvider: 'elementor' // Mark this as an Elementor form
+  };
+  
+  console.log('[Elementor Converter] Created base FormData structure:', {
+    formID: formData.formID,
+    submissionID: formData.submissionID,
+    formProvider: formData.formProvider
+  });
+  
+  // Generate pretty field as comma-separated "title:value" pairs, similar to JotForm
+  const prettyPairs: string[] = [];
+  let fieldCounter = 0;
+  
+  console.log('[Elementor Converter] Processing fields:');
+  Object.entries(formItem.fields).forEach(([key, field]) => {
+    if (field.title && field.value && field.type !== 'step') {
+      prettyPairs.push(`${field.title}:${field.value}`);
+      fieldCounter++;
+      
+      console.log(`[Elementor Converter] Field ${fieldCounter}:`, {
+        id: key,
+        type: field.type,
+        title: field.title,
+        value: typeof field.value === 'string' && field.value.length > 100 
+          ? `${field.value.substring(0, 100)}... (${field.value.length} chars)` 
+          : field.value,
+        required: field.required === '1' ? 'Yes' : 'No'
+      });
+    } else if (field.type === 'step') {
+      console.log(`[Elementor Converter] Skipping step field: ${key}`);
+    } else if (!field.value) {
+      console.log(`[Elementor Converter] Skipping empty field: ${key}, title: ${field.title}`);
+    }
+  });
+  
+  // Add metadata fields to pretty
+  console.log('[Elementor Converter] Processing metadata:');
+  Object.entries(formItem.meta).forEach(([key, meta]) => {
+    if (meta.title && meta.value) {
+      prettyPairs.push(`${meta.title}:${meta.value}`);
+      console.log(`[Elementor Converter] Meta field:`, {
+        key,
+        title: meta.title,
+        value: meta.value
+      });
+    }
+  });
+  
+  formData.pretty = prettyPairs.join(', ');
+  console.log(`[Elementor Converter] Generated pretty field with ${prettyPairs.length} entries`);
+  console.log(`[Elementor Converter] Pretty field preview: ${formData.pretty.length > 200 ? formData.pretty.substring(0, 200) + '...' : formData.pretty}`);
+  
+  // Add raw form item to formData for compatibility with existing code
+  formData.rawRequest = JSON.stringify(formItem);
+  console.log(`[Elementor Converter] Added rawRequest (${formData.rawRequest.length} chars)`);
+  
+  // Copy field values to top level for compatibility
+  console.log('[Elementor Converter] Creating field mappings:');
+  const fieldMappings: Record<string, string> = {};
+  
+  Object.entries(formItem.fields).forEach(([key, field]) => {
+    if (field.type !== 'step' && field.value) {
+      // Use the field's title and value consistently
+      const sanitizedTitle = field.title.replace(/\s+/g, '_').toLowerCase();
+      const fieldKey = key.match(/^field_[a-z0-9]+$/) ? sanitizedTitle : key;
+      
+      formData[fieldKey] = field.value;
+      fieldMappings[fieldKey] = `From field title: ${field.title}`;
+      
+      // Also keep the original field ID as a key
+      formData[key] = field.value;
+      fieldMappings[key] = `Original field ID`;
+      
+      // Add q-prefixed fields for compatibility with JotForm format
+      if (!key.startsWith('q')) {
+        formData[`q${key}`] = field.value;
+        fieldMappings[`q${key}`] = `JotForm compatibility: q-prefixed`;
+      }
+    }
+  });
+  
+  console.log('[Elementor Converter] Field mappings created:', fieldMappings);
+  console.log(`[Elementor Converter] Conversion complete. Final FormData has ${Object.keys(formData).length} properties`);
+  
+  return formData;
+}
+
+// Utility function to convert a JSON string in the new format to FormData
+function convertNewFormFormatFromJsonString(jsonString: string): FormData {
+  console.log('[Elementor Converter] Starting JSON string conversion');
+  console.log(`[Elementor Converter] Input JSON length: ${jsonString.length} characters`);
+  console.log(`[Elementor Converter] Input JSON preview: ${jsonString.length > 200 ? jsonString.substring(0, 200) + '...' : jsonString}`);
+  
+  try {
+    const data = JSON.parse(jsonString);
+    console.log('[Elementor Converter] Successfully parsed JSON string');
+    
+    // Check if this is an array or a single object with the expected structure
+    if (Array.isArray(data) && data.length > 0 && data[0].form && data[0].fields && data[0].meta) {
+      console.log('[Elementor Converter] Detected Elementor form data as array with', data.length, 'items');
+      console.log('[Elementor Converter] Using first item with form ID:', data[0].form.id);
+      return convertNewFormFormat(data[0]);
+    } else if (data.form && data.fields && data.meta) {
+      console.log('[Elementor Converter] Detected Elementor form data as single object');
+      console.log('[Elementor Converter] Form ID:', data.form.id);
+      return convertNewFormFormat(data);
+    } else {
+      console.error('[Elementor Converter] Invalid structure detected:', {
+        isArray: Array.isArray(data),
+        hasForm: data.form ? 'Yes' : 'No',
+        hasFields: data.fields ? 'Yes' : 'No',
+        hasMeta: data.meta ? 'Yes' : 'No',
+        topLevelKeys: Array.isArray(data) ? 'N/A' : Object.keys(data)
+      });
+      throw new Error('Invalid Elementor form format structure');
+    }
+  } catch (error) {
+    console.error('[Elementor Converter] Error during JSON conversion:', error);
+    throw new Error(`Failed to convert Elementor form format: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
 // Add interface at the top with other interfaces
 interface AudioFile {
   path: string;
@@ -185,17 +356,79 @@ async function parseRequestBody(request: Request): Promise<FormData> {
     const rawBody = await request.text();
     console.log('[JotForm Webhook] Raw request body length:', rawBody.length);
     console.log('[JotForm Webhook] Raw request body preview:', rawBody.substring(0, 500));
-    formData = JSON.parse(rawBody);
     
-    if (formData.rawRequest) {
-      try {
-        console.log('[JotForm Webhook] Attempting to parse rawRequest...');
-        formData.parsedRequest = JSON.parse(formData.rawRequest);
-        console.log('[JotForm Webhook] Successfully parsed rawRequest');
-      } catch (e) {
-        console.error('[JotForm Webhook] Failed to parse rawRequest:', e);
-        formData.parsedRequest = formData.rawRequest;
+    try {
+      const parsedBody = JSON.parse(rawBody);
+      
+      // Check if this is Elementor form format
+      if (Array.isArray(parsedBody) && 
+          parsedBody.length > 0 && 
+          parsedBody[0].form && 
+          parsedBody[0].fields && 
+          parsedBody[0].meta) {
+        console.log('[JotForm Webhook] Detected Elementor form format as array, converting...');
+        console.log('[JotForm Webhook] Elementor array details:', {
+          length: parsedBody.length,
+          formId: parsedBody[0].form.id,
+          formName: parsedBody[0].form.name,
+          fieldCount: Object.keys(parsedBody[0].fields).length,
+          metaCount: Object.keys(parsedBody[0].meta).length
+        });
+        
+        // Track conversion time
+        const startTime = Date.now();
+        formData = convertNewFormFormat(parsedBody[0]);
+        const conversionTime = Date.now() - startTime;
+        
+        console.log(`[JotForm Webhook] Successfully converted Elementor form format to JotForm format in ${conversionTime}ms`);
+        console.log('[JotForm Webhook] Conversion result:', {
+          formID: formData.formID,
+          submissionID: formData.submissionID,
+          fieldCount: Object.keys(formData).length - 7, // Subtracting standard fields
+          prettyLength: formData.pretty?.length || 0
+        });
+      } 
+      // Check for single object Elementor format
+      else if (parsedBody.form && parsedBody.fields && parsedBody.meta) {
+        console.log('[JotForm Webhook] Detected Elementor form format as object, converting...');
+        console.log('[JotForm Webhook] Elementor object details:', {
+          formId: parsedBody.form.id,
+          formName: parsedBody.form.name,
+          fieldCount: Object.keys(parsedBody.fields).length,
+          metaCount: Object.keys(parsedBody.meta).length
+        });
+        
+        // Track conversion time
+        const startTime = Date.now();
+        formData = convertNewFormFormat(parsedBody);
+        const conversionTime = Date.now() - startTime;
+        
+        console.log(`[JotForm Webhook] Successfully converted Elementor form format to JotForm format in ${conversionTime}ms`);
+        console.log('[JotForm Webhook] Conversion result:', {
+          formID: formData.formID,
+          submissionID: formData.submissionID,
+          fieldCount: Object.keys(formData).length - 7, // Subtracting standard fields
+          prettyLength: formData.pretty?.length || 0
+        });
+      } 
+      // Handle standard JotForm format
+      else {
+        formData = parsedBody;
+        
+        if (formData.rawRequest) {
+          try {
+            console.log('[JotForm Webhook] Attempting to parse rawRequest...');
+            formData.parsedRequest = JSON.parse(formData.rawRequest);
+            console.log('[JotForm Webhook] Successfully parsed rawRequest');
+          } catch (e) {
+            console.error('[JotForm Webhook] Failed to parse rawRequest:', e);
+            formData.parsedRequest = formData.rawRequest;
+          }
+        }
       }
+    } catch (e) {
+      console.error('[JotForm Webhook] Failed to parse JSON body:', e);
+      throw new Error(`Failed to parse request body: ${e instanceof Error ? e.message : 'Unknown error'}`);
     }
   } else if (contentType.includes('multipart/form-data') || contentType.includes('application/x-www-form-urlencoded')) {
     const formDataObj = await request.formData();
@@ -204,8 +437,28 @@ async function parseRequestBody(request: Request): Promise<FormData> {
     if (formData.rawRequest) {
       try {
         console.log('[JotForm Webhook] Attempting to parse rawRequest from form data...');
-        formData.parsedRequest = JSON.parse(formData.rawRequest as string);
-        console.log('[JotForm Webhook] Successfully parsed rawRequest from form data');
+        const rawRequestData = JSON.parse(formData.rawRequest as string);
+        
+        // Check if this is the Elementor form format
+        if (Array.isArray(rawRequestData) && 
+            rawRequestData.length > 0 && 
+            rawRequestData[0].form && 
+            rawRequestData[0].fields && 
+            rawRequestData[0].meta) {
+          console.log('[JotForm Webhook] Detected Elementor form format in rawRequest as array, converting...');
+          formData = convertNewFormFormat(rawRequestData[0]);
+          console.log('[JotForm Webhook] Successfully converted Elementor form format to JotForm format');
+        }
+        // Check for single object Elementor format
+        else if (rawRequestData.form && rawRequestData.fields && rawRequestData.meta) {
+          console.log('[JotForm Webhook] Detected Elementor form format in rawRequest as object, converting...');
+          formData = convertNewFormFormat(rawRequestData);
+          console.log('[JotForm Webhook] Successfully converted Elementor form format to JotForm format');
+        }
+        else {
+          formData.parsedRequest = rawRequestData;
+          console.log('[JotForm Webhook] Successfully parsed rawRequest from form data');
+        }
       } catch (e) {
         console.error('[JotForm Webhook] Failed to parse rawRequest from form data:', e);
         formData.parsedRequest = formData.rawRequest;
@@ -727,5 +980,103 @@ export async function GET(request: Request) {
       { error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
+  }
+}
+
+// Test endpoint for converting new form format to standard format
+export async function PUT(request: Request) {
+  try {
+    console.log('======================================================');
+    console.log('[Elementor Form Test] Starting test conversion endpoint');
+    console.log('======================================================');
+    
+    // Parse request body
+    const rawBody = await request.text();
+    console.log(`[Elementor Form Test] Received request with ${rawBody.length} characters`);
+    
+    try {
+      console.log('[Elementor Form Test] Attempting conversion...');
+      
+      // Track execution time
+      const startTime = Date.now();
+      
+      // Attempt to convert the Elementor form format
+      const convertedData = convertNewFormFormatFromJsonString(rawBody);
+      
+      const endTime = Date.now();
+      const executionTime = endTime - startTime;
+      
+      console.log(`[Elementor Form Test] Conversion successful! Took ${executionTime}ms`);
+      console.log('[Elementor Form Test] Conversion summary:');
+      console.log(`  - Form ID: ${convertedData.formID}`);
+      console.log(`  - Submission ID: ${convertedData.submissionID}`);
+      console.log(`  - Total fields mapped: ${Object.keys(convertedData).length - 5}`); // Subtracting standard fields
+      console.log(`  - Pretty field length: ${convertedData.pretty?.length || 0} characters`);
+      
+      // Log all generated field keys
+      const fieldKeys = Object.keys(convertedData)
+        .filter(key => !['formID', 'submissionID', 'submission_id', 'parsedRequest', 'rawRequest', 'pretty', 'formProvider'].includes(key));
+      
+      console.log(`[Elementor Form Test] Generated field keys (${fieldKeys.length}):`, 
+        fieldKeys.length > 20 ? [...fieldKeys.slice(0, 20), `... and ${fieldKeys.length - 20} more`] : fieldKeys);
+      
+      // Create a response that shows the conversion details
+      const response = {
+        status: 'success',
+        message: 'Successfully converted Elementor form format',
+        formProvider: 'elementor',
+        executionTime: `${executionTime}ms`,
+        original: {
+          structure: Array.isArray(JSON.parse(rawBody)) ? 'Array' : 'Object',
+          preview: JSON.stringify(JSON.parse(rawBody)).substring(0, 200) + '...'
+        },
+        converted: {
+          formID: convertedData.formID,
+          submissionID: convertedData.submissionID,
+          pretty: convertedData.pretty?.substring(0, 200) + (convertedData.pretty?.length > 200 ? '...' : ''),
+          fieldCount: fieldKeys.length,
+        },
+        // Include sample field mappings
+        fieldMappings: Object.entries(convertedData)
+          .filter(([key, value]) => !['formID', 'submissionID', 'parsedRequest', 'rawRequest', 'pretty', 'formProvider', 'submission_id'].includes(key))
+          .slice(0, 10)
+          .reduce((acc, [key, value]) => ({
+            ...acc, 
+            [key]: typeof value === 'string' && value.length > 100 
+              ? value.substring(0, 100) + '...' 
+              : value
+          }), {})
+      };
+      
+      console.log('======================================================');
+      console.log('[Elementor Form Test] Test completed successfully');
+      console.log('======================================================');
+      
+      return NextResponse.json(response);
+    } catch (error) {
+      console.error('[Elementor Form Test] Conversion failed:', error);
+      console.log('======================================================');
+      console.log('[Elementor Form Test] Test failed');
+      console.log('======================================================');
+      
+      return NextResponse.json({
+        status: 'error',
+        message: 'Failed to convert Elementor form format',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        errorDetails: error instanceof Error ? error.stack : 'No stack trace available'
+      }, { status: 400 });
+    }
+  } catch (error) {
+    console.error('[Elementor Form Test] Unhandled error:', error);
+    console.log('======================================================');
+    console.log('[Elementor Form Test] Test failed with unhandled error');
+    console.log('======================================================');
+    
+    return NextResponse.json({
+      status: 'error',
+      message: 'Unhandled error in converting Elementor form format',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      errorDetails: error instanceof Error ? error.stack : 'No stack trace available'
+    }, { status: 500 });
   }
 } 
