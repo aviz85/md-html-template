@@ -953,7 +953,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       // Show success toast with warning if applicable
       if (hasValidationWarnings) {
         toast({
-          variant: "warning",
+          variant: "default",
           title: TRANSLATIONS.templateSavedWithWarnings || "התבנית נשמרה עם אזהרות",
           description: warningMessage + "\n" + warnings.join(", "),
         });

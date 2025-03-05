@@ -121,5 +121,7 @@ export const TRANSLATIONS = {
   uploading: 'מעלה',
   urlCopied: 'הקישור הועתק ללוח',
   templateSavedWithWarnings: "התבנית נשמרה עם אזהרות",
-  templateHasWarnings: "התבנית נשמרה אך יש בה אזהרות:"
+  templateHasWarnings: "התבנית נשמרה אך יש בה אזהרות:",
+  failedToDeleteTemplate: "נכשל במחיקת התבנית",
+  templateDeletedSuccessfully: "התבנית נמחקה בהצלחה"
 } as const; 

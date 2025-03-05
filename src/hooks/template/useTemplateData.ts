@@ -100,7 +100,7 @@ export function useTemplateData(templateId?: string) {
       // Show success toast with warning if applicable
       if (hasWarnings) {
         toast({
-          variant: "warning",
+          variant: "default",
           title: TRANSLATIONS.templateSavedWithWarnings || "התבנית נשמרה עם אזהרות",
           description: (TRANSLATIONS.templateHasWarnings || "התבנית נשמרה אך יש בה אזהרות:") + 
                       "\n" + warnings.join(", ")

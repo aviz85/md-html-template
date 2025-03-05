@@ -45,23 +45,46 @@ export function TemplateList({ templates, onSelect, onDelete }: TemplateListProp
   const { toast } = useToast()
 
   const handleDelete = async (id: string) => {
-    const response = await fetch(`/api/templates/${id}`, {
-      method: 'DELETE'
-    });
+    try {
+      const response = await fetch(`/api/templates/${id}`, {
+        method: 'DELETE'
+      });
 
-    if (!response.ok) {
-      console.error('Error deleting template:', await response.text())
+      const responseText = await response.text();
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (e) {
+        responseData = { error: responseText };
+      }
+
+      if (!response.ok) {
+        console.error('Error deleting template:', responseData);
+        
+        // Provide a more specific error message if available
+        const errorMessage = responseData.error || TRANSLATIONS.failedToDeleteTemplate || "Failed to delete template";
+        
+        toast({
+          variant: "destructive",
+          title: TRANSLATIONS.error,
+          description: errorMessage
+        });
+      } else {
+        toast({
+          title: TRANSLATIONS.success,
+          description: TRANSLATIONS.templateDeletedSuccessfully || "Template was deleted successfully"
+        });
+        
+        // Refresh the list after deletion
+        onDelete?.();
+      }
+    } catch (error) {
+      console.error('Error deleting template:', error);
       toast({
         variant: "destructive",
         title: TRANSLATIONS.error,
-        description: TRANSLATIONS.failedToSaveTemplate
-      })
-    } else {
-      toast({
-        title: TRANSLATIONS.success,
-        description: TRANSLATIONS.templateSavedSuccessfully
-      })
-      onDelete?.()
+        description: error instanceof Error ? error.message : TRANSLATIONS.failedToDeleteTemplate || "Failed to delete template"
+      });
     }
   }
 
