@@ -86,30 +86,50 @@ export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
         // Fetch submission with improved error handling and explicit log output
         const { data: submission, error: submissionError } = await supabaseAdmin
           .from('form_submissions')
-          .select(`
-            *,
-            template:templates!inner (
-              id,
-              send_whatsapp,
-              whatsapp_message
-            )
-          `)
+          .select('*')
           .eq('submission_id', submissionId)
           .single();
 
-        console.log('WhatsApp query result:', { 
-          hasSubmission: !!submission, 
-          submissionId,
-          error: submissionError ? submissionError.message : null 
-        });
-
         if (!submission || submissionError) {
           console.log('WhatsApp No submission found:', submissionId);
+          console.log('WhatsApp Query error:', submissionError);
           await addWhatsAppLog(submissionId, 'error', 'No submission found', { submissionId, error: submissionError });
           throw new Error('Submission not found');
         }
 
-        if (!submission.template?.send_whatsapp) {
+        // Then fetch the template using form_id
+        console.log('WhatsApp Fetching template for form_id:', submission.form_id);
+        const { data: template, error: templateError } = await supabaseAdmin
+          .from('templates')
+          .select('id, send_whatsapp, whatsapp_message')
+          .eq('form_id', submission.form_id)
+          .single();
+
+        if (!template || templateError) {
+          console.log('WhatsApp No template found for form_id:', submission.form_id);
+          console.log('WhatsApp Template query error:', templateError);
+          await addWhatsAppLog(submissionId, 'error', 'No template found', { 
+            submissionId, 
+            formId: submission.form_id,
+            error: templateError 
+          });
+          throw new Error('Template not found');
+        }
+
+        console.log('WhatsApp Query result:', { 
+          hasSubmission: !!submission, 
+          hasTemplate: !!template,
+          submissionId,
+          formId: submission.form_id
+        });
+
+        // Combine submission and template for use later in the function
+        const submissionWithTemplate = {
+          ...submission,
+          template
+        };
+
+        if (!submissionWithTemplate.template?.send_whatsapp) {
           await addWhatsAppLog(submissionId, 'info', 'WhatsApp sending not enabled');
           return;
         }
@@ -117,7 +137,7 @@ export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
         // Validate configuration
         const instanceId = DEFAULT_INSTANCE_ID;
         const apiToken = DEFAULT_API_TOKEN;
-        const { whatsapp_message } = submission.template;
+        const { whatsapp_message } = submissionWithTemplate.template;
         
         if (!instanceId || !apiToken || !whatsapp_message) {
           await addWhatsAppLog(submissionId, 'error', 'Missing configuration', {
@@ -128,7 +148,7 @@ export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
           throw new Error('Missing WhatsApp configuration');
         }
 
-        const phone = submission.recipient_phone;
+        const phone = submissionWithTemplate.recipient_phone;
         if (!phone) {
           await addWhatsAppLog(submissionId, 'error', 'No phone number found');
           throw new Error('No phone number found for recipient');
@@ -142,6 +162,12 @@ export async function sendWhatsAppMessage(submissionId: string): Promise<void> {
         // Replace template variables
         const message = whatsapp_message.replace(/{{(\w+)}}/g, (match: string, key: string) => {
           if (key === 'id') return submissionId;
+          
+          // Access form data if available
+          if (submissionWithTemplate.content?.form_data && key in submissionWithTemplate.content.form_data) {
+            return submissionWithTemplate.content.form_data[key] || match;
+          }
+          
           return match;
         });
 
