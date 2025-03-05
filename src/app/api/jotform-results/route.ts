@@ -79,9 +79,12 @@ function convertNewFormFormat(data: NewFormFormat | NewFormFormat[]): FormData {
   
   // Create submission ID with the same format as existing system: formID_timestamp
   const timestamp = Date.now();
-  const submissionID = `${formIDStr}_${timestamp}`;
+  // Generate random numbers to avoid predictability
+  const randomPart = Math.floor(100000 + Math.random() * 900000); // 6-digit random number
+  const submissionID = `${formIDStr}_${timestamp}_${randomPart}`;
   
   console.log(`[Elementor Converter] Generated submission ID: ${submissionID} (${submissionID.length} characters)`);
+  console.log(`[Elementor Converter] Security info: Added random 6-digit suffix ${randomPart} to prevent guessing`);
   
   // Create basic FormData structure
   const formData: FormData = {
