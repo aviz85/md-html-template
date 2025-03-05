@@ -1087,7 +1087,9 @@ export async function PUT(request: Request) {
         converted: {
           formID: convertedData.formID,
           submissionID: convertedData.submissionID,
-          pretty: convertedData.pretty?.substring(0, 200) + (convertedData.pretty && convertedData.pretty.length > 200 ? '...' : ''),
+          pretty: convertedData.pretty 
+            ? convertedData.pretty.substring(0, 200) + (convertedData.pretty.length > 200 ? '...' : '') 
+            : undefined,
           fieldCount: fieldKeys.length,
         },
         // Include sample field mappings
@@ -1161,7 +1163,9 @@ export async function PATCH(request: Request) {
           submissionID: formData.submissionID,
           formProvider: formData.formProvider,
           keys: Object.keys(formData),
-          pretty: formData.pretty?.substring(0, 200) + (formData.pretty?.length > 200 ? '...' : '')
+          pretty: formData.pretty 
+            ? formData.pretty.substring(0, 200) + (formData.pretty.length > 200 ? '...' : '') 
+            : undefined
         }
       });
       
