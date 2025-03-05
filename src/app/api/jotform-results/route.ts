@@ -66,11 +66,28 @@ function convertNewFormFormat(data: NewFormFormat | NewFormFormat[]): FormData {
     throw new Error('Invalid Elementor form data: Missing required structure');
   }
   
+  // Validate and extract formID
+  const formID = formItem.form.id;
+  if (!formID) {
+    console.error('[Elementor Converter] Missing form ID in the input data');
+    throw new Error('Missing form ID in Elementor form data');
+  }
+  
+  // Ensure formID is a string and log its length for debugging
+  const formIDStr = String(formID);
+  console.log(`[Elementor Converter] Extracted form ID: ${formIDStr} (${formIDStr.length} characters)`);
+  
+  // Create submission ID with the same format as existing system: formID_timestamp
+  const timestamp = Date.now();
+  const submissionID = `${formIDStr}_${timestamp}`;
+  
+  console.log(`[Elementor Converter] Generated submission ID: ${submissionID} (${submissionID.length} characters)`);
+  
   // Create basic FormData structure
   const formData: FormData = {
-    formID: formItem.form.id,
-    submissionID: formItem.form.id + '_' + Date.now(), // Generate a submission ID if not provided
-    submission_id: formItem.form.id + '_' + Date.now(),
+    formID: formIDStr,
+    submissionID: submissionID,
+    submission_id: submissionID, // Use the same value for both fields for consistency
     parsedRequest: formItem,
     formProvider: 'elementor' // Mark this as an Elementor form
   };
