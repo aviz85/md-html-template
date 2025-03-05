@@ -1033,7 +1033,7 @@ export async function PUT(request: Request) {
         converted: {
           formID: convertedData.formID,
           submissionID: convertedData.submissionID,
-          pretty: convertedData.pretty?.substring(0, 200) + (convertedData.pretty?.length > 200 ? '...' : ''),
+          pretty: convertedData.pretty?.substring(0, 200) + (convertedData.pretty && convertedData.pretty.length > 200 ? '...' : ''),
           fieldCount: fieldKeys.length,
         },
         // Include sample field mappings
