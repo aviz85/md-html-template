@@ -856,11 +856,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             hasValidationWarnings = true;
             warningCategories.emailIssues.push(`Email address: ${emailValidation.error}`);
           }
-        } else {
-          hasValidationWarnings = true;
-          warningCategories.emailIssues.push("Email address is required when email sending is enabled");
         }
-        
         // Validate email subject
         if (!emailSubject || emailSubject.trim() === '') {
           hasValidationWarnings = true;
@@ -874,7 +870,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         }
       }
       
-      // Validate WhatsApp configuration
+      // Validate whatsapp configuration
       if (sendWhatsapp) {
         if (!whatsappMessage || whatsappMessage.trim() === '') {
           hasValidationWarnings = true;
@@ -885,16 +881,6 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         }
       }
       
-      // Validate content
-      if (!headerContent || headerContent.trim() === '') {
-        hasValidationWarnings = true;
-        warningCategories.contentIssues.push("Header content is empty");
-      }
-      
-      if (!footerContent || footerContent.trim() === '') {
-        hasValidationWarnings = true;
-        warningCategories.contentIssues.push("Footer content is empty");
-      }
       
       // Validate element styles
       const styleValidationErrors = validateStyles(elementStyles);
