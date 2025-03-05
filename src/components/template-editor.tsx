@@ -727,19 +727,19 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const validateFormId = (id: string): { isValid: boolean; error?: string } => {
     if (!id) return { isValid: true }; // Optional field
     
-    // Check if it's a valid number
-    if (!/^\d+$/.test(id)) {
+    // Check if alphanumeric - supporting both JotForm numeric IDs and Elementor alphanumeric IDs
+    if (!/^[a-zA-Z0-9]+$/.test(id)) {
       return {
         isValid: false,
-        error: 'מזהה טופס חייב להכיל רק ספרות'
+        error: 'מזהה טופס חייב להכיל רק אותיות באנגלית וספרות'
       };
     }
     
-    // Check length (JotForm IDs are usually 15 digits)
-    if (id.length < 12 || id.length > 16) {
+    // Allow for both JotForm IDs (usually 15 digits) and shorter Elementor IDs (around 7 chars)
+    if (id.length < 5 || id.length > 16) {
       return {
         isValid: false,
-        error: 'אורך מזהה טופס לא תקין (צריך להיות בין 12 ל-16 ספרות)'
+        error: 'אורך מזהה טופס לא תקין (צריך להיות בין 5 ל-16 תווים)'
       };
     }
     
@@ -1670,12 +1670,12 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         <div>
           <label className="text-sm font-medium">Form ID</label>
           <Input
-            placeholder="JotForm Form ID"
+            placeholder="Form ID (JotForm/Elementor)"
             value={formId}
             onChange={(e) => {
               const newValue = e.target.value;
-              // Allow only numbers
-              if (newValue && !/^\d*$/.test(newValue)) {
+              // Allow alphanumeric characters for both JotForm and Elementor IDs
+              if (newValue && !/^[a-zA-Z0-9]*$/.test(newValue)) {
                 return;
               }
               setFormId(newValue);
@@ -1688,7 +1688,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                 });
               }
             }}
-            className="mt-2 font-mono" // Use monospace font for better number readability
+            className="mt-2 font-mono" // Use monospace font for better ID readability
           />
         </div>
 

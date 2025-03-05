@@ -99,7 +99,7 @@ export const TRANSLATIONS = {
   gsheetsId: 'מזהה Google Sheets',
   gsheetsIdPlaceholder: 'הכנס מזהה Google Sheets...',
   formId: 'מזהה טופס',
-  formIdPlaceholder: 'הכנס מזהה טופס...',
+  formIdPlaceholder: 'הכנס מזהה טופס (JotForm/Elementor)...',
   contentPlaceholder: 'הכנס תוכן Markdown כאן...',
   templateEditor: 'עורך תבניות',
   save: 'שמור',
