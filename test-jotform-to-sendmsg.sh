@@ -26,7 +26,7 @@ curl -X POST $URL \
   -d '{
     "formID": "test_form_id",
     "submissionID": "test_submission_123",
-    "rawRequest": "{\"q3_name\":{\"text\":\"שם מלא\",\"answer\":\"ישראל ישראלי\"},\"q4_email\":{\"text\":\"מייל\",\"answer\":\"test@example.com\"},\"q5_phone\":{\"text\":\"טלפון\",\"answer\":\"0501234567\"},\"q6_birthdate\":{\"text\":\"תאריך לידה\",\"answer\":\"1990-01-01\"}}",
+    "rawRequest": "{\"q3_name\":{\"text\":\"שם מלא\",\"answer\":\"ישראל ישראלי\"},\"q4_email\":{\"text\":\"מייל\",\"answer\":\"test@example.com\"},\"q5_phone\":{\"text\":\"טלפון\",\"answer\":\"0501234567\"},\"q6_birthdate\":{\"text\":\"תאריך לידה\",\"answer\":\"1990-01-01\"},\"q7_sendmsgFormId\":{\"text\":\"מזהה טופס\",\"answer\":\"111222__custom-form-id-example\"}}",
     "parsedRequest": {
       "q3_name": {
         "text": "שם מלא",
@@ -43,6 +43,10 @@ curl -X POST $URL \
       "q6_birthdate": {
         "text": "תאריך לידה",
         "answer": "1990-01-01"
+      },
+      "q7_sendmsgFormId": {
+        "text": "מזהה טופס", 
+        "answer": "111222__custom-form-id-example"
       }
     }
   }'

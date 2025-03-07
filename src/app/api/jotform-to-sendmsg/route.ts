@@ -89,6 +89,10 @@ export async function POST(request: Request) {
     const cellphone = extractFieldValue(formData, ['phone', 'cellphone', 'mobile', 'טלפון', 'נייד', 'סלולרי']);
     const birthdate = extractFieldValue(formData, ['birth', 'birthday', 'date of birth', 'תאריך לידה', 'יום הולדת']);
     
+    // Look for a hidden field that contains the SendMsg form ID
+    const sendMsgFormId = extractFieldValue(formData, ['sendmsg_form_id', 'sendmsg_form', 'sendmsg', 'form_id', 'מזהה טופס']);
+    const defaultFormId = '338449__65661e0b-29e9-45ab-ad81-3470de641084'; // Default form ID
+    
     // Format birthdate if needed (assuming it could be in various formats)
     let formattedBirthdate = birthdate;
     if (birthdate) {
@@ -113,8 +117,8 @@ export async function POST(request: Request) {
     if (cellphone) sendMsgPayload.append('cellphone', cellphone);
     if (formattedBirthdate) sendMsgPayload.append('6', formattedBirthdate);
     
-    // Always include the form ID
-    sendMsgPayload.append('form', '338449__65661e0b-29e9-45ab-ad81-3470de641084');
+    // Use the extracted form ID if found, otherwise use the default
+    sendMsgPayload.append('form', sendMsgFormId || defaultFormId);
     
     // Log the data we're sending
     console.log('[JotForm to SendMsg] Sending data to SendMsg:', Object.fromEntries(sendMsgPayload.entries()));
@@ -145,7 +149,8 @@ export async function POST(request: Request) {
           name,
           email,
           cellphone,
-          birthdate: formattedBirthdate
+          birthdate: formattedBirthdate,
+          sendMsgFormId: sendMsgFormId || defaultFormId
         }
       }
     }, { status: 200 });
