@@ -107,7 +107,8 @@ async function parseMultipartFormData(request: Request, boundary: string): Promi
       }
       
       // If we find a submission data field, try to extract more info
-      if (name === 'submissionData' || name === 'pretty' || name === 'formData') {
+      // IMPORTANT: Don't try to parse 'pretty' as JSON - it's a formatted string, not JSON
+      if (name === 'submissionData' || name === 'formData') {
         try {
           const jsonData = JSON.parse(value);
           if (typeof jsonData === 'object') {
@@ -292,6 +293,15 @@ export async function POST(request: Request) {
         console.warn('[JotForm to SendMsg] Failed to format birthdate:', e);
       }
     }
+
+    // Log the extracted fields for debugging
+    console.log('[JotForm to SendMsg] Extracted fields:', {
+      name,
+      email,
+      cellphone,
+      birthdate: formattedBirthdate,
+      sendMsgFormId: sendMsgFormId || defaultFormId
+    });
 
     // Create the payload for SendMsg
     const sendMsgPayload = new URLSearchParams();

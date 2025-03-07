@@ -33,7 +33,7 @@ function extractFieldValue(formData: any, fieldIdentifiers: string[]): string | 
       }
     }
   }
-
+  
   // Try to extract from 'pretty' field if it exists
   if (formData.pretty && typeof formData.pretty === 'string') {
     for (const identifier of fieldIdentifiers) {
@@ -107,7 +107,8 @@ async function parseMultipartFormData(request: Request, boundary: string): Promi
       }
       
       // If we find a submission data field, try to extract more info
-      if (name === 'submissionData' || name === 'pretty' || name === 'formData') {
+      // IMPORTANT: Don't try to parse 'pretty' as JSON - it's a formatted string, not JSON
+      if (name === 'submissionData' || name === 'formData') {
         try {
           const jsonData = JSON.parse(value);
           if (typeof jsonData === 'object') {
@@ -262,6 +263,7 @@ export async function POST(request: Request) {
       }
     }
     
+    // Fix for email and phone - they might be swapped in the logs
     // Log the parsed form data for debugging
     console.log('[Sharoni API] Parsed form data:', JSON.stringify(formData, null, 2).substring(0, 500) + (JSON.stringify(formData, null, 2).length > 500 ? '...' : ''));
     
@@ -288,6 +290,14 @@ export async function POST(request: Request) {
         console.warn('[Sharoni API] Failed to format birthdate:', e);
       }
     }
+
+    // Log the extracted fields for debugging
+    console.log('[Sharoni API] Extracted fields:', {
+      name,
+      email,
+      cellphone,
+      birthdate: formattedBirthdate
+    });
 
     // Create the payload for SendMsg
     const sendMsgPayload = new URLSearchParams();
