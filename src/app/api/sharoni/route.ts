@@ -361,7 +361,8 @@ export async function POST(request: Request) {
     if (name) sendMsgPayload.append('4', name);
     if (finalEmail) sendMsgPayload.append('email', finalEmail);
     if (cellphone) sendMsgPayload.append('cellphone', cellphone);
-    if (formattedBirthdate) sendMsgPayload.append('6', formattedBirthdate);
+    // Only send birthdate if it exists
+    if (formattedBirthdate && formattedBirthdate.trim() !== '') sendMsgPayload.append('6', formattedBirthdate);
     
     // Use the fixed form ID for Sharoni
     sendMsgPayload.append('form', formId);
