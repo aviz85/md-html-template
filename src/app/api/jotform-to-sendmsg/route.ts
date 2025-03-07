@@ -34,6 +34,24 @@ function extractFieldValue(formData: any, fieldIdentifiers: string[]): string | 
     }
   }
   
+  // Try to extract from 'pretty' field if it exists
+  if (formData.pretty && typeof formData.pretty === 'string') {
+    for (const identifier of fieldIdentifiers) {
+      // Look for patterns like "שם מלא:אביץ" or "אימייל:example@example.com"
+      const regexPatterns = [
+        new RegExp(`${identifier}[^:]*:([^,]+)`, 'i'),  // General pattern
+        new RegExp(`${identifier}[^:]*:\\s*([^,]+)`, 'i')  // With potential spaces
+      ];
+      
+      for (const regex of regexPatterns) {
+        const match = formData.pretty.match(regex);
+        if (match && match[1]) {
+          return match[1].trim();
+        }
+      }
+    }
+  }
+  
   // Check in the raw submission data (flat structure)
   for (const identifier of fieldIdentifiers) {
     for (const key in formData) {
@@ -45,6 +63,72 @@ function extractFieldValue(formData: any, fieldIdentifiers: string[]): string | 
 
   // If we couldn't find a value, return null
   return null;
+}
+
+// Function to parse multipart/form-data format
+async function parseMultipartFormData(request: Request, boundary: string): Promise<JotFormSubmission> {
+  const formData: JotFormSubmission = {};
+  
+  try {
+    // Clone request to get text content
+    const clonedRequest = request.clone();
+    const text = await clonedRequest.text();
+    
+    // Split the content by boundary
+    const parts = text.split(`--${boundary}`);
+    
+    // Process each part
+    for (const part of parts) {
+      // Skip empty parts and the final boundary
+      if (!part || part.trim() === '--') continue;
+      
+      // Get the content disposition line and extract name
+      const nameMatch = part.match(/Content-Disposition:.*name="([^"]+)"/i);
+      if (!nameMatch) continue;
+      
+      const name = nameMatch[1];
+      
+      // Extract the value (content after the blank line)
+      const value = part.split(/\r?\n\r?\n/).slice(1).join('\n').trim();
+      
+      // Skip empty values
+      if (!value) continue;
+      
+      // Add to form data
+      formData[name] = value;
+      
+      // Special case for rawRequest: try to parse as JSON
+      if (name === 'rawRequest' && value.startsWith('{')) {
+        try {
+          formData.parsedRequest = JSON.parse(value);
+        } catch (e) {
+          console.error('[JotForm to SendMsg] Failed to parse rawRequest in multipart form:', e);
+        }
+      }
+      
+      // If we find a submission data field, try to extract more info
+      if (name === 'submissionData' || name === 'pretty' || name === 'formData') {
+        try {
+          const jsonData = JSON.parse(value);
+          if (typeof jsonData === 'object') {
+            // Merge the JSON data into the formData
+            Object.assign(formData, jsonData);
+            if (!formData.parsedRequest) {
+              formData.parsedRequest = jsonData;
+            }
+          }
+        } catch (e) {
+          console.error(`[JotForm to SendMsg] Failed to parse ${name} as JSON:`, e);
+        }
+      }
+    }
+    
+    console.log('[JotForm to SendMsg] Successfully parsed multipart/form-data');
+    return formData;
+  } catch (error) {
+    console.error('[JotForm to SendMsg] Error parsing multipart/form-data:', error);
+    return formData;
+  }
 }
 
 export async function POST(request: Request) {
@@ -65,6 +149,16 @@ export async function POST(request: Request) {
     if (contentType.includes('application/json')) {
       try {
         formData = JSON.parse(rawBody);
+        
+        // Process the rawRequest field if it exists
+        if (formData.rawRequest && typeof formData.rawRequest === 'string' && formData.rawRequest.startsWith('{')) {
+          try {
+            formData.parsedRequest = JSON.parse(formData.rawRequest);
+            console.log('[JotForm to SendMsg] Successfully parsed rawRequest JSON');
+          } catch (e) {
+            console.error('[JotForm to SendMsg] Failed to parse rawRequest JSON:', e);
+          }
+        }
       } catch (e) {
         console.error('[JotForm to SendMsg] Failed to parse request body as JSON:', e);
         
@@ -95,26 +189,75 @@ export async function POST(request: Request) {
           console.error('[JotForm to SendMsg] Failed to parse rawRequest:', e);
         }
       }
+    } else if (contentType.includes('multipart/form-data')) {
+      console.log('[JotForm to SendMsg] Detected multipart/form-data');
+      
+      // Extract the boundary from the content type
+      const boundaryMatch = contentType.match(/boundary=(?:"([^"]+)"|([^;]+))/i);
+      if (boundaryMatch) {
+        const boundary = boundaryMatch[1] || boundaryMatch[2];
+        formData = await parseMultipartFormData(request, boundary);
+      } else {
+        console.error('[JotForm to SendMsg] Could not extract boundary from multipart/form-data');
+      }
+      
+      // Search for a submission ID in the rawBody directly if none was found
+      if (!formData.submissionID) {
+        const submissionIdMatch = rawBody.match(/name="submissionID"\s*\r?\n\r?\n([^\r\n]+)/);
+        if (submissionIdMatch) {
+          formData.submissionID = submissionIdMatch[1].trim();
+        }
+      }
+      
+      // Look for form ID specifically
+      if (!formData.formID) {
+        const formIdMatch = rawBody.match(/name="formID"\s*\r?\n\r?\n([^\r\n]+)/);
+        if (formIdMatch) {
+          formData.formID = formIdMatch[1].trim();
+        }
+      }
     } else {
       // Unknown content type - try multiple approaches
       console.log('[JotForm to SendMsg] Unknown content type:', contentType);
       
-      // Try parsing as JSON first
-      try {
-        formData = JSON.parse(rawBody);
-      } catch (e) {
-        console.log('[JotForm to SendMsg] Not valid JSON, trying URL encoded form');
+      // Check if it's multipart/form-data without proper content-type
+      if (rawBody.includes('Content-Disposition: form-data;')) {
+        console.log('[JotForm to SendMsg] Detected multipart/form-data signature without proper content-type');
         
-        // Try as URL encoded form
-        if (rawBody.includes('=') && rawBody.includes('&')) {
-          try {
-            const params = new URLSearchParams(rawBody);
-            formData = Object.fromEntries(params.entries());
-          } catch (formError) {
-            console.error('[JotForm to SendMsg] Failed to parse as form data:', formError);
+        // Try to extract boundary from the content
+        const boundaryMatch = rawBody.match(/[-]{2,}([a-zA-Z0-9]+)/);
+        if (boundaryMatch) {
+          const boundary = boundaryMatch[1];
+          formData = await parseMultipartFormData(request, boundary);
+        }
+      } else {
+        // Try parsing as JSON first
+        try {
+          formData = JSON.parse(rawBody);
+          
+          // Process the rawRequest field if it exists
+          if (formData.rawRequest && typeof formData.rawRequest === 'string' && formData.rawRequest.startsWith('{')) {
+            try {
+              formData.parsedRequest = JSON.parse(formData.rawRequest);
+              console.log('[JotForm to SendMsg] Successfully parsed rawRequest JSON');
+            } catch (e) {
+              console.error('[JotForm to SendMsg] Failed to parse rawRequest JSON:', e);
+            }
           }
-        } else {
-          console.error('[JotForm to SendMsg] Unable to parse request body in any known format');
+        } catch (e) {
+          console.log('[JotForm to SendMsg] Not valid JSON, trying URL encoded form');
+          
+          // Try as URL encoded form
+          if (rawBody.includes('=') && rawBody.includes('&')) {
+            try {
+              const params = new URLSearchParams(rawBody);
+              formData = Object.fromEntries(params.entries());
+            } catch (formError) {
+              console.error('[JotForm to SendMsg] Failed to parse as form data:', formError);
+            }
+          } else {
+            console.error('[JotForm to SendMsg] Unable to parse request body in any known format');
+          }
         }
       }
     }
@@ -126,7 +269,7 @@ export async function POST(request: Request) {
     // These arrays contain potential field identifiers that could match in the JotForm data
     const name = extractFieldValue(formData, ['name', 'fullname', 'full name', 'שם', 'שם מלא']);
     const email = extractFieldValue(formData, ['email', 'mail', 'אימייל', 'מייל', 'דוא"ל']);
-    const cellphone = extractFieldValue(formData, ['phone', 'cellphone', 'mobile', 'טלפון', 'נייד', 'סלולרי']);
+    const cellphone = extractFieldValue(formData, ['phone', 'cellphone', 'mobile', 'טלפון', 'נייד', 'סלולרי', 'מספר טלפון']);
     const birthdate = extractFieldValue(formData, ['birth', 'birthday', 'date of birth', 'תאריך לידה', 'יום הולדת']);
     
     // Look for a hidden field that contains the SendMsg form ID
@@ -192,6 +335,7 @@ export async function POST(request: Request) {
           birthdate: formattedBirthdate,
           sendMsgFormId: sendMsgFormId || defaultFormId
         },
+        formDataKeys: Object.keys(formData),
         receivedContentType: contentType
       }
     }, { status: 200 });
@@ -204,4 +348,4 @@ export async function POST(request: Request) {
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 200 });
   }
-} 
+}

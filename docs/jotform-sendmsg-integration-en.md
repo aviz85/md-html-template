@@ -54,7 +54,30 @@ To connect your JotForm form to our endpoint:
 The endpoint supports several formats for receiving data:
 1. **JSON** - When data is sent in JSON format with a Content-Type of `application/json`
 2. **Form URL Encoded** - When data is sent in URL-encoded format with a Content-Type of `application/x-www-form-urlencoded`
-3. **Non-standard Formats** - The system tries to identify and parse data sent in other formats or with mismatched Content-Type
+3. **Multipart Form Data** - When data is sent in multipart/form-data format (common in forms that include file uploads)
+4. **Non-standard Formats** - The system tries to identify and parse data sent in other formats or with mismatched Content-Type
+
+### JotForm Data Structure
+
+JotForm sends form data in a JSON format that includes various fields, with the most important being:
+
+1. **formID** - The JotForm form identifier
+2. **submissionID** - A unique identifier for the specific submission
+3. **pretty** - A well-formatted string containing all form data in the format: `field name:value, another field name:another value`
+4. **rawRequest** - A JSON string containing all the detailed form data
+
+Example of data structure coming from JotForm:
+```json
+{
+  "formID": "250364461330448",
+  "submissionID": "6171250462311175586",
+  "formTitle": "Sharoni",
+  "pretty": "Full Name:John Doe, Email:example@example.com, Phone Number:(123) 123-1232, Gender:Male",
+  "rawRequest": "{\"q27_input27\":\"John Doe\",\"q5_input5\":\"example@example.com\"...}"
+}
+```
+
+The system is smart enough to extract the relevant data from any of these fields, preferring the more structured format of the `pretty` or `rawRequest` fields.
 
 ## Customization for Different Clients
 
@@ -101,11 +124,17 @@ The system includes improved debugging capabilities:
    - If a JSON error appears in the logs, check the format of the data being sent from JotForm
    - The system will try to recover from JSON parsing errors by attempting to parse the data as URL-encoded form
    
-3. **Missing or incorrect data sent to SendMsg**
+3. **Issues with Multipart Form Data**
+   - JotForm sometimes sends data in multipart/form-data format, especially in requests that include files
+   - The system automatically detects this format even if the Content-Type is not correctly defined
+   - If you see content in the logs that starts with `Content-Disposition: form-data;`, this is a sign that this format is being used
+
+4. **Missing or incorrect data sent to SendMsg**
    - Make sure the fields in the JotForm form contain the strings in the field names that the system is looking for
    - Check if the fields use different names than what the system is looking for
+   - Check the `pretty` field in the logs to see how JotForm names the fields
 
-4. **Date format issues**
+5. **Date format issues**
    - The system tries to convert dates to the required format (DD-MM-YYYY)
    - If the date is in a format that cannot be parsed, adjust the format in the JotForm form
 
@@ -155,4 +184,7 @@ Currently, the integration is specifically tailored to the JotForm format. If su
 Yes, the system includes advanced mechanisms for handling parsing errors:
 - It will try to interpret the data in different formats
 - It reports in detail in the logs about the parsing process
-- Even if some fields are not identified, it will continue and send the data that was identified to the SendMsg server 
+- Even if some fields are not identified, it will continue and send the data that was identified to the SendMsg server
+
+### Does the integration support file uploads?
+The system is capable of parsing multipart/form-data requests in which JotForm sends the data, but the integration does not transfer files to SendMsg. It only extracts the required information fields (name, email, phone, date of birth) and sends them. 
