@@ -51,20 +51,44 @@ export async function POST(request: Request) {
   try {
     console.log('[JotForm to SendMsg] Starting to process request...');
     
+    // Capture the request body for logging
+    const requestClone = request.clone();
+    const rawBody = await requestClone.text();
+    
+    // For debugging: Log the raw request body
+    console.log('[JotForm to SendMsg] Raw request body:', rawBody.substring(0, 500) + (rawBody.length > 500 ? '...' : ''));
+    
     // Parse the request body
     const contentType = request.headers.get('content-type') || '';
-    let formData: JotFormSubmission;
+    let formData: JotFormSubmission = {};
     
     if (contentType.includes('application/json')) {
-      formData = await request.json();
+      try {
+        formData = JSON.parse(rawBody);
+      } catch (e) {
+        console.error('[JotForm to SendMsg] Failed to parse request body as JSON:', e);
+        
+        // Try to recover - maybe it's URL encoded but with wrong content type
+        if (rawBody.includes('=') && rawBody.includes('&')) {
+          try {
+            const params = new URLSearchParams(rawBody);
+            formData = Object.fromEntries(params.entries());
+            console.log('[JotForm to SendMsg] Recovered by parsing as URL encoded form data');
+          } catch (formError) {
+            console.error('[JotForm to SendMsg] Failed to recover by parsing as form data:', formError);
+          }
+        }
+      }
     } else if (contentType.includes('application/x-www-form-urlencoded')) {
-      const formUrlEncoded = await request.text();
-      const params = new URLSearchParams(formUrlEncoded);
-      
-      formData = Object.fromEntries(params.entries());
+      try {
+        const params = new URLSearchParams(rawBody);
+        formData = Object.fromEntries(params.entries());
+      } catch (e) {
+        console.error('[JotForm to SendMsg] Failed to parse form data:', e);
+      }
       
       // Parse rawRequest if it exists and looks like JSON
-      if (formData.rawRequest && formData.rawRequest.startsWith('{')) {
+      if (formData.rawRequest && typeof formData.rawRequest === 'string' && formData.rawRequest.startsWith('{')) {
         try {
           formData.parsedRequest = JSON.parse(formData.rawRequest);
         } catch (e) {
@@ -72,15 +96,31 @@ export async function POST(request: Request) {
         }
       }
     } else {
-      // Fallback to text
-      const text = await request.text();
+      // Unknown content type - try multiple approaches
+      console.log('[JotForm to SendMsg] Unknown content type:', contentType);
+      
+      // Try parsing as JSON first
       try {
-        formData = JSON.parse(text);
+        formData = JSON.parse(rawBody);
       } catch (e) {
-        console.error('[JotForm to SendMsg] Failed to parse request body as JSON:', e);
-        formData = { rawText: text };
+        console.log('[JotForm to SendMsg] Not valid JSON, trying URL encoded form');
+        
+        // Try as URL encoded form
+        if (rawBody.includes('=') && rawBody.includes('&')) {
+          try {
+            const params = new URLSearchParams(rawBody);
+            formData = Object.fromEntries(params.entries());
+          } catch (formError) {
+            console.error('[JotForm to SendMsg] Failed to parse as form data:', formError);
+          }
+        } else {
+          console.error('[JotForm to SendMsg] Unable to parse request body in any known format');
+        }
       }
     }
+    
+    // Log the parsed form data for debugging
+    console.log('[JotForm to SendMsg] Parsed form data:', JSON.stringify(formData, null, 2).substring(0, 500) + (JSON.stringify(formData, null, 2).length > 500 ? '...' : ''));
     
     // Extract required fields for SendMsg API
     // These arrays contain potential field identifiers that could match in the JotForm data
@@ -145,13 +185,14 @@ export async function POST(request: Request) {
       message: isSuccess ? 'Data successfully sent to SendMsg' : 'Failed to send data to SendMsg',
       details: {
         sendMsgResponseStatus: sendMsgResponse.status,
-        extractedFields: {
+        parsedFields: {
           name,
           email,
           cellphone,
           birthdate: formattedBirthdate,
           sendMsgFormId: sendMsgFormId || defaultFormId
-        }
+        },
+        receivedContentType: contentType
       }
     }, { status: 200 });
     

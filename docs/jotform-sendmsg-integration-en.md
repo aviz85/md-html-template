@@ -49,6 +49,13 @@ To connect your JotForm form to our endpoint:
    - For other clients: `https://[your-domain]/api/jotform-to-sendmsg`
 5. Click on "Complete Integration"
 
+### Supported Format Types
+
+The endpoint supports several formats for receiving data:
+1. **JSON** - When data is sent in JSON format with a Content-Type of `application/json`
+2. **Form URL Encoded** - When data is sent in URL-encoded format with a Content-Type of `application/x-www-form-urlencoded`
+3. **Non-standard Formats** - The system tries to identify and parse data sent in other formats or with mismatched Content-Type
+
 ## Customization for Different Clients
 
 There are two options to customize the integration for different clients:
@@ -76,17 +83,29 @@ When a problem occurs, you can check the logs in Vercel:
 4. Click on "Functions" and then on the relevant function
 5. Check the logs to identify possible issues
 
+### Enhanced Error Analysis
+The system includes improved debugging capabilities:
+1. **Raw Request Body Logging** - The original data received from JotForm is logged
+2. **Recovery Attempts** - The system tries different formats for parsing data if the initial parsing fails
+3. **Extraction Results Logging** - The system reports on the fields it was able to extract
+4. **Response Details Logging** - The response from the SendMsg server is logged
+
 ### Common Issues
 
 1. **No data received from JotForm**
    - Make sure the webhook is correctly configured in JotForm
    - Check logs for parsing errors
+   - Verify that you are using the correct URL for setting up the webhook
    
-2. **Missing or incorrect data sent to SendMsg**
+2. **JSON Parsing Errors**
+   - If a JSON error appears in the logs, check the format of the data being sent from JotForm
+   - The system will try to recover from JSON parsing errors by attempting to parse the data as URL-encoded form
+   
+3. **Missing or incorrect data sent to SendMsg**
    - Make sure the fields in the JotForm form contain the strings in the field names that the system is looking for
    - Check if the fields use different names than what the system is looking for
 
-3. **Date format issues**
+4. **Date format issues**
    - The system tries to convert dates to the required format (DD-MM-YYYY)
    - If the date is in a format that cannot be parsed, adjust the format in the JotForm form
 
@@ -130,4 +149,10 @@ Currently, the integration supports the following fields:
 If you need to add additional fields, you need to update the code in route.ts.
 
 ### Does the integration work with form types other than JotForm?
-Currently, the integration is specifically tailored to the JotForm format. If support for other form types is needed, separate endpoints should be created or the logic adapted for additional formats. 
+Currently, the integration is specifically tailored to the JotForm format. If support for other form types is needed, separate endpoints should be created or the logic adapted for additional formats.
+
+### Is the system resistant to parsing errors?
+Yes, the system includes advanced mechanisms for handling parsing errors:
+- It will try to interpret the data in different formats
+- It reports in detail in the logs about the parsing process
+- Even if some fields are not identified, it will continue and send the data that was identified to the SendMsg server 
