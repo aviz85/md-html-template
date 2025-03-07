@@ -12,8 +12,26 @@ interface JotFormSubmission {
   [key: string]: any;
 }
 
+// Email regex pattern for validation
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+// Phone regex pattern for validation
+const PHONE_REGEX = /^[\d\s()+-.]{7,20}$/;
+
+// Helper function to check if a string looks like an email
+function isValidEmail(value: string): boolean {
+  return typeof value === 'string' && EMAIL_REGEX.test(value);
+}
+
+// Helper function to check if a string looks like a phone number
+function isValidPhone(value: string): boolean {
+  return typeof value === 'string' && PHONE_REGEX.test(value);
+}
+
 // Helper function to extract form field values from different JotForm formats
-function extractFieldValue(formData: any, fieldIdentifiers: string[]): string | null {
+function extractFieldValue(formData: any, fieldIdentifiers: string[], validator?: (value: string) => boolean): string | null {
+  const candidates: string[] = [];
+  
   // Try to extract from parsedRequest if it exists
   if (formData.parsedRequest) {
     for (const identifier of fieldIdentifiers) {
@@ -27,8 +45,11 @@ function extractFieldValue(formData: any, fieldIdentifiers: string[]): string | 
             (field.text && fieldIdentifiers.some(id => field.text.toLowerCase().includes(id.toLowerCase()))) ||
             (field.title && fieldIdentifiers.some(id => field.title.toLowerCase().includes(id.toLowerCase()))))) {
           
-          // Return the answer/value
-          return field.answer || field.value || null;
+          // Get the answer/value
+          const value = field.answer || field.value;
+          if (value) {
+            candidates.push(value);
+          }
         }
       }
     }
@@ -46,7 +67,7 @@ function extractFieldValue(formData: any, fieldIdentifiers: string[]): string | 
       for (const regex of regexPatterns) {
         const match = formData.pretty.match(regex);
         if (match && match[1]) {
-          return match[1].trim();
+          candidates.push(match[1].trim());
         }
       }
     }
@@ -56,13 +77,23 @@ function extractFieldValue(formData: any, fieldIdentifiers: string[]): string | 
   for (const identifier of fieldIdentifiers) {
     for (const key in formData) {
       if (key.toLowerCase().includes(identifier.toLowerCase()) && formData[key]) {
-        return formData[key];
+        candidates.push(formData[key]);
       }
     }
   }
-
-  // If we couldn't find a value, return null
-  return null;
+  
+  // If we have a validator function, prioritize values that pass validation
+  if (validator && candidates.length > 0) {
+    // First try to find a valid candidate
+    for (const candidate of candidates) {
+      if (validator(candidate)) {
+        return candidate;
+      }
+    }
+  }
+  
+  // Fall back to the first candidate if we have any
+  return candidates.length > 0 ? candidates[0] : null;
 }
 
 // Function to parse multipart/form-data format
@@ -266,16 +297,39 @@ export async function POST(request: Request) {
     // Log the parsed form data for debugging
     console.log('[JotForm to SendMsg] Parsed form data:', JSON.stringify(formData, null, 2).substring(0, 500) + (JSON.stringify(formData, null, 2).length > 500 ? '...' : ''));
     
-    // Extract required fields for SendMsg API
+    // Extract required fields for SendMsg API with validators
     // These arrays contain potential field identifiers that could match in the JotForm data
     const name = extractFieldValue(formData, ['name', 'fullname', 'full name', 'שם', 'שם מלא']);
-    const email = extractFieldValue(formData, ['email', 'mail', 'אימייל', 'מייל', 'דוא"ל']);
-    const cellphone = extractFieldValue(formData, ['phone', 'cellphone', 'mobile', 'טלפון', 'נייד', 'סלולרי', 'מספר טלפון']);
+    const email = extractFieldValue(formData, ['email', 'mail', 'אימייל', 'מייל', 'דוא"ל'], isValidEmail);
+    const cellphone = extractFieldValue(formData, ['phone', 'cellphone', 'mobile', 'טלפון', 'נייד', 'סלולרי', 'מספר טלפון'], isValidPhone);
     const birthdate = extractFieldValue(formData, ['birth', 'birthday', 'date of birth', 'תאריך לידה', 'יום הולדת']);
     
     // Look for a hidden field that contains the SendMsg form ID
     const sendMsgFormId = extractFieldValue(formData, ['sendmsg_form_id', 'sendmsg_form', 'sendmsg', 'form_id', 'מזהה טופס']);
     const defaultFormId = '338449__65661e0b-29e9-45ab-ad81-3470de641084'; // Default form ID
+    
+    // Additional fallback search for email in all form fields if not found
+    let finalEmail = email;
+    if (!isValidEmail(finalEmail || '')) {
+      // If the email wasn't found or isn't valid, search all fields for an email pattern
+      for (const key in formData) {
+        const val = formData[key];
+        if (typeof val === 'string' && isValidEmail(val)) {
+          finalEmail = val;
+          console.log(`[JotForm to SendMsg] Found email in field ${key}: ${val}`);
+          break;
+        }
+      }
+      
+      // Also check the pretty field with a regex that can extract emails
+      if (!finalEmail && formData.pretty && typeof formData.pretty === 'string') {
+        const emailMatch = formData.pretty.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+        if (emailMatch && emailMatch[1]) {
+          finalEmail = emailMatch[1];
+          console.log(`[JotForm to SendMsg] Extracted email from pretty field: ${finalEmail}`);
+        }
+      }
+    }
     
     // Format birthdate if needed (assuming it could be in various formats)
     let formattedBirthdate = birthdate;
@@ -297,7 +351,7 @@ export async function POST(request: Request) {
     // Log the extracted fields for debugging
     console.log('[JotForm to SendMsg] Extracted fields:', {
       name,
-      email,
+      email: finalEmail,
       cellphone,
       birthdate: formattedBirthdate,
       sendMsgFormId: sendMsgFormId || defaultFormId
@@ -306,7 +360,7 @@ export async function POST(request: Request) {
     // Create the payload for SendMsg
     const sendMsgPayload = new URLSearchParams();
     if (name) sendMsgPayload.append('4', name);
-    if (email) sendMsgPayload.append('email', email);
+    if (finalEmail) sendMsgPayload.append('email', finalEmail);
     if (cellphone) sendMsgPayload.append('cellphone', cellphone);
     if (formattedBirthdate) sendMsgPayload.append('6', formattedBirthdate);
     
@@ -340,7 +394,7 @@ export async function POST(request: Request) {
         sendMsgResponseStatus: sendMsgResponse.status,
         parsedFields: {
           name,
-          email,
+          email: finalEmail,
           cellphone,
           birthdate: formattedBirthdate,
           sendMsgFormId: sendMsgFormId || defaultFormId
