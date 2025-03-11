@@ -55,7 +55,7 @@ export function generateCustomFontFaces(fonts: Array<{
   font_display?: string 
 }>) {
   return fonts.map(font => {
-    const format = font.format === 'ttf' ? 'truetype' : font.format;
+    const format = getFormatString(font.format);
     const fullUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/storage/${font.file_path}`;
     const weights = font.weight_range || [400];
     
