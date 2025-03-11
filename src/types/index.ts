@@ -24,12 +24,15 @@ export interface CustomContent {
   content: string
 }
 
-export interface CustomFont {
-  name: string
-  file_path: string
-  font_family: string
-  format: string
-}
+export type CustomFont = {
+  name: string;
+  font_family: string;
+  file_path: string;
+  format: string;
+  weight_range?: number[];
+  has_italic?: boolean;
+  font_display?: string;
+};
 
 export interface TemplateStyles {
   bodyBackground?: string

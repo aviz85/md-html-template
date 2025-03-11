@@ -33,7 +33,7 @@ import { Label } from "@/components/ui/label"
 import { ColorPicker } from "@/components/ui/color-picker"
 import { format } from 'date-fns'
 import { EmailEditor } from './email-editor'
-import { ElementStyle, LogoPosition } from "@/types"
+import { ElementStyle, LogoPosition, CustomFont } from "@/types"
 
 type ElementType = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "list" | "p" | "specialParagraph" | "header" | "footer" | "main" | "prose"
 

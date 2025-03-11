@@ -7,13 +7,8 @@ import rehypeRaw from 'rehype-raw';
 import { motion, AnimatePresence } from 'framer-motion';
 import { marked } from 'marked';
 import type { Components } from 'react-markdown';
-import { configureMarked } from '@/lib/constants';
-
-type CustomFont = {
-  font_family: string;
-  file_path: string;
-  format?: string;
-};
+import { configureMarked, generateCustomFontFaces } from '@/lib/constants';
+import type { CustomFont } from '@/types';
 
 type Logo = {
   id: string;
@@ -263,7 +258,8 @@ function ResultsContent() {
         console.log('Received response:', {
           status: submission?.status,
           hasResult: !!submission?.result,
-          hasTemplate: !!templateData
+          hasTemplate: !!templateData,
+          customFonts: templateData?.custom_fonts
         });
 
         // Found the submission - switch to regular polling mode
@@ -278,6 +274,85 @@ function ResultsContent() {
           setProgress({ stage: 'success', message: submission.progress?.message || 'העיבוד הושלם בהצלחה' });
           setResult(submission.result);
           setStatus('completed');
+          
+          // Load custom fonts if available
+          if (templateData?.custom_fonts?.length) {
+            console.log('Loading custom fonts:', templateData.custom_fonts);
+            try {
+              // Validate font data before generating
+              const validatedFonts = templateData.custom_fonts.map((font: CustomFont) => {
+                const issues: string[] = [];
+                
+                if (!font.name) issues.push('Missing font name');
+                if (!font.file_path) issues.push('Missing file path');
+                if (!font.font_family) issues.push('Missing font family');
+                if (!font.format) issues.push('Missing format');
+                
+                // Check if format is supported
+                const supportedFormats = ['woff2', 'woff', 'ttf', 'otf'];
+                if (!supportedFormats.includes(font.format.toLowerCase())) {
+                  issues.push(`Unsupported format: ${font.format}`);
+                }
+                
+                // Log any issues but don't break
+                if (issues.length > 0) {
+                  console.warn(`Issues with font "${font.name || 'unnamed'}":\n`, issues.join('\n'));
+                }
+                
+                // Return font data with defaults if needed
+                return {
+                  name: font.name || 'fallback-font',
+                  font_family: font.font_family || font.name || 'fallback-font',
+                  file_path: font.file_path || '',
+                  format: supportedFormats.includes(font.format?.toLowerCase()) ? font.format : 'woff2',
+                  weight_range: font.weight_range || [400],
+                  has_italic: font.has_italic || false,
+                  font_display: font.font_display || 'swap'
+                };
+              });
+
+              const customFontFaces = generateCustomFontFaces(validatedFonts);
+              console.log('Generated @font-face rules:', customFontFaces);
+              
+              // Add font loading error detection
+              const styleElement = document.createElement('style');
+              styleElement.textContent = customFontFaces;
+              document.head.appendChild(styleElement);
+              console.log('Successfully added custom fonts to document head');
+
+              // Monitor font loading
+              validatedFonts.forEach((font: CustomFont) => {
+                if ('fonts' in document) {
+                  // @ts-ignore - FontFace API
+                  document.fonts.ready.then(() => {
+                    // Check if font loaded successfully
+                    const testString = 'Test';
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    if (context) {
+                      const originalFont = context.font;
+                      context.font = `16px "${font.name}"`;
+                      
+                      if (context.font === originalFont) {
+                        console.warn(`Font "${font.name}" might not have loaded correctly`);
+                      } else {
+                        console.log(`Font "${font.name}" loaded successfully`);
+                      }
+                    }
+                  }).catch(err => {
+                    console.warn(`Error checking font "${font.name}" loading status:`, err);
+                  });
+                }
+              });
+
+            } catch (error) {
+              console.error('Error in font processing:', error);
+              // Don't throw - continue with default fonts
+            }
+          } else {
+            console.log('No custom fonts to load');
+          }
+          
           setTemplate(templateData);
           setIsLoading(false);
           if (timeoutId) {

@@ -85,12 +85,12 @@ export function generateCustomFontFaces(fonts: Array<{
 
 // Helper function to get the format string for @font-face
 function getFormatString(format: string): string {
-  switch (format) {
+  switch (format.toLowerCase()) {
     case 'woff2': return 'woff2';
     case 'woff': return 'woff';
     case 'ttf': return 'truetype';
     case 'otf': return 'opentype';
-    default: return 'woff2';
+    default: return format;
   }
 }
 
