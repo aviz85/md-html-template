@@ -59,15 +59,6 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
   const [fontName, setFontName] = useState("")
   const [fontFile, setFontFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
-  const [availableFonts, setAvailableFonts] = useState(FONT_FAMILIES)
-
-  useEffect(() => {
-    const loadFonts = async () => {
-      const customFonts = await loadCustomFonts();
-      setAvailableFonts(prev => ({ ...prev, ...customFonts }));
-    };
-    loadFonts();
-  }, []);
 
   const handleChange = (key: keyof ElementStyle) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     let value = e.target.value.trim()
@@ -124,12 +115,6 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
         })
 
       if (dbError) throw dbError
-
-      // Add the new font to the available fonts
-      setAvailableFonts(prev => ({
-        ...prev,
-        [fontName]: `'${fontName}', sans-serif`
-      }));
 
       toast({
         title: TRANSLATIONS.success,

@@ -22,10 +22,14 @@ export const FONT_FAMILIES = {
 } as const;
 
 // Function to load custom fonts from Supabase
-export const loadCustomFonts = async () => {
-  const { data: fonts, error } = await supabase
-    .from('custom_fonts')
-    .select('*');
+export const loadCustomFonts = async (templateId?: string) => {
+  let query = supabase.from('custom_fonts').select('*');
+  
+  if (templateId) {
+    query = query.eq('template_id', templateId);
+  }
+
+  const { data: fonts, error } = await query;
 
   if (error) {
     console.error('Error loading custom fonts:', error);

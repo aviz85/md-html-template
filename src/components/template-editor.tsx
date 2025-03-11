@@ -261,6 +261,47 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     }
   }, [templateId]);
 
+  // Load template data including fonts
+  useEffect(() => {
+    const loadTemplateData = async () => {
+      if (!templateId) return;
+      
+      // Load template fonts
+      const { data: fonts, error } = await supabase
+        .from('custom_fonts')
+        .select('*')
+        .eq('template_id', templateId)
+        .order('created_at', { ascending: false });
+        
+      if (!error && fonts) {
+        setCustomFonts(fonts);
+      } else if (error) {
+        console.error('Error loading template fonts:', error);
+      }
+    };
+    
+    loadTemplateData();
+  }, [templateId]);
+
+  // Update template with new fonts
+  const updateTemplateWithFonts = async (fonts: CustomFont[]) => {
+    if (!templateId) return;
+
+    const { error } = await supabase
+      .from('templates')
+      .update({ custom_fonts: fonts })
+      .eq('id', templateId);
+      
+    if (error) {
+      console.error('Failed to update template fonts:', error);
+      toast({
+        variant: "destructive",
+        title: TRANSLATIONS.error,
+        description: "Failed to update template fonts"
+      });
+    }
+  };
+
   const parseCSS = (css: string) => {
     const styles: Template["elementStyles"] = {
       body: {},
@@ -402,21 +443,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       const { fonts } = await response.json()
       setCustomFonts(fonts || [])
 
-      // Update only the custom_fonts field in the template
-      const updateResponse = await fetch('/api/templates', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: templateId,
-          custom_fonts: fonts
-        }),
-      })
-
-      if (!updateResponse.ok) {
-        throw new Error('Failed to update template')
-      }
+      // Update template with new fonts
+      await updateTemplateWithFonts(fonts || [])
 
       toast({
         title: TRANSLATIONS.success,
