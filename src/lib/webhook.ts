@@ -285,56 +285,37 @@ export function findCustomerDetails(formData: any): WebhookPayload['customer'] {
   return customer;
 }
 
-export async function sendWebhook(submissionId: string): Promise<void> {
+export async function sendWebhook(submission: any): Promise<void> {
   try {
-    console.log('Starting webhook process for submission:', submissionId);
+    console.log('Starting webhook process for submission:', submission.submission_id);
     
-    // Fetch submission and template data
-    const { data: submission } = await supabaseAdmin
-      .from('form_submissions')
-      .select(`
-        *,
-        template:templates!left (
-          id,
-          webhook_url,
-          send_email,
-          send_whatsapp,
-          email_subject,
-          email_body,
-          email_from
-        )
-      `)
-      .eq('submission_id', submissionId)
-      .single();
-
-    if (!submission) {
-      console.error('No submission found for ID:', submissionId);
-      throw new Error('Submission not found');
+    // Get webhook URL from template
+    const webhookUrl = submission.template?.webhook_url;
+    if (!webhookUrl) {
+      console.log('No webhook URL configured for this template');
+      return;
     }
 
-    const webhookUrl = submission.template?.webhook_url;
-    const formData = submission.content?.form_data || submission.content || {};
-    const customer = findCustomerDetails(formData);
-
-    // Update recipient info
+    // Update status to sending
     await supabaseAdmin
       .from('form_submissions')
       .update({
-        recipient_email: customer.email,
-        recipient_phone: customer.phone
+        webhook_status: 'sending',
+        webhook_sent_at: new Date().toISOString()
       })
-      .eq('submission_id', submissionId);
+      .eq('submission_id', submission.submission_id);
+
+    const formData = submission.content?.form_data || submission.content || {};
+    const customer = findCustomerDetails(formData);
 
     // Build results URL
     const resultsUrl = new URL('/results', 'https://md-html-template.vercel.app');
-    resultsUrl.searchParams.set('s', submissionId);
+    resultsUrl.searchParams.set('s', submission.submission_id);
 
-    console.log('Generated results URL:', resultsUrl.toString());
-
-    const payload: WebhookPayload = {
+    const payload = {
       form: {
         id: submission.form_id,
-        submission_id: submissionId,
+        submission_id: submission.submission_id,
         results_url: resultsUrl.toString()
       },
       customer,
@@ -342,29 +323,47 @@ export async function sendWebhook(submissionId: string): Promise<void> {
       result: submission.result
     };
 
-    // Send webhook if configured
-    if (webhookUrl) {
-      console.log('Sending webhook to:', webhookUrl);
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
+    console.log('Sending webhook to:', webhookUrl);
+    console.log('Webhook payload:', JSON.stringify(payload, null, 2));
 
-      if (!response.ok) {
-        throw new Error(`Webhook failed with status ${response.status}`);
-      }
+    // Send webhook
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Webhook failed with status ${response.status}: ${errorText}`);
     }
 
-    // Send WhatsApp if enabled
-    if (submission.template?.send_whatsapp) {
-      await sendWhatsAppMessage(submissionId);
-    }
+    // Update success status
+    await supabaseAdmin
+      .from('form_submissions')
+      .update({
+        webhook_status: 'completed',
+        webhook_sent_at: new Date().toISOString()
+      })
+      .eq('submission_id', submission.submission_id);
+
+    console.log('Webhook sent successfully');
 
   } catch (error) {
     console.error('Error in webhook process:', error);
+    
+    // Update error status
+    await supabaseAdmin
+      .from('form_submissions')
+      .update({
+        webhook_status: 'error',
+        webhook_error: error instanceof Error ? error.message : 'Unknown error',
+        webhook_sent_at: new Date().toISOString()
+      })
+      .eq('submission_id', submission.submission_id);
+
     throw error;
   }
 }

@@ -374,7 +374,7 @@ async function handleRequest(req: Request) {
                 const webhookUrl = template.webhook_url.trim();
                 if (/^https?:\/\/.+/.test(webhookUrl)) {
                   console.log('🔗 Starting webhook process:', webhookUrl);
-                  await sendWebhook(submissionId);
+                  await sendWebhook({...currentSubmission, template});
                   console.log('✅ Webhook sent successfully');
                 } else {
                   console.warn('⚠️ Invalid webhook URL format:', webhookUrl);
