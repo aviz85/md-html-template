@@ -28,6 +28,27 @@ function isMP3(url: string): boolean {
   return url.toLowerCase().endsWith('.mp3');
 }
 
+// New function to claim a task with proper locking
+async function claimNextPendingTask(supabase: any, workerId: string) {
+  // Create a 30-second lock window
+  const lockTime = new Date();
+  lockTime.setSeconds(lockTime.getSeconds() + 30);
+  const lockTimeStr = lockTime.toISOString();
+  
+  // Use a transaction to safely claim a task
+  const { data, error } = await supabase.rpc('claim_next_pending_task', {
+    worker_id: workerId,
+    lock_until: lockTimeStr
+  });
+  
+  if (error || !data) {
+    console.log('No pending tasks found or error claiming task:', error);
+    return null;
+  }
+  
+  return data;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -39,9 +60,40 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Handle POST request for new transcription
+    // Process general task queue requests
     if (req.method === 'POST') {
-      const { url, preferredLanguage } = await req.json()
+      const body = await req.json();
+      
+      // Check if this is a worker claiming a task
+      if (body.worker_id) {
+        const workerId = body.worker_id;
+        console.log(`Worker ${workerId} claiming next task`);
+        
+        // Claim next task with locking
+        const task = await claimNextPendingTask(supabase, workerId);
+        
+        if (!task) {
+          return new Response(
+            JSON.stringify({ message: 'No pending tasks available' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Process the task based on its type
+        // This is where you'd implement the specific task processing logic
+        // For now just returning that we claimed it
+        return new Response(
+          JSON.stringify({ 
+            message: 'Task claimed successfully',
+            task_id: task.id,
+            task_type: task.task_type
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Handle transcription request with URL
+      const { url, preferredLanguage } = body;
       
       if (!url) {
         return new Response(

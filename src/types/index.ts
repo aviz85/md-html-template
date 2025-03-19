@@ -63,6 +63,7 @@ export interface Template {
   whatsapp_message?: string
   preprocessing_webhook_url?: string
   use_optimized_prompting?: boolean
+  allow_single_email_submission?: boolean
 }
 
 export interface MediaFile {

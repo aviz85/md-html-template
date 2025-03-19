@@ -72,6 +72,7 @@ interface Template {
   whatsapp_message?: string
   preprocessing_webhook_url?: string
   use_optimized_prompting?: boolean
+  allow_single_email_submission?: boolean
 }
 
 interface SubmissionStatus {
@@ -231,6 +232,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
   const [webhookUrl, setWebhookUrl] = useState("")
   const [sendWhatsapp, setSendWhatsapp] = useState(false)
   const [whatsappMessage, setWhatsappMessage] = useState("")
+  const [allowSingleEmailSubmission, setAllowSingleEmailSubmission] = useState(false)
 
   useEffect(() => {
     if (templateId) {
@@ -508,7 +510,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         setTemplate({
           ...template,
           preprocessing_webhook_url: template.preprocessing_webhook_url || "",
-          use_optimized_prompting: template.use_optimized_prompting || false
+          use_optimized_prompting: template.use_optimized_prompting || false,
+          allow_single_email_submission: template.allow_single_email_submission || false
         })
         
         setElementStyles(template.element_styles || {
@@ -658,6 +661,7 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
         setEmailSubject(template.email_subject || "")
         setEmailBody(template.email_body || "")
         setEmailFrom(template.email_from || "")
+        setAllowSingleEmailSubmission(template.allow_single_email_submission || false)
       }
     } catch (error) {
       console.error('❌ Error in loadTemplate:', error);
@@ -949,7 +953,8 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           send_whatsapp: sendWhatsapp,
           whatsapp_message: whatsappMessage,
           preprocessing_webhook_url: template?.preprocessing_webhook_url || "",
-          use_optimized_prompting: template?.use_optimized_prompting || false
+          use_optimized_prompting: template?.use_optimized_prompting || false,
+          allow_single_email_submission: allowSingleEmailSubmission
         })
         .select()
         .single();
@@ -1733,6 +1738,25 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
             <label htmlFor="sendEmail" className="text-sm font-medium">
               שלח מייל לאחר שליחת הטופס
             </label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="allowSingleEmailSubmission"
+              checked={allowSingleEmailSubmission}
+              onChange={(e) => setAllowSingleEmailSubmission(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <label htmlFor="allowSingleEmailSubmission" className="text-sm font-medium">
+              אפשר למייל למלא את הטופס פעם אחת בלבד
+            </label>
+            <div className="relative group">
+              <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+              <div className="absolute z-50 hidden group-hover:block bg-black text-white p-2 rounded shadow-lg -left-40 w-60 text-xs mt-1">
+                כאשר האפשרות מופעלת, כל כתובת מייל תוכל למלא את הטופס פעם אחת בלבד. אם אותה כתובת תנסה למלא את הטופס שוב, השליחה תיחסם.
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">

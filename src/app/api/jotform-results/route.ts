@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { processSubmission } from '@/lib/claude';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { findEmailInFormData } from '@/lib/email';
 
 // Add type for form data
 interface FormData {
@@ -863,6 +864,78 @@ export async function POST(request: Request) {
       }
 
       submission = data;
+
+      // Check for the "single email submission" restriction if email is present
+      try {
+        // Extract email from the form data
+        const formDataObj = formData.parsedRequest || formData;
+        const email = findEmailInFormData(formDataObj);
+        
+        if (email) {
+          // Store the email in the form_submissions record
+          await supabaseAdmin
+            .from('form_submissions')
+            .update({
+              recipient_email: email
+            })
+            .eq('submission_id', submission.submission_id);
+            
+          // Check if this form has the single email restriction enabled
+          const { data: template } = await supabaseAdmin
+            .from('templates')
+            .select('allow_single_email_submission')
+            .eq('form_id', formData.formID)
+            .single();
+            
+          if (template?.allow_single_email_submission) {
+            console.log(`[JotForm Webhook] Single email submission check enabled for form ${formData.formID}`);
+            
+            // Check for previous submissions with this email
+            const { data: existingSubmissions, error: existingError } = await supabaseAdmin
+              .from('form_submissions')
+              .select('id, submission_id, created_at')
+              .eq('form_id', formData.formID)
+              .eq('recipient_email', email)
+              .neq('submission_id', submission.submission_id) // Exclude current submission
+              .order('created_at', { ascending: false });
+              
+            if (existingError) {
+              console.error('[JotForm Webhook] Error checking existing submissions:', existingError);
+            } else if (existingSubmissions && existingSubmissions.length > 0) {
+              // Found existing submission(s) with this email
+              console.log(`[JotForm Webhook] Found ${existingSubmissions.length} existing submissions from email ${email}`);
+              
+              // Update status to blocked
+              await supabaseAdmin
+                .from('form_submissions')
+                .update({
+                  status: 'blocked_duplicate_email',
+                  progress: {
+                    stage: 'duplicate_email_check',
+                    message: 'Submission blocked: This email has already submitted the form'
+                  }
+                })
+                .eq('submission_id', submission.submission_id);
+                
+              return NextResponse.json({
+                status: 'error',
+                message: 'Duplicate submission: This email has already submitted the form',
+                submissionId: submission.submission_id,
+                previousSubmission: existingSubmissions[0].submission_id,
+                links: {
+                  status: `/api/submission/status?id=${submission.submission_id}`,
+                  results: `/results?s=${existingSubmissions[0].submission_id}`
+                }
+              }, { status: 200 });
+            } else {
+              console.log(`[JotForm Webhook] No existing submissions found for email ${email}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[JotForm Webhook] Error checking email restrictions:', error);
+        // Continue processing - don't block the submission if the check fails
+      }
 
       // If we have audio files, handle them in a separate flow
       if (audioFiles.length > 0) {
