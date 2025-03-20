@@ -54,7 +54,7 @@ interface StyleEditorProps {
   }>
 }
 
-export function StyleEditor({ style, onChange, templateColors, customFonts }: StyleEditorProps) {
+export function StyleEditor({ style = {}, onChange, templateColors, customFonts }: StyleEditorProps) {
   const { toast } = useToast()
   const [fontName, setFontName] = useState("")
   const [fontFile, setFontFile] = useState<File | null>(null)
@@ -147,14 +147,14 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
   return (
     <div className="p-4 space-y-4">
       {/* Logo Controls - show first for header */}
-      {'logoPosition' in style && (
+      {style && 'logoPosition' in style && (
         <div className="space-y-4 mb-8 bg-accent/20 p-4 rounded-lg">
           <h3 className="font-medium text-lg border-b pb-2">הגדרות לוגו</h3>
           
           <div className="space-y-2">
             <label className="text-sm font-medium">רוחב לוגו</label>
             <Input
-              value={style.logoWidth || '100px'}
+              value={style?.logoWidth || '100px'}
               onChange={(e) => onChange({ ...style, logoWidth: e.target.value })}
               placeholder="100px"
             />
@@ -163,7 +163,7 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
           <div className="space-y-2">
             <label className="text-sm font-medium">גובה לוגו</label>
             <Input
-              value={style.logoHeight || 'auto'}
+              value={style?.logoHeight || 'auto'}
               onChange={(e) => onChange({ ...style, logoHeight: e.target.value })}
               placeholder="auto"
             />
@@ -172,7 +172,7 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
           <div className="space-y-2">
             <label className="text-sm font-medium">מיקום לוגו</label>
             <Select 
-              value={style.logoPosition || 'top-right'}
+              value={style?.logoPosition || 'top-right'}
               onValueChange={(value) => onChange({ ...style, logoPosition: value as ElementStyle['logoPosition'] })}
             >
               <SelectTrigger>
@@ -195,7 +195,7 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
           <div className="space-y-2">
             <label className="text-sm font-medium">מרווח לוגו</label>
             <Input
-              value={style.logoMargin || '1rem'}
+              value={style?.logoMargin || '1rem'}
               onChange={(e) => onChange({ ...style, logoMargin: e.target.value })}
               placeholder="1rem"
             />
@@ -209,13 +209,13 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
           <ColorPicker
             id="color"
             label={TRANSLATIONS.color}
-            value={style.color}
+            value={style?.color || ''}
             onChange={(value) => handleColorChange('color')(value)}
           />
           <ColorPicker
             id="backgroundColor"
             label={TRANSLATIONS.backgroundColor}
-            value={style.backgroundColor}
+            value={style?.backgroundColor || ''}
             onChange={(value) => handleColorChange('backgroundColor')(value)}
           />
         </div>
@@ -223,7 +223,7 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
           <div className="space-y-2">
             <Label>{TRANSLATIONS.fontFamily}</Label>
             <Select
-              value={style.fontFamily || "inherit"}
+              value={style?.fontFamily || "inherit"}
               onValueChange={(value) => onChange({ ...style, fontFamily: value })}
             >
               <SelectTrigger>
@@ -254,7 +254,7 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
           <div className="space-y-2">
             <Label>{TRANSLATIONS.textAlign}</Label>
             <Select
-              value={style.textAlign || "inherit"}
+              value={style?.textAlign || "inherit"}
               onValueChange={(value) => onChange({ ...style, textAlign: value as ElementStyle['textAlign'] })}
             >
               <SelectTrigger>
@@ -274,7 +274,7 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
             <Input
               id="fontSize"
               type="text"
-              value={style.fontSize || ""}
+              value={style?.fontSize || ""}
               placeholder="16px"
               onChange={handleChange("fontSize")}
               dir="ltr"
@@ -288,7 +288,7 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
             <Input
               id="margin"
               type="text"
-              value={style.margin || ""}
+              value={style?.margin || ""}
               placeholder="1rem"
               onChange={handleChange("margin")}
               dir="ltr"
@@ -299,7 +299,7 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
             <Input
               id="padding"
               type="text"
-              value={style.padding || ""}
+              value={style?.padding || ""}
               placeholder="1rem"
               onChange={handleChange("padding")}
               dir="ltr"
@@ -312,7 +312,7 @@ export function StyleEditor({ style, onChange, templateColors, customFonts }: St
         <label className="text-sm font-medium">{TRANSLATIONS.customCss}</label>
         <Textarea
           placeholder={TRANSLATIONS.enterCustomCss}
-          value={style.customCss || ''}
+          value={style?.customCss || ''}
           onChange={handleChange("customCss")}
           className="font-mono text-sm mt-2"
           dir="ltr"
