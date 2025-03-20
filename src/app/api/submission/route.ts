@@ -258,7 +258,20 @@ export async function GET(request: Request) {
             logoMargin: '1rem',
             logoPosition: 'top-right'
           },
-          specialParagraph: {}
+          specialParagraph: {},
+          ul: {
+            marginLeft: '1.5rem',
+            marginBottom: '1rem',
+            listStyleType: 'disc'
+          },
+          ol: {
+            marginLeft: '1.5rem',
+            marginBottom: '1rem',
+            listStyleType: 'decimal'
+          },
+          li: {
+            marginBottom: '0.5rem'
+          }
         },
         styles: {
           bodyBackground: '#ffffff',

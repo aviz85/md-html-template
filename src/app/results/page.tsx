@@ -29,7 +29,9 @@ type Template = {
     h5?: React.CSSProperties;
     h6?: React.CSSProperties;
     body?: React.CSSProperties;
-    list?: React.CSSProperties;
+    ul?: React.CSSProperties;
+    ol?: React.CSSProperties;
+    li?: React.CSSProperties;
     main?: React.CSSProperties;
     prose?: React.CSSProperties;
     header?: {
@@ -787,7 +789,7 @@ function ResultsContent() {
       ),
       ul: ({ node, children, ...props }) => (
         <motion.ul 
-          style={{ ...template?.element_styles?.list, marginLeft: '1.5rem', marginBottom: '1rem' }}
+          style={{ ...template?.element_styles?.ul, marginLeft: '1.5rem', marginBottom: '1rem' }}
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.7 }}
@@ -795,9 +797,19 @@ function ResultsContent() {
           {children}
         </motion.ul>
       ),
+      ol: ({ node, children, ...props }) => (
+        <motion.ol 
+          style={{ ...template?.element_styles?.ol, marginLeft: '1.5rem', marginBottom: '1rem' }}
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.7 }}
+        >
+          {children}
+        </motion.ol>
+      ),
       li: ({ node, children, ...props }) => (
         <motion.li 
-          style={{ marginBottom: '0.5rem' }}
+          style={{ ...template?.element_styles?.li, marginBottom: '0.5rem' }}
           initial={{ opacity: 0, x: -5 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}

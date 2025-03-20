@@ -35,7 +35,7 @@ import { format } from 'date-fns'
 import { EmailEditor } from './email-editor'
 import { ElementStyle, LogoPosition, CustomFont } from "@/types"
 
-type ElementType = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "list" | "p" | "specialParagraph" | "header" | "footer" | "main" | "prose"
+type ElementType = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "ul" | "ol" | "li" | "p" | "specialParagraph" | "header" | "footer" | "main" | "prose"
 
 interface Template {
   id: string
@@ -195,7 +195,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
     h4: {},
     h5: {},
     h6: {},
-    list: {},
+    ul: {},
+    ol: {},
+    li: {},
     p: {},
     specialParagraph: {},
     header: {
@@ -313,7 +315,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
       h4: {},
       h5: {},
       h6: {},
-      list: {},
+      ul: {},
+      ol: {},
+      li: {},
       p: {},
       specialParagraph: {},
       header: {},
@@ -524,7 +528,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
           h4: {},
           h5: {},
           h6: {},
-          list: {},
+          ul: {},
+          ol: {},
+          li: {},
           p: {},
           specialParagraph: {},
           header: {
@@ -2037,9 +2043,9 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                     {TRANSLATIONS.paragraph}
                   </button>
                   <button
-                    onClick={() => setActiveElement("list")}
+                    onClick={() => setActiveElement("ul")}
                     className={`w-full text-right px-4 py-2 text-sm rounded-md transition-colors ${
-                      activeElement === "list" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                      activeElement === "ul" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
                     }`}
                   >
                     {TRANSLATIONS.list}

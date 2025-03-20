@@ -33,6 +33,9 @@
     logoPosition?: string;    // מיקום הלוגו
   };
   specialParagraph?: React.CSSProperties; // עיצוב פסקאות מיוחדות
+  ul?: React.CSSProperties;   // עיצוב רשימות לא ממוספרות
+  ol?: React.CSSProperties;   // עיצוב רשימות ממוספרות
+  li?: React.CSSProperties;   // עיצוב פריטי רשימה
 }
 ```
 

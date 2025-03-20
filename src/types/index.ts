@@ -17,7 +17,7 @@ export interface ElementStyle {
 
 export type LogoPosition = 'top-right' | 'top-left' | 'top-center' | 'center-right' | 'center-left' | 'center' | 'bottom-right' | 'bottom-left' | 'bottom-center'
 
-export type ElementType = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "list" | "p" | "specialParagraph" | "header" | "footer" | "main" | "prose"
+export type ElementType = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "ul" | "ol" | "li" | "p" | "specialParagraph" | "header" | "footer" | "main" | "prose"
 
 export interface CustomContent {
   name: string

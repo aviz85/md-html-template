@@ -17,6 +17,111 @@ const supabase = createClient(
   }
 );
 
+// Constants for lock mechanism
+const MIN_PROCESS_INTERVAL = 500; // Minimum time between process attempts in milliseconds
+const MIN_RETRY_INTERVAL = 5000; // Minimum time before retrying a processing submission
+
+interface ProcessLockResult {
+  success: boolean;
+  error?: string;
+  submission?: any;
+}
+
+async function acquireProcessLock(submissionId: string): Promise<ProcessLockResult> {
+  try {
+    // First, check if there's a recent processing attempt
+    const { data: submission } = await supabaseAdmin
+      .from('form_submissions')
+      .select('*')
+      .eq('submission_id', submissionId)
+      .single();
+
+    if (!submission) {
+      return { success: false, error: 'Submission not found' };
+    }
+
+    const now = new Date();
+    const lastAttempt = submission.last_process_attempt ? new Date(submission.last_process_attempt) : null;
+    const lockedAt = submission.locked_at ? new Date(submission.locked_at) : null;
+
+    // Check for minimum interval between attempts
+    if (lastAttempt && (now.getTime() - lastAttempt.getTime()) < MIN_PROCESS_INTERVAL) {
+      return {
+        success: false,
+        error: `Too soon to process again. Please wait ${MIN_PROCESS_INTERVAL}ms between attempts.`,
+        submission
+      };
+    }
+
+    // Check if already processing and within retry interval
+    if (submission.status === 'processing' && lockedAt && 
+        (now.getTime() - lockedAt.getTime()) < MIN_RETRY_INTERVAL) {
+      return {
+        success: false,
+        error: `Submission is already processing. Started ${now.getTime() - lockedAt.getTime()}ms ago.`,
+        submission
+      };
+    }
+
+    // Try to acquire lock with optimistic locking
+    const { data: updatedSubmission, error: updateError } = await supabaseAdmin
+      .from('form_submissions')
+      .update({
+        locked_at: now.toISOString(),
+        locked_by: `process_worker_${process.env.VERCEL_REGION || 'local'}_${Date.now()}`,
+        last_process_attempt: now.toISOString(),
+        process_attempts: (submission.process_attempts || 0) + 1,
+        status: 'processing',
+        progress: {
+          stage: 'init',
+          message: 'התחלת עיבוד',
+          timestamp: now.toISOString()
+        }
+      })
+      .eq('submission_id', submissionId)
+      .is('locked_at', null) // Only update if not locked
+      .select()
+      .single();
+
+    if (updateError || !updatedSubmission) {
+      return {
+        success: false,
+        error: 'Failed to acquire lock - submission might be processing by another worker',
+        submission
+      };
+    }
+
+    return { success: true, submission: updatedSubmission };
+  } catch (error) {
+    console.error('Error acquiring process lock:', error);
+    return {
+      success: false,
+      error: `Internal error acquiring lock: ${error instanceof Error ? error.message : 'Unknown error'}`
+    };
+  }
+}
+
+async function releaseLock(submissionId: string, status: string = 'completed', error?: string) {
+  try {
+    const { error: updateError } = await supabaseAdmin
+      .from('form_submissions')
+      .update({
+        locked_at: null,
+        locked_by: null,
+        status,
+        error: error || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('submission_id', submissionId);
+
+    if (updateError) {
+      console.error('Error releasing lock:', updateError);
+    }
+  } catch (error) {
+    console.error('Error in releaseLock:', error);
+  }
+}
+
 export const runtime = 'nodejs'
 export const maxDuration = 300 // 5 minutes timeout for Vercel Pro plan
 
@@ -37,6 +142,15 @@ async function handleRequest(req: Request) {
     
     if (!submissionId) {
       return NextResponse.json({ error: 'Missing submissionId' }, { status: 400 });
+    }
+
+    // Try to acquire process lock first
+    const lockResult = await acquireProcessLock(submissionId);
+    if (!lockResult.success) {
+      return NextResponse.json({ 
+        error: lockResult.error,
+        submission: lockResult.submission 
+      }, { status: 409 });
     }
 
     // Try up to 5 times with increasing delays to find the submission
@@ -212,6 +326,7 @@ async function handleRequest(req: Request) {
               console.error('❌ Failed to fetch template:', templateError);
               console.log('⚠️ Continuing without sending email');
               // Don't throw, just continue without email
+              await releaseLock(submissionId, 'completed');
               return {
                 message: 'Processing completed (no email sent - template error)',
                 submissionId,
@@ -240,6 +355,7 @@ async function handleRequest(req: Request) {
                 has_from: !!template?.email_from
               });
               // Don't throw, just continue without email
+              await releaseLock(submissionId, 'completed');
               return {
                 message: 'Processing completed (no email sent - missing required template fields)',
                 submissionId,
@@ -258,6 +374,7 @@ async function handleRequest(req: Request) {
               
             if (!customer.email) {
               console.warn('⚠️ No recipient email found in submission data');
+              await releaseLock(submissionId, 'completed');
               return {
                 message: 'Processing completed (no email sent - no recipient)',
                 submissionId,
@@ -386,6 +503,7 @@ async function handleRequest(req: Request) {
             }
 
             // Even if email or webhook fails, we keep the completed status from processSubmission
+            await releaseLock(submissionId, 'completed');
             return {
               message: 'Processing completed',
               submissionId,
@@ -410,12 +528,18 @@ async function handleRequest(req: Request) {
                 .eq('submission_id', submissionId);
             }
             
+            // Release lock with error status
+            await releaseLock(submissionId, 'error', processError instanceof Error ? processError.message : 'Unknown error');
+            
             // Let processSubmission handle its own status updates
             throw processError;
           }
 
         } catch (error) {
           lastError = error;
+          // Release lock with error status
+          await releaseLock(submissionId, 'error', error instanceof Error ? error.message : 'Unknown error');
+          
           if (error instanceof Error && error.message.includes('not found')) {
             console.log(`Attempt ${attempts + 1}: Error - ${error.message}, waiting ${delays[attempts]}ms`);
             await new Promise(resolve => setTimeout(resolve, delays[attempts]));
@@ -428,6 +552,7 @@ async function handleRequest(req: Request) {
       }
       
       // If we got here, all attempts failed
+      await releaseLock(submissionId, 'error', lastError instanceof Error ? lastError.message : 'Failed to find submission after all retries');
       throw lastError || new Error('Failed to find submission after all retries');
     })();
 
@@ -438,19 +563,9 @@ async function handleRequest(req: Request) {
   } catch (error) {
     console.error('API error:', error);
     
-    // Update status to error if we have a submissionId
+    // Release lock with error status
     if (submissionId) {
-      await supabaseAdmin
-        .from('form_submissions')
-        .update({
-          status: 'error',
-          progress: {
-            stage: 'error',
-            message: error instanceof Error ? error.message : 'Unknown error',
-            timestamp: new Date().toISOString()
-          }
-        })
-        .eq('submission_id', submissionId);
+      await releaseLock(submissionId, 'error', error instanceof Error ? error.message : 'Unknown error');
     }
     
     return NextResponse.json(
