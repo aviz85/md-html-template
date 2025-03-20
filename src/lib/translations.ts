@@ -129,4 +129,6 @@ export const TRANSLATIONS = {
   noTemplates: "אין תבניות זמינות",
   showing: "מציג",
   of: "מתוך",
+  unorderedList: "רשימה לא ממוספרת",
+  orderedList: "רשימה ממוספרת",
 } as const; 

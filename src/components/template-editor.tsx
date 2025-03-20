@@ -2043,12 +2043,20 @@ export function TemplateEditor({ templateId, onSave }: TemplateEditorProps) {
                     {TRANSLATIONS.paragraph}
                   </button>
                   <button
-                    onClick={() => setActiveElement("ul")}
+                    onClick={() => setActiveElement("li")}
                     className={`w-full text-right px-4 py-2 text-sm rounded-md transition-colors ${
-                      activeElement === "ul" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                      activeElement === "li" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
                     }`}
                   >
                     {TRANSLATIONS.list}
+                  </button>
+                  <button
+                    onClick={() => setActiveElement("ol")}
+                    className={`w-full text-right px-4 py-2 text-sm rounded-md transition-colors ${
+                      activeElement === "ol" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                    }`}
+                  >
+                    {TRANSLATIONS.orderedList}
                   </button>
                 </div>
               </div>

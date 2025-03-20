@@ -33,7 +33,7 @@ const openingPage = `<!DOCTYPE html>
     h3 { color: #6b46c2; font-family: inherit; }
     h6 { color: #f6ec94; }
     body { font-size: 2em; font-family: 'David Libre', serif; }
-    list { padding: 0em; font-family: inherit; }
+    ul, ol { padding: 0em; font-family: inherit; }
     .special-paragraph { color: #ffab40; }
   </style>
 </head>
