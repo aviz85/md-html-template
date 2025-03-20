@@ -1059,7 +1059,7 @@ function ResultsContent() {
   }
 
   const bodyStyles = {
-    backgroundColor: template?.element_styles?.body?.backgroundColor || 'transparent',
+    ...template?.element_styles?.body,
     minHeight: '100vh'
   };
 
