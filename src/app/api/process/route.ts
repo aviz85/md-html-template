@@ -109,7 +109,11 @@ async function releaseLock(submissionId: string, status: string = 'completed', e
         locked_at: null,
         locked_by: null,
         status,
-        error: error || null,
+        progress: error ? {
+          stage: 'error',
+          message: error,
+          timestamp: new Date().toISOString()
+        } : null,
         updated_at: new Date().toISOString()
       })
       .eq('submission_id', submissionId);
