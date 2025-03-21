@@ -54,6 +54,12 @@ export function findEmailInFormData(formData: any): string | null {
         if (obj[field]) {
           const email = findEmailInObject(obj[field]);
           if (email) return email;
+          
+          // Also check raw_value if available
+          if (obj[field].raw_value) {
+            const rawEmail = findEmailInObject(obj[field].raw_value);
+            if (rawEmail) return rawEmail;
+          }
         }
       }
 
@@ -64,6 +70,12 @@ export function findEmailInFormData(formData: any): string | null {
         
         const email = findEmailInObject(obj[key]);
         if (email) return email;
+
+        // Also check raw_value if available
+        if (obj[key]?.raw_value) {
+          const rawEmail = findEmailInObject(obj[key].raw_value);
+          if (rawEmail) return rawEmail;
+        }
       }
     }
 
